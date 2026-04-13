@@ -18,16 +18,37 @@ interface UserDoc extends mongoose.Document {
 	password: string;
 }
 
-const userSchema = new mongoose.Schema({
-	email: {
-		type: String,
-		required: true,
+// Interface for the JSON representation after transformation
+interface UserJson {
+	email: string;
+	_id?: mongoose.Types.ObjectId; // Optional for deletion
+	password?: string; // Optional for deletion
+	__v?: number; // Optional for deletion
+	id?: string; // Added during transformation
+}
+
+const userSchema = new mongoose.Schema(
+	{
+		email: {
+			type: String,
+			required: true,
+		},
+		password: {
+			type: String,
+			required: true,
+		},
 	},
-	password: {
-		type: String,
-		required: true,
+	{
+		toJSON: {
+			transform(doc: UserDoc, ret: UserJson) {
+				ret.id = ret._id?.toString();
+				delete ret._id;
+				delete ret.password;
+				delete ret.__v;
+			},
+		},
 	},
-});
+);
 
 userSchema.pre('save', async function (done) {
 	if (this.isModified('password')) {
