@@ -46,3 +46,21 @@ it('returns a 400 with empty email and password', async () => {
 		})
 		.expect(400);
 });
+
+it('should disallow signing up with an email that is already in use', async () => {
+	await request(app)
+		.post('/api/users/signup')
+		.send({
+			email: 'test@test.com',
+			password: '123456',
+		})
+		.expect(201);
+
+	await request(app)
+		.post('/api/users/signup')
+		.send({
+			email: 'test@test.com',
+			password: '123456',
+		})
+		.expect(400);
+});
