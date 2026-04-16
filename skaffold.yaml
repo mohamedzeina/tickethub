@@ -7,11 +7,20 @@ build:
   local:
     push: false
   artifacts:
-    - image: mohamedzeina/auth
+    - image: toxiczeina/auth
       context: auth
       docker:
         dockerfile: Dockerfile
       sync:
         manual:
           - src: 'src/**/*.ts'
+            dest: .
+
+    - image: toxiczeina/client
+      context: client
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: '**/*.js'
             dest: .
