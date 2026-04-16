@@ -15,8 +15,8 @@ app.set('trust proxy', true);
 app.use(json());
 app.use(
 	cookieSession({
-		signed: false,
-		secure: true,
+		signed: false, // no encryption
+		secure: process.env.NODE_ENV !== 'test', // only works on https in production, but works on http in test environment
 	}),
 );
 
