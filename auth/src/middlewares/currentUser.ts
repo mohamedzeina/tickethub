@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
+// Define the structure of the JWT payload
 interface UserPayload {
 	id: string;
 	email: string;
