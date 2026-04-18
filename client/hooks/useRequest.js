@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useState } from 'react';
 
-export default (url, method, body) => {
+export default ({ url, method, body }) => {
 	const [errors, setErrors] = useState([]);
 
 	const doRequest = async () => {
@@ -13,6 +13,7 @@ export default (url, method, body) => {
 		}
 	};
 
+	// Helper function to render error messages for a specific field
 	const fieldErrors = (field) =>
 		errors
 			.filter((err) => err.field === field)

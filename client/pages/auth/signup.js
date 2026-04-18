@@ -1,35 +1,20 @@
 import { useState } from 'react';
-import axios from 'axios';
+import useRequest from '../../hooks/useRequest';
 
 const SignUp = () => {
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
-	const [errors, setErrors] = useState([]);
+	const { doRequest, errors, fieldErrors } = useRequest({
+		url: '/api/users/signup',
+		method: 'post',
+		body: { email, password },
+	});
 
 	const onSubmit = async (e) => {
 		e.preventDefault(); // Prevent the default form submission behavior
 
-		try {
-			const response = await axios.post('/api/users/signup', {
-				email,
-				password,
-			});
-
-			console.log(response.data);
-		} catch (err) {
-			setErrors(err.response.data.errors);
-		}
+		const response = await doRequest();
 	};
-
-	// Helper function to render error messages for a specific field
-	const fieldErrors = (field) =>
-		errors
-			.filter((err) => err.field === field)
-			.map((err) => (
-				<div key={err.message} className="text-danger mt-1">
-					{err.message}
-				</div>
-			));
 
 	return (
 		<form onSubmit={onSubmit}>
