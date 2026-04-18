@@ -12,16 +12,14 @@ const LandingPage = ({ currentUser }) => {
 // This function runs on the server during the initial page load, and also on the
 // client during client-side navigation. It allows us to fetch data and pass it
 // as props to the component.
-LandingPage.getInitialProps = async () => {
+LandingPage.getInitialProps = async ({ req }) => {
 	if (typeof window === 'undefined') {
 		// We are on the server, make request to
 		// http://ingress-nginx-controller.ingress-nginx.svc.cluster.local
 		const { data } = await axios.get(
 			'http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/api/users/currentuser',
 			{
-				headers: {
-					host: 'tickethub.com',
-				},
+				headers: req.headers, // Forward the headers from the incoming request to the API request
 			},
 		);
 		return data;
