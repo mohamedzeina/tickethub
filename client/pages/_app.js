@@ -6,7 +6,7 @@ import buildClient from '../api/buildClient';
 // By importing the Bootstrap CSS here, it will be available across all pages
 // in the application without needing to import it in each individual page component.
 
-const AppComponent = ({ Component, pageProps }) => {
+const AppComponent = ({ Component, pageProps, currentUser }) => {
 	return (
 		<div>
 			<Component {...pageProps} />;
@@ -29,7 +29,10 @@ AppComponent.getInitialProps = async (appContext) => {
 		pageProps = await appContext.Component.getInitialProps(appContext.ctx);
 	}
 
-	return data;
+	return {
+		pageProps,
+		...data, // Pass the current user data to all pages as a prop
+	};
 };
 
 export default AppComponent;
