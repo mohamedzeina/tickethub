@@ -4,8 +4,7 @@ import jwt from 'jsonwebtoken';
 
 import { PasswordManager } from '../services/password';
 import { User } from '../models/user';
-import { validateRequest } from '../middlewares/validateRequest';
-import { BadRequestError } from '../errors/badRequestError';
+import { validateRequest, BadRequestError } from '@zeina-tickethub/common';
 
 const router = express.Router();
 
