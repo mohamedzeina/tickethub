@@ -1,5 +1,6 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import buildClient from '../api/buildClient';
+import Header from '../components/header';
 
 // This file is used to initialize pages. We are adding this to have a global
 // CSS import for Bootstrap, which is required for styling our application.
@@ -9,6 +10,7 @@ import buildClient from '../api/buildClient';
 const AppComponent = ({ Component, pageProps, currentUser }) => {
 	return (
 		<div>
+			<Header currentUser={currentUser} />
 			<Component {...pageProps} />;
 		</div>
 	);
