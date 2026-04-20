@@ -12,7 +12,10 @@ it('can only be accessed by logged-in users', async () => {
 });
 
 it('returns a status code other than 401 for users who are signed in ', async () => {
-	const response = await request(app).post('/api/tickets').send({});
+	const response = await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({});
 
 	expect(response.status).not.toEqual(401);
 });
