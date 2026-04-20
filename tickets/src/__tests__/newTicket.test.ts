@@ -20,8 +20,38 @@ it('returns a status code other than 401 for users who are signed in ', async ()
 	expect(response.status).not.toEqual(401);
 });
 
-it('returns an error if an invalid title is provided', async () => {});
+it('returns an error if an invalid title is provided', async () => {
+	await request(app)
+		.post('/api/tickets')
+		.send({
+			title: '',
+			price: 10,
+		})
+		.expect(400);
 
-it('returns an error if an invalid price is provided', async () => {});
+	await request(app)
+		.post('/api/tickets')
+		.send({
+			price: 10,
+		})
+		.expect(400);
+});
+
+it('returns an error if an invalid price is provided', async () => {
+	await request(app)
+		.post('/api/tickets')
+		.send({
+			title: 'assfaad',
+			price: -10,
+		})
+		.expect(400);
+
+	await request(app)
+		.post('/api/tickets')
+		.send({
+			title: '',
+		})
+		.expect(400);
+});
 
 it('creates a ticket if valid title and price are provided', async () => {});
