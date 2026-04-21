@@ -1,7 +1,5 @@
 import express, { Request, Response } from 'express';
-import { body } from 'express-validator';
 import { NotFoundError } from '@zeina-tickethub/common';
-import { requireAuth, validateRequest } from '@zeina-tickethub/common';
 import { Ticket } from '../models/ticket';
 
 const router = express.Router();
