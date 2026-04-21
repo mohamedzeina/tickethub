@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { app } from '../app';
+import { Ticket } from '../models/ticket';
 
 it('has a route handler listening to /api/tickets for post request', async () => {
 	const response = await request(app).post('/api/tickets').send({});
@@ -59,13 +60,21 @@ it('returns an error if an invalid price is provided', async () => {
 });
 
 it('creates a ticket if valid title and price are provided', async () => {
-	// Add a check to make sure a ticket was saved to DB
+	let tickets = await Ticket.find({});
+	expect(tickets.length).toEqual(0);
 
-	await request(app)
+	const title = 'test title';
+
+	const response = await request(app)
 		.post('/api/tickets')
+		.set('Cookie', global.signin())
 		.send({
-			title: 'asfasfasf',
+			title,
 			price: 20,
 		})
 		.expect(201);
+
+	tickets = await Ticket.find({});
+	expect(tickets.length).toEqual(1);
+	expect(tickets[0].title).toEqual(title);
 });
