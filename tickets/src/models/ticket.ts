@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 
-//
 interface TicketAttrs {
 	title: string;
 	price: number;
@@ -15,10 +14,10 @@ interface TicketDoc extends mongoose.Document {
 
 // Interface for the JSON representation after transformation
 interface TicketJSON {
-	title: String;
+	title: string;
 	_id?: mongoose.Types.ObjectId; // Optional for deletion
-	price: Number;
-	userId: String;
+	price: number;
+	userId: string;
 	id?: string; // Added during transformation
 }
 
