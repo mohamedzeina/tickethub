@@ -7,8 +7,8 @@ import {
 	NotFoundError,
 	currentUser,
 } from '@zeina-tickethub/common';
-import { createTicketRouter } from './routes/newTicket';
-import { showTicketRouter } from './routes/showTicket';
+import { createTicketRouter } from './routes/new';
+import { showTicketRouter } from './routes/show';
 import { indexTicketRouter } from './routes';
 
 const app = express();
