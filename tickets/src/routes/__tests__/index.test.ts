@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { app } from '../app';
+import { app } from '../../app';
 
 const createTicket = (title: string, price: number) => {
 	return request(app)
