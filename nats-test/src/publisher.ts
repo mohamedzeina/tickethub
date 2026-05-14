@@ -1,6 +1,10 @@
+/// <reference types="node" />
 import nats from 'node-nats-streaming';
+import { randomBytes } from 'crypto';
 
-const stan: any = nats.connect('tickethub', 'abc', {
+console.clear();
+
+const stan: any = nats.connect('tickethub', randomBytes(4).toString('hex'), {
 	url: 'http://localhost:4222',
 });
 
