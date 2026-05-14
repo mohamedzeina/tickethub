@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "publish": "ts-node-dev --notify false src/publisher.ts",
+    "publisher": "ts-node-dev --notify false src/publisher.ts",
     "subscriber": "ts node-dev --notify false src/subscriber.ts"
   },
   "keywords": [],
