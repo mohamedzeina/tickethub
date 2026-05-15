@@ -15,11 +15,15 @@ stan.on('connect', () => {
 		process.exit();
 	});
 
-	const options = stan.subscriptionOptions().setManualAckMode(true);
+	const options = stan
+		.subscriptionOptions()
+		.setManualAckMode(true)
+		.setDeliverAllAvailable()
+		.setDurableName('ticket-service');
 
 	const subscription = stan.subscribe(
 		'ticket:created',
-		'subscription-queue-group',
+		'ticket-service-group',
 		options,
 	);
 	subscription.on('message', (msg: Message) => {
