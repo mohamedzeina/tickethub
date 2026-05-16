@@ -9,7 +9,7 @@ const stan: any = nats.connect('tickethub', randomBytes(4).toString('hex'), {
 	url: 'http://localhost:4222',
 });
 
-stan.on('connect', () => {
+stan.on('connect', async () => {
 	console.log('Publisher connected to NATS');
 
 	const data = {
@@ -19,5 +19,10 @@ stan.on('connect', () => {
 	};
 
 	const ticketCreatedPublisher = new TicketCreatedPublisher(stan);
-	ticketCreatedPublisher.publish(data);
+	try {
+		await ticketCreatedPublisher.publish(data);
+		console.log('Event published successfully');
+	} catch (err) {
+		console.error('Failed to publish event:', err);
+	}
 });
