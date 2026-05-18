@@ -3,8 +3,8 @@ import {
 	NotFoundError,
 	requireAuth,
 	validateRequest,
-	OrderStatus,
 	BadRequestError,
+	OrderStatus,
 } from '@zeina-tickethub/common';
 import { body } from 'express-validator';
 import { Ticket } from '../models/ticket';
@@ -36,13 +36,24 @@ router.post(
 		}
 
 		// Calculate an expiration date for this order
+		const expirationWindow = parseInt(process.env.EXPIRATION_WINDOW_SECONDS!);
+		const expiration = new Date();
+		expiration.setSeconds(expiration.getSeconds() + expirationWindow);
 
 		// Build the order and save it to the database
+		const order = Order.build({
+			userId: req.currentUser!.id,
+			status: OrderStatus.Created,
+			expiresAt: expiration,
+			ticket,
+		});
+		await order.save();
 
 		// Publish an event saying that an order was created
 
 		// Return the order to the client
-		res.send({});
+
+		res.status(201).send(order);
 	},
 );
 
