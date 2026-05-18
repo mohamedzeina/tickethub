@@ -1,15 +1,16 @@
 import mongoose from 'mongoose';
+import { OrderStatus } from '@zeina-tickethub/common';
 
 interface OrderAttrs {
 	userId: string;
-	status: string;
+	status: OrderStatus;
 	expiresAt: Date;
 	ticket: TicketDoc;
 }
 
 interface OrderDoc extends mongoose.Document {
 	userId: string;
-	status: string;
+	status: OrderStatus;
 	expiresAt: Date;
 	ticket: TicketDoc;
 }
@@ -20,7 +21,7 @@ interface OrderModel extends mongoose.Model<OrderDoc> {
 
 interface OrderJSON {
 	userId: string;
-	status: string;
+	status: OrderStatus;
 	expiresAt?: Date | null;
 	ticket?: mongoose.Types.ObjectId | null;
 	_id?: mongoose.Types.ObjectId; // Optional for deletion
@@ -36,6 +37,8 @@ const orderSchema = new mongoose.Schema(
 		status: {
 			type: String,
 			required: true,
+			enum: Object.values(OrderStatus),
+			default: OrderStatus.Created,
 		},
 		expiresAt: {
 			type: mongoose.Schema.Types.Date,
