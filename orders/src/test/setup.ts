@@ -12,6 +12,7 @@ let mongo: any;
 
 beforeAll(async () => {
 	process.env.JWT_KEY = '123456';
+	process.env.EXPIRATION_WINDOW_SECONDS = '900';
 
 	mongo = await MongoMemoryServer.create();
 	const mongoUri = mongo.getUri();

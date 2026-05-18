@@ -40,4 +40,20 @@ it('returns an error if the ticket is already reserved', async () => {
 		.expect(400);
 });
 
-it('reserves a ticket', async () => {});
+it('reserves a ticket', async () => {
+	const ticket = Ticket.build({
+		title: 'Akon Concert',
+		price: 100,
+	});
+	await ticket.save();
+
+	await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin())
+		.send({
+			ticketId: ticket.id,
+		})
+		.expect(201);
+});
+
+it.todo('emits an order created event');
