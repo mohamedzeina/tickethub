@@ -36,13 +36,13 @@ const startAuthService = async () => {
 		process.on('SIGTERM', () => natsWrapper.client.close());
 
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log('Connected to Tickets MongoDB');
+		console.log('Connected to Orders MongoDB');
 	} catch (err) {
 		console.error(err);
 	}
 
 	app.listen(3000, () => {
-		console.log('Tickets service is running on port 3000');
+		console.log('Orders service is running on port 3000');
 	});
 };
 
