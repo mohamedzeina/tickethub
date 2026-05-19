@@ -23,8 +23,10 @@ router.delete(
 			throw new NotAuthorizedError();
 		}
 
-		order.status = OrderStatus.Canceled;
+		order.status = OrderStatus.Cancelled;
 		await order.save();
+
+		// publish an event saying that the order was cancelled
 
 		res.status(204).send(order);
 	},

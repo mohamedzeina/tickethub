@@ -52,3 +52,5 @@ it('returns unauthorized error if user tries to cancel an order that does not be
 		.set('Cookie', global.signin())
 		.expect(401);
 });
+
+it.todo('emits an order cancelled event');
