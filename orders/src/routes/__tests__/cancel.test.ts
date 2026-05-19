@@ -1,4 +1,5 @@
 import request from 'supertest';
+import mongoose from 'mongoose';
 import { app } from '../../app';
 
 import { Ticket } from '../../models/ticket';
@@ -7,6 +8,7 @@ import { natsWrapper } from '../../nats-wrapper';
 
 it('cancels the order', async () => {
 	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
 		title: 'Akon Concert',
 		price: 50,
 	});
@@ -36,6 +38,7 @@ it('cancels the order', async () => {
 
 it('returns unauthorized error if user tries to cancel an order that does not belong to them', async () => {
 	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
 		title: 'Akon Concert',
 		price: 50,
 	});
@@ -56,6 +59,7 @@ it('returns unauthorized error if user tries to cancel an order that does not be
 
 it('emits an order cancelled event', async () => {
 	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
 		title: 'Akon Concert',
 		price: 50,
 	});
