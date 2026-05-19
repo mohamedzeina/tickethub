@@ -12,7 +12,7 @@ import {
 import { indexOrderRouter } from './routes';
 import { newOrderRouter } from './routes/new';
 import { showOrderRouter } from './routes/show';
-import { deleteOrderRouter } from './routes/delete';
+import { cancelOrderRouter } from './routes/cancel';
 
 const app = express();
 app.set('trust proxy', true);
@@ -28,7 +28,7 @@ app.use(currentUser);
 app.use(newOrderRouter);
 app.use(indexOrderRouter);
 app.use(showOrderRouter);
-app.use(deleteOrderRouter);
+app.use(cancelOrderRouter);
 
 app.all('*', async () => {
 	throw new NotFoundError();

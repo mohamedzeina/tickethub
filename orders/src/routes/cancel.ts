@@ -40,4 +40,4 @@ router.delete(
 	},
 );
 
-export { router as deleteOrderRouter };
+export { router as cancelOrderRouter };
