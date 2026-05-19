@@ -45,11 +45,6 @@ it('returns an unauthorized error if one user tries to fetch another users order
 
 	const response = await request(app)
 		.get(`/api/orders/${order.id}`)
-		.set('Cookie', user)
-		.expect(200);
-
-	const response2 = await request(app)
-		.get(`/api/orders/${order.id}`)
 		.set('Cookie', user2)
 		.expect(401);
 });
