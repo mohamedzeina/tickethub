@@ -1,14 +1,18 @@
 import { Message } from 'node-nats-streaming';
-import { Listener, OrderCreatedEvent, Subjects } from '@zeina-tickethub/common';
+import {
+	Listener,
+	OrderCancelledEvent,
+	Subjects,
+} from '@zeina-tickethub/common';
 import { Ticket } from '../../models/ticket';
 import { TicketUpdatedPublisher } from '../publishers/ticket-updated-publisher';
 import { queueGroupName } from './queue-group-name';
 
-export class OrderCreatedListner extends Listener<OrderCreatedEvent> {
-	readonly subject = Subjects.OrderCreated;
+export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
+	readonly subject = Subjects.OrderCancelled;
 	queueGroupName: string = queueGroupName;
 
-	async onMessage(data: OrderCreatedEvent['data'], msg: Message) {
+	async onMessage(data: OrderCancelledEvent['data'], msg: Message) {
 		// Find the ticket that the order is reserving
 		const ticket = await Ticket.findById(data.ticket.id);
 
@@ -18,7 +22,7 @@ export class OrderCreatedListner extends Listener<OrderCreatedEvent> {
 		}
 
 		// Mark the ticket as being reserved by setting the orderId
-		ticket.set({ orderId: data.id });
+		ticket.set({ orderId: undefined });
 
 		// Save the ticket
 		await ticket.save();
