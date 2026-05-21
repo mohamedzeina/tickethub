@@ -4,7 +4,7 @@ import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListner } from './events/listeners/order-created-listener';
 import { OrderCancelledListener } from './events/listeners/order-cancelled-listener';
 
-const startAuthService = async () => {
+const startTicketsService = async () => {
 	if (!process.env.JWT_KEY) {
 		throw new Error('JWT_KEY must be defined');
 	}
@@ -51,4 +51,4 @@ const startAuthService = async () => {
 	});
 };
 
-startAuthService();
+startTicketsService();
