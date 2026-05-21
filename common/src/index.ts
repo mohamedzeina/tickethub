@@ -18,3 +18,4 @@ export * from './events/ticket/ticket-updated';
 export * from './events/types/order-status';
 export * from './events/order/order-created';
 export * from './events/order/order-cancelled';
+export * from './events/expiration/expiration-complete';
