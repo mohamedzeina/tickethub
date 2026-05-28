@@ -5,6 +5,9 @@ import {
 	validateRequest,
 	BadRequestError,
 	NotFoundError,
+	currentUser,
+	NotAuthorizedError,
+	OrderStatus,
 } from '@zeina-tickethub/common';
 import { Order } from '../models/order';
 
@@ -15,8 +18,24 @@ router.post(
 	requireAuth,
 	[body('token').not().isEmpty(), body('orderId').not().isEmpty()],
 	validateRequest,
-	(req: Request, res: Response) => {
-		return { success: true };
+	async (req: Request, res: Response) => {
+		const { token, orderId } = req.body;
+
+		const order = await Order.findById(orderId);
+
+		if (!order) {
+			throw new NotFoundError();
+		}
+
+		if (order.userId !== req.currentUser!.id) {
+			throw new NotAuthorizedError();
+		}
+
+		if (order.status === OrderStatus.Cancelled) {
+			throw new BadRequestError('Cannot pay for a cancelled order');
+		}
+
+		res.send({ success: true });
 	},
 );
 
