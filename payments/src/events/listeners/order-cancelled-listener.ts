@@ -5,9 +5,9 @@ import {
 	Subjects,
 } from '@zeina-tickethub/common';
 
-import { queueGroupName } from './listeners/queue-group-name';
+import { queueGroupName } from './queue-group-name';
 import { Message } from 'node-nats-streaming';
-import { Order } from '../models/order';
+import { Order } from '../../models/order';
 
 export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 	readonly subject = Subjects.OrderCancelled;

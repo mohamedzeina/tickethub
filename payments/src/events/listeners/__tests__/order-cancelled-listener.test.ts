@@ -1,5 +1,5 @@
 import { OrderCancelledEvent, OrderStatus } from '@zeina-tickethub/common';
-import { OrderCancelledListener } from '../../order-cancelled-listener';
+import { OrderCancelledListener } from '../order-cancelled-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
 import mongoose from 'mongoose';
