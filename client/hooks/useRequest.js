@@ -26,7 +26,26 @@ const useRequest = ({ url, method, body, onSuccess }) => {
 				</div>
 			));
 
-	return { doRequest, errors, fieldErrors };
+	// Helper function to render errors not tied to a field (e.g. "Not authorized")
+	const generalErrors = () => {
+		const general = errors.filter((err) => !err.field);
+
+		if (general.length === 0) {
+			return null;
+		}
+
+		return (
+			<div className="alert alert-danger mt-3">
+				<ul className="my-0">
+					{general.map((err) => (
+						<li key={err.message}>{err.message}</li>
+					))}
+				</ul>
+			</div>
+		);
+	};
+
+	return { doRequest, errors, fieldErrors, generalErrors };
 };
 
 export default useRequest;
