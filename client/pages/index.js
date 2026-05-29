@@ -1,5 +1,4 @@
 import axios from 'axios';
-import buildClient from '../api/build-client';
 
 const LandingPage = ({ currentUser }) => {
 	return currentUser ? (
@@ -12,12 +11,8 @@ const LandingPage = ({ currentUser }) => {
 // This function runs on the server during the initial page load, and also on the
 // client during client-side navigation. It allows us to fetch data and pass it
 // as props to the component.
-LandingPage.getInitialProps = async (context) => {
-	const client = buildClient(context);
-	const { data } = await client.get('api/users/currentuser').catch((err) => {
-		console.log(err.message);
-	});
-	return data;
+LandingPage.getInitialProps = async (context, client, currentUser) => {
+	return {};
 };
 
 export default LandingPage;
