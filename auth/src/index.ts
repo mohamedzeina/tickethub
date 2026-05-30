@@ -3,7 +3,6 @@ import mongoose from 'mongoose';
 import { app } from './app';
 
 const startAuthService = async () => {
-	console.log('testing ci/cd');
 	if (!process.env.JWT_KEY) {
 		throw new Error('JWT_KEY must be defined');
 	}
