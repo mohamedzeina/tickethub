@@ -1,8 +1,10 @@
 name: tests-payments
 
-on: 
+on:
   pull_request:
-  
+    paths:
+      - 'payments/**'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,4 +12,4 @@ jobs:
       - uses: actions/checkout@v2
       - run: cd payments && npm install && npm run test:ci
         env:
-            STRIPE_KEY: ${{ secrets.STRIPE_KEY }}
+          STRIPE_KEY: ${{ secrets.STRIPE_KEY }}
