@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { body } from 'express-validator';
 
 import {
@@ -73,7 +74,22 @@ router.put(
 			imageUrl: req.body.imageUrl,
 		});
 
-		await ticket.save();
+		try {
+			await ticket.save();
+		} catch (err) {
+			// A concurrent change — most likely a buyer reserving this ticket in the
+			// same instant — bumps the version, so optimistic concurrency rejects this
+			// save. Surface a clean 400 instead of an unhandled version error.
+			if (err instanceof mongoose.Error.VersionError) {
+				const latest = await Ticket.findById(req.params.id);
+				throw new BadRequestError(
+					latest?.orderId
+						? 'This ticket was just reserved and can no longer be edited'
+						: 'This ticket was just updated — reload and try again',
+				);
+			}
+			throw err;
+		}
 
 		new TicketUpdatedPublisher(natsWrapper.client).publish({
 			id: ticket.id,

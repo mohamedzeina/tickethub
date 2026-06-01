@@ -216,3 +216,66 @@ it('rejects updates if the ticket is reserved', async () => {
 		})
 		.expect(400);
 });
+
+it('returns a 400 (not a 500) if the ticket is reserved concurrently mid-edit', async () => {
+	const cookie = global.signin();
+
+	const response = await request(app)
+		.post('/api/tickets')
+		.set('Cookie', cookie)
+		.send({
+			title: 'Test title',
+			price: 20,
+			...event,
+		})
+		.expect(201);
+
+	const id = response.body.id;
+
+	// Reproduce the race precisely: the update route loads the ticket (no
+	// orderId, so its guard passes), but before its save runs a buyer reserves
+	// the ticket — setting orderId and advancing the version. We inject that by
+	// stubbing only the *first* findById to return a now-stale document while
+	// concurrently bumping the DB. The route's later save then version-conflicts.
+	const realFindById = (Ticket.findById as any).bind(Ticket);
+	let injected = false;
+	const spy = jest.spyOn(Ticket, 'findById').mockImplementation(((
+		ticketId: any,
+	) => {
+		if (injected) {
+			return realFindById(ticketId);
+		}
+		injected = true;
+		return (async () => {
+			const stale = await realFindById(ticketId);
+			const concurrent = await realFindById(ticketId);
+			concurrent!.set({ orderId: new mongoose.Types.ObjectId().toHexString() });
+			await concurrent!.save(); // advances the DB version
+			return stale; // still holds the pre-reservation version
+		})();
+	}) as any);
+
+	const res = await request(app)
+		.put(`/api/tickets/${id}`)
+		.set('Cookie', cookie)
+		.send({
+			title: 'New title',
+			price: 40,
+			...event,
+		})
+		.expect(400);
+
+	spy.mockRestore();
+
+	// Assert the *specific* graceful message — not the generic "Something went
+	// wrong" fallback an uncaught VersionError would otherwise produce. This is
+	// what proves the fix rather than the 400 alone.
+	expect(res.body.errors[0].message).toEqual(
+		'This ticket was just reserved and can no longer be edited',
+	);
+
+	// The edit was rejected, so the reservation stands and details are unchanged.
+	const latest = await Ticket.findById(id);
+	expect(latest!.orderId).toBeDefined();
+	expect(latest!.title).toEqual('Test title');
+});
