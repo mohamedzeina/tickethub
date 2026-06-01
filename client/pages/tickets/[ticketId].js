@@ -10,11 +10,12 @@ import {
 	barcodeNumber,
 } from '../../utils/ticket';
 
-const TicketShow = ({ ticket }) => {
+const TicketShow = ({ ticket, currentUser }) => {
 	const [torn, setTorn] = useState(false);
 	const succeeded = useRef(false);
 	const date = formatDateLong(ticket.eventDate);
 	const serial = serialFromId(ticket.id);
+	const isOwner = currentUser && ticket.userId && currentUser.id === ticket.userId;
 
 	const { doRequest, generalErrors } = useRequest({
 		url: '/api/orders',
@@ -115,17 +116,25 @@ const TicketShow = ({ ticket }) => {
 						</small>
 					</div>
 
-					<div className={`tear${torn ? ' torn' : ''}`} id="tear">
-						<button type="button" className="tear__strip" onClick={onTear}>
-							<Bolt />
-							Tear here to purchase
-							<ArrowRight />
-						</button>
-						<div className="tear__done">
-							<Check />
-							{succeeded.current ? 'Admitted · reserving…' : 'Reserving…'}
+					{isOwner ? (
+						<div className="owner-note">
+							<div className="owner-note__tag">Your listing</div>
+							This is your own ticket — you can&apos;t buy it. Share the link
+							with a buyer instead.
 						</div>
-					</div>
+					) : (
+						<div className={`tear${torn ? ' torn' : ''}`} id="tear">
+							<button type="button" className="tear__strip" onClick={onTear}>
+								<Bolt />
+								Tear here to purchase
+								<ArrowRight />
+							</button>
+							<div className="tear__done">
+								<Check />
+								{succeeded.current ? 'Admitted · reserving…' : 'Reserving…'}
+							</div>
+						</div>
+					)}
 
 					<div className="barcode barcode--sm" aria-hidden="true" />
 					<div className="barcode__num">{barcodeNumber(ticket.id)}</div>

@@ -42,6 +42,26 @@ it('returns an error if the ticket is already reserved', async () => {
 		.expect(400);
 });
 
+it('returns an error if the user tries to buy their own ticket', async () => {
+	const userId = new mongoose.Types.ObjectId().toHexString();
+
+	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		title: 'Akon Concert',
+		price: 100,
+		userId,
+	});
+	await ticket.save();
+
+	await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin(userId))
+		.send({
+			ticketId: ticket.id,
+		})
+		.expect(400);
+});
+
 it('reserves a ticket', async () => {
 	const ticket = Ticket.build({
 		id: new mongoose.Types.ObjectId().toHexString(),

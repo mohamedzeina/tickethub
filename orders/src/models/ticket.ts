@@ -6,6 +6,9 @@ interface TicketAttrs {
 	id: string; // Added for event handling
 	title: string;
 	price: number;
+	// Owner of the listing — used to stop a user buying their own ticket.
+	// Optional so tickets replicated before this field stay valid.
+	userId?: string;
 	eventDate?: string;
 	venue?: string;
 	description?: string;
@@ -17,6 +20,7 @@ export interface TicketDoc extends mongoose.Document {
 	version: number;
 	title: string;
 	price: number;
+	userId?: string;
 	eventDate?: Date;
 	venue?: string;
 	description?: string;
@@ -49,6 +53,9 @@ const ticketSchema = new mongoose.Schema(
 			type: Number,
 			required: true,
 			min: 0,
+		},
+		userId: {
+			type: String,
 		},
 		eventDate: {
 			type: mongoose.Schema.Types.Date,
@@ -84,6 +91,7 @@ ticketSchema.statics.build = (attrs: TicketAttrs) => {
 		_id: attrs.id,
 		title: attrs.title,
 		price: attrs.price,
+		userId: attrs.userId,
 		eventDate: attrs.eventDate,
 		venue: attrs.venue,
 		description: attrs.description,

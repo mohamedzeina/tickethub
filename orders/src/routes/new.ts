@@ -28,6 +28,11 @@ router.post(
 			throw new NotFoundError();
 		}
 
+		// A user cannot buy a ticket they listed themselves
+		if (ticket.userId && ticket.userId === req.currentUser!.id) {
+			throw new BadRequestError('You cannot buy your own ticket');
+		}
+
 		// Make sure the ticket is not already reserved
 		// Run query to look at all orders. Find an order where the ticket
 		// is the ticket we just found *and* the orders status is *not* cancelled

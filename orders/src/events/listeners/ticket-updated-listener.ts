@@ -12,7 +12,7 @@ export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 	queueGroupName: string = queueGroupName;
 
 	async onMessage(data: TicketUpdatedEvent['data'], msg: Message) {
-		const { id, title, price, eventDate, venue, description, category, imageUrl } =
+		const { id, title, price, userId, eventDate, venue, description, category, imageUrl } =
 			data;
 
 		const ticket = await Ticket.findByEvent({ id, version: data.version });
@@ -24,6 +24,7 @@ export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 		ticket.set({
 			title,
 			price,
+			userId,
 			eventDate,
 			venue,
 			description,

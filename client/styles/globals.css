@@ -798,6 +798,28 @@
 .tear.torn .tear__done { opacity: 1; }
 .tear__done svg { width: 18px; height: 18px; stroke: var(--teal); }
 
+/* shown on your own listing instead of the tear-to-buy strip */
+.owner-note {
+	border: 2px dashed var(--stock-edge);
+	border-radius: 4px;
+	padding: 16px;
+	font-size: 13px;
+	line-height: 1.55;
+	color: #4a4030;
+}
+.owner-note__tag {
+	display: inline-block;
+	font-family: var(--f-mono);
+	font-size: 10px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--teal);
+	border: 1.5px solid var(--teal);
+	border-radius: 3px;
+	padding: 4px 9px;
+	margin-bottom: 10px;
+}
+
 /* ==============================================================
    SHEET (sell form)  +  WILL CALL (auth)
    ============================================================== */
