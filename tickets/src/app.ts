@@ -13,6 +13,7 @@ import { createTicketRouter } from './routes/new';
 import { showTicketRouter } from './routes/show';
 import { indexTicketRouter } from './routes';
 import { updateTicketRouter } from './routes/update';
+import { uploadSignatureRouter } from './routes/upload-signature';
 
 const app = express();
 app.set('trust proxy', true);
@@ -26,6 +27,9 @@ app.use(
 app.use(currentUser);
 
 app.use(createTicketRouter);
+// Register before showTicketRouter so '/api/tickets/upload-signature' is not
+// captured by the '/api/tickets/:id' route.
+app.use(uploadSignatureRouter);
 app.use(showTicketRouter);
 app.use(indexTicketRouter);
 app.use(updateTicketRouter);
