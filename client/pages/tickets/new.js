@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Router from 'next/router';
 import useRequest from '../../hooks/useRequest';
@@ -17,6 +17,17 @@ const NewTicket = () => {
 	const [uploading, setUploading] = useState(false);
 	const [uploadError, setUploadError] = useState(null);
 	const [loading, setLoading] = useState(false);
+	const [minDate, setMinDate] = useState('');
+
+	// Earliest selectable event date is today. Computed after mount so server and
+	// client render the same initial markup (avoids a hydration mismatch).
+	useEffect(() => {
+		const now = new Date();
+		const yyyy = now.getFullYear();
+		const mm = String(now.getMonth() + 1).padStart(2, '0');
+		const dd = String(now.getDate()).padStart(2, '0');
+		setMinDate(`${yyyy}-${mm}-${dd}`);
+	}, []);
 
 	// Signed direct upload: ask our API to sign the request, then upload the
 	// file straight to Cloudinary and keep the returned secure URL.
@@ -103,6 +114,7 @@ const NewTicket = () => {
 									id="eventDate"
 									type="date"
 									required
+									min={minDate}
 									value={eventDate}
 									onChange={(e) => setEventDate(e.target.value)}
 								/>

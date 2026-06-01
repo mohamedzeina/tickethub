@@ -82,6 +82,19 @@ it('returns an error if event date or venue is missing', async () => {
 		.expect(400);
 });
 
+it('returns an error if the event date is in the past', async () => {
+	await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({
+			title: 'test title',
+			price: 20,
+			eventDate: '2000-01-01',
+			venue: 'Test Arena',
+		})
+		.expect(400);
+});
+
 it('creates a ticket if valid inputs are provided', async () => {
 	let tickets = await Ticket.find({});
 	expect(tickets.length).toEqual(0);

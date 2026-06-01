@@ -26,6 +26,15 @@ router.put(
 		body('eventDate')
 			.isISO8601()
 			.withMessage('A valid event date is required')
+			.custom((value) => {
+				const eventDate = new Date(value);
+				const today = new Date();
+				today.setHours(0, 0, 0, 0);
+				if (eventDate < today) {
+					throw new Error('Event date cannot be in the past');
+				}
+				return true;
+			})
 			.toDate(),
 		body('venue').trim().not().isEmpty().withMessage('Venue is required'),
 		body('description').optional({ checkFalsy: true }).trim(),
