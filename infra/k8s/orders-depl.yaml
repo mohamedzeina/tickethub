@@ -35,7 +35,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: EXPIRATION_WINDOW_SECONDS
-              value: '30'
+              value: '900'
 
 ---
 apiVersion: v1
