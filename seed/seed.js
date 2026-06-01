@@ -1,0 +1,272 @@
+/*
+ * TicketHub seed script.
+ *
+ * Every run:
+ *   1. Drops ALL service databases (auth, tickets, orders, payments).
+ *   2. Creates two users — test@test.com and test2@test.com (password 123456).
+ *   3. Creates a spread of nice demo tickets, owned by both users.
+ *
+ * Tickets are created through the HTTP API (not inserted directly) so the
+ * ticket:created events fire and the orders service replica stays in sync —
+ * which is what makes the "can't buy your own ticket" rule work end to end.
+ *
+ * Usage:
+ *   cd seed && npm install && npm run seed
+ *
+ * Config (env vars, all optional):
+ *   BASE_URL          API base. Default: https://tickethub.com
+ *   HOST_HEADER       Override the Host header (use when BASE_URL is an IP).
+ *   AUTH_MONGO_URI    \
+ *   TICKETS_MONGO_URI  } Mongo connection strings. If unset, they are read
+ *   ORDERS_MONGO_URI   } from the `mongo-secret` Kubernetes secret via kubectl.
+ *   PAYMENTS_MONGO_URI/
+ */
+
+const { MongoClient } = require('mongodb');
+const { execFileSync } = require('child_process');
+
+const BASE_URL = (process.env.BASE_URL || 'https://tickethub.com').replace(/\/$/, '');
+const HOST_HEADER = process.env.HOST_HEADER;
+
+// The local dev ingress (tickethub.com) serves a self-signed cert. Relax TLS
+// verification only for that known dev host; any other target keeps verification
+// on. For a different self-signed host, run with NODE_TLS_REJECT_UNAUTHORIZED=0.
+const targetHost = (() => {
+	try {
+		return new URL(BASE_URL).hostname;
+	} catch {
+		return '';
+	}
+})();
+if (!process.env.NODE_TLS_REJECT_UNAUTHORIZED && targetHost === 'tickethub.com') {
+	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
+// service -> key inside the mongo-secret Kubernetes secret
+const MONGO_SECRET_KEYS = {
+	auth: 'AUTH_MONGO_URI',
+	tickets: 'TICKETS_MONGO_URI',
+	orders: 'ORDERS_MONGO_URI',
+	payments: 'PAYMENTS_MONGO_URI',
+};
+
+// ---- helpers -------------------------------------------------------------
+
+// Returns a YYYY-MM-DD string `days` in the future, so seeded events always
+// pass the "event date can't be in the past" validation regardless of when run.
+function future(days) {
+	const d = new Date();
+	d.setDate(d.getDate() + days);
+	return d.toISOString().slice(0, 10);
+}
+
+function img(id) {
+	return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=80`;
+}
+
+function resolveMongoUris() {
+	// 1) explicit env vars take precedence
+	const fromEnv = {};
+	let haveAll = true;
+	for (const [svc, key] of Object.entries(MONGO_SECRET_KEYS)) {
+		if (process.env[key]) fromEnv[svc] = process.env[key];
+		else haveAll = false;
+	}
+	if (haveAll) return fromEnv;
+
+	// 2) fall back to reading the k8s secret (never stored in the repo)
+	try {
+		const out = execFileSync(
+			'kubectl',
+			['get', 'secret', 'mongo-secret', '-o', 'json'],
+			{ stdio: ['ignore', 'pipe', 'pipe'] },
+		).toString();
+		const data = JSON.parse(out).data || {};
+		const uris = {};
+		for (const [svc, key] of Object.entries(MONGO_SECRET_KEYS)) {
+			if (!data[key]) {
+				throw new Error(`mongo-secret is missing key "${key}"`);
+			}
+			uris[svc] = Buffer.from(data[key], 'base64').toString('utf8');
+		}
+		return uris;
+	} catch (err) {
+		console.error('\n✖ Could not resolve Mongo connection strings.');
+		console.error('  Provide them as env vars (AUTH_MONGO_URI, TICKETS_MONGO_URI,');
+		console.error('  ORDERS_MONGO_URI, PAYMENTS_MONGO_URI) or make sure `kubectl`');
+		console.error('  can read the `mongo-secret` secret in the current context.\n');
+		console.error(`  Underlying error: ${err.message}`);
+		process.exit(1);
+	}
+}
+
+async function dropAllDatabases(uris) {
+	for (const [svc, uri] of Object.entries(uris)) {
+		const client = new MongoClient(uri);
+		try {
+			await client.connect();
+			const db = client.db(); // db name comes from the connection string
+			await db.dropDatabase();
+			console.log(`  • dropped ${svc} db (${db.databaseName})`);
+		} finally {
+			await client.close();
+		}
+	}
+}
+
+function sessionCookie(setCookieHeader) {
+	if (!setCookieHeader) throw new Error('no Set-Cookie header returned by signup');
+	const match = setCookieHeader.match(/session=[^;]+/);
+	if (!match) throw new Error('session cookie not found in signup response');
+	return match[0];
+}
+
+async function api(path, { method = 'POST', cookie, body } = {}) {
+	const headers = { 'Content-Type': 'application/json' };
+	if (cookie) headers.Cookie = cookie;
+	if (HOST_HEADER) headers.Host = HOST_HEADER;
+
+	const res = await fetch(`${BASE_URL}${path}`, {
+		method,
+		headers,
+		body: body ? JSON.stringify(body) : undefined,
+	});
+
+	const text = await res.text();
+	if (!res.ok) {
+		throw new Error(`${method} ${path} → ${res.status}: ${text}`);
+	}
+	return { res, data: text ? JSON.parse(text) : null };
+}
+
+async function signup(email, password) {
+	const { res } = await api('/api/users/signup', { body: { email, password } });
+	return sessionCookie(res.headers.get('set-cookie'));
+}
+
+async function createTicket(cookie, ticket) {
+	const { data } = await api('/api/tickets', { cookie, body: ticket });
+	return data;
+}
+
+// ---- demo data -----------------------------------------------------------
+
+const TICKETS = [
+	{
+		owner: 1,
+		title: 'Coldplay — Music of the Spheres',
+		price: 145,
+		eventDate: future(70),
+		venue: 'Wembley Stadium, London',
+		category: 'Concerts',
+		description:
+			'Lower tier, aisle seat with a clear stage view. LED wristband included for the light show. Selling at face value.',
+		imageUrl: img('1459749411175-04bf5292ceea'),
+	},
+	{
+		owner: 1,
+		title: 'Lakers vs Celtics',
+		price: 89,
+		eventDate: future(38),
+		venue: 'Crypto.com Arena, Los Angeles',
+		category: 'Sports',
+		description: 'Section 109, row 7 — great sightline to the home bench.',
+		imageUrl: img('1546519638-68e109498ffc'),
+	},
+	{
+		owner: 1,
+		title: 'Hamilton',
+		price: 230,
+		eventDate: future(96),
+		venue: 'Richard Rodgers Theatre, New York',
+		category: 'Theater',
+		description: 'Orchestra, row F. One of the best seats in the house.',
+		imageUrl: img('1503095396549-807759245b35'),
+	},
+	{
+		owner: 1,
+		title: 'Glastonbury Festival',
+		price: 310,
+		eventDate: future(250),
+		venue: 'Worthy Farm, Pilton, Somerset',
+		category: 'Festivals',
+		description: 'Full weekend admission with camping. Wristband transfers in person.',
+		imageUrl: img('1533174072545-7a4b6ad7a6c3'),
+	},
+	{
+		owner: 2,
+		title: 'Tyler, The Creator',
+		price: 120,
+		eventDate: future(120),
+		venue: 'The Kia Forum, Los Angeles',
+		category: 'Concerts',
+		description: 'General admission floor. Doors at 7, show at 8.',
+		imageUrl: img('1470229722913-7c0e2dbbafd3'),
+	},
+	{
+		owner: 2,
+		title: 'Arsenal vs Tottenham',
+		price: 175,
+		eventDate: future(150),
+		venue: 'Emirates Stadium, London',
+		category: 'Sports',
+		description: 'North London derby. Block 26, row 12 — home end.',
+		imageUrl: img('1522778119026-d647f0596c20'),
+	},
+	{
+		owner: 2,
+		title: 'Taylor Swift — The Eras Tour',
+		price: 260,
+		eventDate: future(300),
+		venue: 'SoFi Stadium, Los Angeles',
+		category: 'Concerts',
+		description: 'VIP package — early entry and a clear view of the main stage.',
+		imageUrl: img('1501281668745-f7f57925c3b4'),
+	},
+	{
+		owner: 2,
+		title: 'Cirque du Soleil — KÀ',
+		price: 135,
+		eventDate: future(60),
+		venue: 'MGM Grand, Las Vegas',
+		category: 'Theater',
+		description: 'Center section, premium tier. An unforgettable evening.',
+		imageUrl: img('1514525253161-7a46d19cd819'),
+	},
+];
+
+// ---- run -----------------------------------------------------------------
+
+(async () => {
+	console.log(`\nTicketHub seed → ${BASE_URL}\n`);
+
+	console.log('Resetting databases…');
+	const uris = resolveMongoUris();
+	await dropAllDatabases(uris);
+
+	console.log('\nCreating users…');
+	const cookies = {
+		1: await signup('test@test.com', '123456'),
+		2: await signup('test2@test.com', '123456'),
+	};
+	console.log('  • test@test.com / 123456');
+	console.log('  • test2@test.com / 123456');
+
+	console.log('\nCreating tickets…');
+	let ok = 0;
+	for (const { owner, ...ticket } of TICKETS) {
+		try {
+			await createTicket(cookies[owner], ticket);
+			console.log(`  • [${owner === 1 ? 'test ' : 'test2'}] ${ticket.title}`);
+			ok++;
+		} catch (err) {
+			console.error(`  ✖ failed: ${ticket.title} — ${err.message}`);
+		}
+	}
+
+	console.log(`\n✓ Done. Seeded 2 users and ${ok}/${TICKETS.length} tickets.\n`);
+	process.exit(0);
+})().catch((err) => {
+	console.error('\n✖ Seed failed:', err.message, '\n');
+	process.exit(1);
+});

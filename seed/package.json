@@ -1,0 +1,12 @@
+{
+  "name": "tickethub-seed",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Reset every TicketHub database and seed demo users + tickets",
+  "scripts": {
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "mongodb": "^6.3.0"
+  }
+}
