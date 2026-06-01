@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Plus } from './icons';
+import NavSearch from './NavSearch';
 
 // Box-office marquee nav. Link set depends on auth state:
 //  - signed out: Will Call (sign in) + Sign Up
@@ -21,6 +22,8 @@ const Header = ({ currentUser }) => {
 					<span className="brand__ticket">TicketHub</span>
 					<span className="brand__sub">Buy &amp; Sell Tickets</span>
 				</Link>
+
+				<NavSearch />
 
 				<div className="nav__links">
 					{links.map(({ label, href, variant }) => {

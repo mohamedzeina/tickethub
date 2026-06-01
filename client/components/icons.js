@@ -55,6 +55,12 @@ export const Check = (props) => (
 	</svg>
 );
 
+export const ChevronDown = (props) => (
+	<svg {...base} strokeWidth={2} {...props}>
+		<path d="m6 9 6 6 6-6" />
+	</svg>
+);
+
 export const Plus = (props) => (
 	<svg {...base} strokeWidth={2} {...props}>
 		<path d="M12 5v14M5 12h14" />

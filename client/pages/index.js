@@ -1,87 +1,11 @@
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { SearchIcon, CalendarIcon, LocationIcon, ArrowRight } from '../components/icons';
-import { formatPrice, formatDateShort, serialFromId } from '../utils/ticket';
+import { useMemo } from 'react';
+import { ArrowRight } from '../components/icons';
+import BrowseResults from '../components/BrowseResults';
+import { parseTicketQuery } from '../utils/ticketQuery';
 
-// A single listing rendered as an admission ticket: main face + counterfoil stub.
-const TicketCard = ({ ticket }) => {
-	const date = formatDateShort(ticket.eventDate);
-	const when = [date, ticket.venue].filter(Boolean).join(' · ');
-
-	return (
-		<Link
-			href="/tickets/[ticketId]"
-			as={`/tickets/${ticket.id}`}
-			className="tk stocked bordered"
-		>
-			<div className="tk__main">
-				{ticket.imageUrl && (
-					<div className="printed tk__photo">
-						<img src={ticket.imageUrl} alt={ticket.title} />
-					</div>
-				)}
-
-				<span className="tk__cat">{ticket.category || 'Event'}</span>
-				<div className="tk__title">{ticket.title}</div>
-				{when && <div className="tk__when">{when}</div>}
-
-				<div className="tk__data">
-					<div className="data">
-						<div className="cell">
-							<div className="k">Type</div>
-							<div className="v">{ticket.category || 'GA'}</div>
-						</div>
-						<div className="cell">
-							<div className="k">Date</div>
-							<div className="v">
-								{date ? date.split(',')[0] : 'TBA'}
-							</div>
-						</div>
-						<div className="cell">
-							<div className="k">Admit</div>
-							<div className="v">One</div>
-						</div>
-						<div className="cell">
-							<div className="k">No.</div>
-							<div className="v">{serialFromId(ticket.id)}</div>
-						</div>
-					</div>
-				</div>
-
-				<div className="tk__foot">
-					<div className="tk__price">
-						{formatPrice(ticket.price)}
-						<small>ADMIT ONE</small>
-					</div>
-					<span className="tk__go">
-						View Ticket <ArrowRight />
-					</span>
-				</div>
-			</div>
-
-			<div className="tk__stub">
-				<div className="barcode barcode--v" aria-hidden="true" />
-				<div className="sn">No. {serialFromId(ticket.id)}</div>
-			</div>
-		</Link>
-	);
-};
-
-const LandingPage = ({ currentUser, tickets }) => {
-	const [query, setQuery] = useState('');
-
-	const filtered = useMemo(() => {
-		const q = query.trim().toLowerCase();
-		if (!q) return tickets;
-		return tickets.filter(
-			(t) =>
-				t.title.toLowerCase().includes(q) ||
-				(t.venue || '').toLowerCase().includes(q) ||
-				(t.category || '').toLowerCase().includes(q),
-		);
-	}, [query, tickets]);
-
-	// Count events happening within the next 7 days for the box-office readout.
+const LandingPage = ({ currentUser, tickets, meta, filters }) => {
+	// Decorative readout: "this week" is derived from the current page only.
 	const thisWeek = useMemo(() => {
 		const now = Date.now();
 		const wk = now + 7 * 24 * 60 * 60 * 1000;
@@ -111,29 +35,20 @@ const LandingPage = ({ currentUser, tickets }) => {
 						every order held at the gate for fifteen minutes.
 					</p>
 
-					<form className="hero-search" onSubmit={(e) => e.preventDefault()}>
-						<span>
-							<SearchIcon style={{ width: 19, height: 19 }} />
-						</span>
-						<label htmlFor="ticket-search" className="sr-only" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-							Search tickets by event
-						</label>
-						<input
-							id="ticket-search"
-							type="search"
-							value={query}
-							onChange={(e) => setQuery(e.target.value)}
-							placeholder="Search artists, teams, venues…"
-							autoComplete="off"
-						/>
-						<button type="button">Find Seats</button>
-					</form>
+					<div className="hero-cta">
+						<a href="#results" className="btn btn--ink">
+							Browse On Sale Now <ArrowRight />
+						</a>
+						<Link href="/tickets/new" className="btn btn--line">
+							Sell Your Tickets
+						</Link>
+					</div>
 
 					<div className="hero-meta">
 						<div className="m">
 							<div className="k">On Sale</div>
 							<div className="v">
-								{tickets.length} {tickets.length === 1 ? 'Event' : 'Events'}
+								{meta.total} {meta.total === 1 ? 'Event' : 'Events'}
 							</div>
 						</div>
 						<div className="m">
@@ -158,45 +73,36 @@ const LandingPage = ({ currentUser, tickets }) => {
 				</div>
 			</div>
 
-			{/* Browse */}
-			<div className="sec-head">
-				<h2>On Sale Now</h2>
-				<div className="count">
-					{filtered.length} {filtered.length === 1 ? 'Ticket' : 'Tickets'} Available
-				</div>
-			</div>
-
-			{filtered.length === 0 ? (
-				<div className="empty stocked bordered">
-					<h3>{query ? 'No tickets match that search' : 'Nothing on sale yet'}</h3>
-					<p>
-						{query
-							? 'Try a different artist, team, or venue.'
-							: 'Be the first to issue a ticket and reach buyers instantly.'}
-					</p>
-					{!query && currentUser && (
-						<Link href="/tickets/new" className="btn btn--red" style={{ marginTop: 22 }}>
-							Issue a Ticket
-						</Link>
-					)}
-				</div>
-			) : (
-				<div className="grid">
-					{filtered.map((ticket) => (
-						<TicketCard key={ticket.id} ticket={ticket} />
-					))}
-				</div>
-			)}
+			<BrowseResults
+				basePath="/"
+				title="On Sale Now"
+				currentUser={currentUser}
+				tickets={tickets}
+				meta={meta}
+				filters={filters}
+			/>
 		</div>
 	);
 };
 
 // This function runs on the server during the initial page load, and also on the
-// client during client-side navigation. It allows us to fetch data and pass it
-// as props to the component.
-LandingPage.getInitialProps = async (context, client, currentUser) => {
-	const { data } = await client.get('/api/tickets');
-	return { tickets: data };
+// client during client-side navigation. It reads the URL query, asks the tickets
+// service to do the search/filter/sort/pagination, and passes the page of results
+// plus paging metadata down as props.
+LandingPage.getInitialProps = async (context, client) => {
+	const { filters, qs } = parseTicketQuery(context.query);
+	const { data } = await client.get(`/api/tickets${qs ? `?${qs}` : ''}`);
+
+	return {
+		tickets: data.tickets,
+		meta: {
+			page: data.page,
+			limit: data.limit,
+			total: data.total,
+			totalPages: data.totalPages,
+		},
+		filters,
+	};
 };
 
 export default LandingPage;
