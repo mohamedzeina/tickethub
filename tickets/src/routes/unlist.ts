@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import {
 	requireAuth,
 	NotFoundError,
@@ -45,7 +46,29 @@ const setListed = (listed: boolean) => async (req: Request, res: Response) => {
 	}
 
 	ticket.set({ unlisted: !listed });
-	await ticket.save();
+
+	try {
+		await ticket.save();
+	} catch (err) {
+		// A concurrent change — most likely a buyer reserving this ticket in the
+		// same instant — bumps the version, so optimistic concurrency rejects this
+		// save. Surface a clean 400 instead of an unhandled version error.
+		if (err instanceof mongoose.Error.VersionError) {
+			const latest = await Ticket.findById(req.params.id);
+			if (latest?.orderId) {
+				throw new BadRequestError(
+					`This ticket was just reserved and can no longer be ${
+						listed ? 'relisted' : 'unlisted'
+					}`,
+				);
+			}
+			throw new BadRequestError(
+				'This ticket was just updated — reload and try again',
+			);
+		}
+		throw err;
+	}
+
 	await publishUpdate(ticket);
 
 	res.send(ticket);
