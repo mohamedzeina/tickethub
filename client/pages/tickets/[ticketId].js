@@ -10,7 +10,28 @@ import {
 	barcodeNumber,
 } from '../../utils/ticket';
 
-const TicketShow = ({ ticket, currentUser }) => {
+// Shown when the ticket can't be bought by this visitor: it was unlisted (the
+// API returns a 404 to non-owners) or it simply doesn't exist.
+const TicketUnavailable = () => (
+	<div className="container">
+		<Link href="/" className="backlink">
+			<ArrowLeft /> Back to all tickets
+		</Link>
+
+		<div className="empty stocked bordered">
+			<h3>This ticket isn&apos;t available</h3>
+			<p>
+				It may have been unlisted by the seller or is no longer for sale. Browse
+				the tickets still on the board.
+			</p>
+			<Link href="/" className="btn btn--line" style={{ marginTop: 18 }}>
+				Browse tickets
+			</Link>
+		</div>
+	</div>
+);
+
+const TicketDetail = ({ ticket, currentUser }) => {
 	const [torn, setTorn] = useState(false);
 	const succeeded = useRef(false);
 	const date = formatDateLong(ticket.eventDate);
@@ -25,6 +46,12 @@ const TicketShow = ({ ticket, currentUser }) => {
 			succeeded.current = true;
 			Router.push('/orders/[orderId]', `/orders/${order.id}`);
 		},
+	});
+
+	const { doRequest: relist, generalErrors: relistErrors } = useRequest({
+		url: `/api/tickets/${ticket.id}/relist`,
+		method: 'post',
+		onSuccess: () => Router.reload(),
 	});
 
 	// Tearing the perforated strip reserves the order. If the request fails we
@@ -117,21 +144,38 @@ const TicketShow = ({ ticket, currentUser }) => {
 					</div>
 
 					{isOwner ? (
-						<div className="owner-note">
-							<div className="owner-note__tag">Your listing</div>
-							This is your own ticket — you can&apos;t buy it. Share the link
-							with a buyer instead.
-							{!ticket.orderId && (
-								<Link
-									href="/tickets/edit/[ticketId]"
-									as={`/tickets/edit/${ticket.id}`}
-									className="btn btn--line"
+						ticket.unlisted ? (
+							<div className="owner-note">
+								<div className="owner-note__tag">Unlisted</div>
+								This listing is hidden from buyers. Relist it to put it back on
+								the board.
+								<button
+									type="button"
+									className="btn btn--ink"
 									style={{ marginTop: 14 }}
+									onClick={() => relist()}
 								>
-									Edit listing
-								</Link>
-							)}
-						</div>
+									Relist
+								</button>
+								{relistErrors()}
+							</div>
+						) : (
+							<div className="owner-note">
+								<div className="owner-note__tag">Your listing</div>
+								This is your own ticket — you can&apos;t buy it. Share the link
+								with a buyer instead.
+								{!ticket.orderId && (
+									<Link
+										href="/tickets/edit/[ticketId]"
+										as={`/tickets/edit/${ticket.id}`}
+										className="btn btn--line"
+										style={{ marginTop: 14 }}
+									>
+										Edit listing
+									</Link>
+								)}
+							</div>
+						)
 					) : (
 						<div className={`tear${torn ? ' torn' : ''}`} id="tear">
 							<button type="button" className="tear__strip" onClick={onTear}>
@@ -156,11 +200,27 @@ const TicketShow = ({ ticket, currentUser }) => {
 	);
 };
 
+const TicketShow = ({ ticket, currentUser }) => {
+	if (!ticket) {
+		return <TicketUnavailable />;
+	}
+	return <TicketDetail ticket={ticket} currentUser={currentUser} />;
+};
+
 TicketShow.getInitialProps = async (context, client) => {
 	const { ticketId } = context.query;
-	const { data } = await client.get(`/api/tickets/${ticketId}`);
-
-	return { ticket: data };
+	try {
+		const { data } = await client.get(`/api/tickets/${ticketId}`);
+		return { ticket: data };
+	} catch (err) {
+		// Unlisted tickets (to non-owners) and missing tickets both come back 404 —
+		// render the "unavailable" state. Let any other error surface so a transient
+		// 500/outage isn't disguised as an unlisted ticket.
+		if (err.response?.status === 404) {
+			return { ticket: null };
+		}
+		throw err;
+	}
 };
 
 export default TicketShow;
