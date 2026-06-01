@@ -27,7 +27,10 @@ spec:
                   name: stripe-secret
                   key: STRIPE_KEY
             - name: MONGO_URI
-              value: 'mongodb://payments-mongo-srv:27017/payments'
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: PAYMENTS_MONGO_URI
             - name: NATS_URL
               value: 'http://nats-srv:4222'
             - name: NATS_CLUSTER_ID

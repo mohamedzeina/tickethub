@@ -22,7 +22,10 @@ spec:
                   name: jwt-secret
                   key: JWT_KEY
             - name: MONGO_URI
-              value: 'mongodb://orders-mongo-srv:27017/orders'
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: ORDERS_MONGO_URI
             - name: NATS_URL
               value: 'http://nats-srv:4222'
             - name: NATS_CLUSTER_ID
