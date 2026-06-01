@@ -21,7 +21,7 @@ const useRequest = ({ url, method, body, onSuccess }) => {
 		errors
 			.filter((err) => err.field === field)
 			.map((err) => (
-				<div key={err.message} className="text-danger mt-1">
+				<div key={err.message} className="mt-1 text-sm font-medium text-red-600">
 					{err.message}
 				</div>
 			));
@@ -35,8 +35,8 @@ const useRequest = ({ url, method, body, onSuccess }) => {
 		}
 
 		return (
-			<div className="alert alert-danger mt-3">
-				<ul className="my-0">
+			<div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+				<ul className="my-0 list-disc space-y-1 pl-5">
 					{general.map((err) => (
 						<li key={err.message}>{err.message}</li>
 					))}

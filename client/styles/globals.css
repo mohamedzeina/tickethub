@@ -1,0 +1,73 @@
+/* Fonts: Rubik (headings) + Nunito Sans (body) — must precede other rules */
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;500;600;700&family=Rubik:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+/*
+  TicketHub design tokens — "Vibrant marketplace" theme.
+  Trust-purple primary + transaction-green CTA.
+  Exposed as Tailwind utilities, e.g. bg-brand-600, text-accent, font-display.
+*/
+@theme {
+	--font-display: 'Rubik', ui-sans-serif, system-ui, sans-serif;
+	--font-sans: 'Nunito Sans', ui-sans-serif, system-ui, sans-serif;
+
+	/* Brand purple (trust) */
+	--color-brand-50: #faf5ff;
+	--color-brand-100: #f3e8ff;
+	--color-brand-200: #e9d5ff;
+	--color-brand-300: #d8b4fe;
+	--color-brand-400: #c084fc;
+	--color-brand-500: #a78bfa;
+	--color-brand-600: #7c3aed;
+	--color-brand-700: #6d28d9;
+	--color-brand-800: #5b21b6;
+	--color-brand-900: #4c1d95;
+
+	/* Accent green (transaction / CTA) */
+	--color-accent-50: #f0fdf4;
+	--color-accent-100: #dcfce7;
+	--color-accent-400: #4ade80;
+	--color-accent-500: #22c55e;
+	--color-accent-600: #16a34a;
+	--color-accent-700: #15803d;
+
+	/* Neutral ink */
+	--color-ink: #4c1d95;
+	--color-ink-soft: #6b5b95;
+}
+
+@layer base {
+	html {
+		scroll-behavior: smooth;
+	}
+
+	body {
+		font-family: var(--font-sans);
+		color: var(--color-ink);
+		background-color: var(--color-brand-50);
+		-webkit-font-smoothing: antialiased;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-family: var(--font-display);
+		letter-spacing: -0.02em;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
