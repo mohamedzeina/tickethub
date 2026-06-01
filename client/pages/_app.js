@@ -1,19 +1,18 @@
-import 'bootstrap/dist/css/bootstrap.min.css';
+import '../styles/globals.css';
 import buildClient from '../api/build-client';
 import Header from '../components/Header';
 
-// This file is used to initialize pages. We are adding this to have a global
-// CSS import for Bootstrap, which is required for styling our application.
-// By importing the Bootstrap CSS here, it will be available across all pages
-// in the application without needing to import it in each individual page component.
+// This file initializes every page. We import the global stylesheet here
+// (Tailwind + our TicketHub design tokens) so styling is available across all
+// pages without importing it in each individual page component.
 
 const AppComponent = ({ Component, pageProps, currentUser }) => {
 	return (
-		<div>
+		<div className="min-h-screen bg-brand-50 text-ink">
 			<Header currentUser={currentUser} />
-			<div className="container">
+			<main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
 				<Component currentUser={currentUser} {...pageProps} />
-			</div>
+			</main>
 		</div>
 	);
 };
