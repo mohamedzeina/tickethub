@@ -100,14 +100,23 @@ function resolveMongoUris() {
 	}
 }
 
-async function dropAllDatabases(uris) {
+async function resetDatabases(uris) {
 	for (const [svc, uri] of Object.entries(uris)) {
 		const client = new MongoClient(uri);
 		try {
 			await client.connect();
 			const db = client.db(); // db name comes from the connection string
-			await db.dropDatabase();
-			console.log(`  • dropped ${svc} db (${db.databaseName})`);
+			// Empty every collection rather than dropDatabase — Atlas readWrite
+			// users can delete documents but usually can't drop a database.
+			const collections = await db.listCollections().toArray();
+			let cleared = 0;
+			for (const { name } of collections) {
+				const { deletedCount } = await db.collection(name).deleteMany({});
+				cleared += deletedCount;
+			}
+			console.log(
+				`  • cleared ${svc} db (${db.databaseName}) — ${cleared} docs across ${collections.length} collections`,
+			);
 		} finally {
 			await client.close();
 		}
@@ -242,7 +251,7 @@ const TICKETS = [
 
 	console.log('Resetting databases…');
 	const uris = resolveMongoUris();
-	await dropAllDatabases(uris);
+	await resetDatabases(uris);
 
 	console.log('\nCreating users…');
 	const cookies = {
