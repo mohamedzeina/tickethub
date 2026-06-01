@@ -6,6 +6,7 @@ const router = express.Router();
 router.get('/api/tickets/', async (req: Request, res: Response) => {
 	const tickets = await Ticket.find({
 		orderId: undefined,
+		unlisted: { $ne: true },
 	});
 
 	res.send(tickets);

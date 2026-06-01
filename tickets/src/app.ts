@@ -15,6 +15,7 @@ import { indexTicketRouter } from './routes';
 import { updateTicketRouter } from './routes/update';
 import { uploadSignatureRouter } from './routes/upload-signature';
 import { myTicketsRouter } from './routes/mine';
+import { unlistTicketRouter } from './routes/unlist';
 
 const app = express();
 app.set('trust proxy', true);
@@ -35,6 +36,7 @@ app.use(myTicketsRouter);
 app.use(showTicketRouter);
 app.use(indexTicketRouter);
 app.use(updateTicketRouter);
+app.use(unlistTicketRouter);
 
 app.all('*', async () => {
 	throw new NotFoundError();

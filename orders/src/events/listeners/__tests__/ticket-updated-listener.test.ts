@@ -59,6 +59,17 @@ it('acks the message', async () => {
 	expect(msg.ack).toHaveBeenCalled();
 });
 
+it('propagates the unlisted flag onto the replica', async () => {
+	const { listener, data, ticket, msg } = await setup();
+
+	data.unlisted = true;
+
+	await listener.onMessage(data, msg);
+
+	const updatedTicket = await Ticket.findById(ticket.id);
+	expect(updatedTicket!.unlisted).toEqual(true);
+});
+
 it('does not call ack if the event has a skipped version number', async () => {
 	const { msg, data, listener, ticket } = await setup();
 

@@ -1,0 +1,58 @@
+import express, { Request, Response } from 'express';
+import {
+	requireAuth,
+	NotFoundError,
+	NotAuthorizedError,
+	BadRequestError,
+} from '@zeina-tickethub/common';
+import { Ticket } from '../models/ticket';
+import { TicketUpdatedPublisher } from '../events/publishers/ticket-updated-publisher';
+import { natsWrapper } from '../nats-wrapper';
+
+const router = express.Router();
+
+// Publish the ticket:updated event after toggling the flag so the orders service
+// learns the listing changed. Reuses the standard save() flow so the version is
+// bumped in lockstep with consumers (a flag-only updateOne would skew them).
+const publishUpdate = (ticket: any) =>
+	new TicketUpdatedPublisher(natsWrapper.client).publish({
+		id: ticket.id,
+		version: ticket.version,
+		title: ticket.title,
+		price: ticket.price,
+		userId: ticket.userId,
+		eventDate: ticket.eventDate?.toISOString(),
+		venue: ticket.venue,
+		description: ticket.description,
+		category: ticket.category,
+		imageUrl: ticket.imageUrl,
+		unlisted: ticket.unlisted,
+	});
+
+const setListed = (listed: boolean) => async (req: Request, res: Response) => {
+	const ticket = await Ticket.findById(req.params.id);
+
+	if (!ticket) {
+		throw new NotFoundError();
+	}
+	if (ticket.userId !== req.currentUser!.id) {
+		throw new NotAuthorizedError();
+	}
+	// Don't unlist a ticket that's mid-sale; relisting a reserved ticket is a
+	// no-op the buyer shouldn't be able to undo either.
+	if (ticket.orderId) {
+		throw new BadRequestError('Cannot change a reserved ticket');
+	}
+
+	ticket.set({ unlisted: !listed });
+	await ticket.save();
+	await publishUpdate(ticket);
+
+	res.send(ticket);
+};
+
+// Soft-delete (unlist) and relist a listing.
+router.delete('/api/tickets/:id', requireAuth, setListed(false));
+router.post('/api/tickets/:id/relist', requireAuth, setListed(true));
+
+export { router as unlistTicketRouter };

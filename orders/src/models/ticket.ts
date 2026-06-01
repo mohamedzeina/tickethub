@@ -14,6 +14,7 @@ interface TicketAttrs {
 	description?: string;
 	category?: string;
 	imageUrl?: string;
+	unlisted?: boolean;
 }
 export interface TicketDoc extends mongoose.Document {
 	id: string; // Added for event handling
@@ -26,6 +27,9 @@ export interface TicketDoc extends mongoose.Document {
 	description?: string;
 	category?: string;
 	imageUrl?: string;
+	// Mirrored from the tickets service so we can refuse to reserve a hidden
+	// listing.
+	unlisted?: boolean;
 	isReserved(): Promise<boolean>;
 }
 interface TicketModel extends mongoose.Model<TicketDoc> {
@@ -72,6 +76,10 @@ const ticketSchema = new mongoose.Schema(
 		imageUrl: {
 			type: String,
 		},
+		unlisted: {
+			type: Boolean,
+			default: false,
+		},
 	},
 	{
 		toJSON: {
@@ -92,6 +100,7 @@ ticketSchema.statics.build = (attrs: TicketAttrs) => {
 		title: attrs.title,
 		price: attrs.price,
 		userId: attrs.userId,
+		unlisted: attrs.unlisted,
 		eventDate: attrs.eventDate,
 		venue: attrs.venue,
 		description: attrs.description,

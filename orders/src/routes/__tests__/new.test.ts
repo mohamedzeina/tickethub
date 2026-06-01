@@ -62,6 +62,24 @@ it('returns an error if the user tries to buy their own ticket', async () => {
 		.expect(400);
 });
 
+it('returns an error if the ticket has been unlisted', async () => {
+	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		title: 'Akon Concert',
+		price: 100,
+		unlisted: true,
+	});
+	await ticket.save();
+
+	await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin())
+		.send({
+			ticketId: ticket.id,
+		})
+		.expect(400);
+});
+
 it('reserves a ticket', async () => {
 	const ticket = Ticket.build({
 		id: new mongoose.Types.ObjectId().toHexString(),

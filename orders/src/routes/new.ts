@@ -28,6 +28,11 @@ router.post(
 			throw new NotFoundError();
 		}
 
+		// A seller may unlist a ticket; it can no longer be reserved
+		if (ticket.unlisted) {
+			throw new BadRequestError('This ticket is no longer for sale');
+		}
+
 		// A user cannot buy a ticket they listed themselves
 		if (ticket.userId && ticket.userId === req.currentUser!.id) {
 			throw new BadRequestError('You cannot buy your own ticket');

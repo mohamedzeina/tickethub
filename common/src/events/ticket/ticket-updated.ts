@@ -15,5 +15,7 @@ export interface TicketUpdatedEvent {
 		description?: string;
 		category?: string;
 		imageUrl?: string;
+		// Soft-delete flag so consumers can stop a hidden listing being reserved.
+		unlisted?: boolean;
 	};
 }

@@ -14,5 +14,6 @@ export interface TicketCreatedEvent {
 		description?: string;
 		category?: string;
 		imageUrl?: string;
+		unlisted?: boolean;
 	};
 }

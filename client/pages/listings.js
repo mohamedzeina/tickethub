@@ -1,12 +1,38 @@
+import { useState } from 'react';
 import Link from 'next/link';
+import axios from 'axios';
 import { formatPrice, formatDateShort, serialFromId } from '../utils/ticket';
 
-// A ticket carries an orderId once it has been reserved/sold, so its presence
-// tells us whether the listing is still available.
-const ListingRow = ({ ticket }) => {
+// status derived from the two flags the tickets service exposes:
+//  - orderId present → reserved/sold
+//  - unlisted        → hidden from the marketplace by the seller
+const statusOf = (ticket) => {
+	if (ticket.orderId) return { cls: 'stamp--pending', label: 'Reserved' };
+	if (ticket.unlisted) return { cls: 'stamp--muted', label: 'Unlisted' };
+	return { cls: 'stamp--paid', label: 'On Sale' };
+};
+
+const ListingRow = ({ ticket, onChange }) => {
+	const [busy, setBusy] = useState(false);
 	const date = formatDateShort(ticket.eventDate);
 	const meta = [date, ticket.venue].filter(Boolean).join(' · ');
+	const status = statusOf(ticket);
 	const reserved = Boolean(ticket.orderId);
+
+	const act = async (request) => {
+		setBusy(true);
+		try {
+			const { data } = await request();
+			onChange(ticket.id, { unlisted: data.unlisted });
+		} catch (err) {
+			// Surface nothing fancy here — refetch on next load reflects truth.
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const unlist = () => act(() => axios.delete(`/api/tickets/${ticket.id}`));
+	const relist = () => act(() => axios.post(`/api/tickets/${ticket.id}/relist`));
 
 	return (
 		<li className="ord stocked bordered">
@@ -23,9 +49,9 @@ const ListingRow = ({ ticket }) => {
 			</div>
 
 			<div className="ord__right">
-				<span className={`stamp ${reserved ? 'stamp--pending' : 'stamp--paid'}`}>
-					{reserved ? 'Reserved' : 'On Sale'}
-				</span>
+				<span className={`stamp ${status.cls}`}>{status.label}</span>
+
+				{/* Edit available on any unreserved ticket (listed or unlisted) */}
 				{!reserved && (
 					<Link
 						href="/tickets/edit/[ticketId]"
@@ -35,6 +61,29 @@ const ListingRow = ({ ticket }) => {
 						Edit
 					</Link>
 				)}
+
+				{!reserved && !ticket.unlisted && (
+					<button
+						type="button"
+						className="btn btn--line"
+						onClick={unlist}
+						disabled={busy}
+					>
+						{busy ? 'Unlisting…' : 'Unlist'}
+					</button>
+				)}
+
+				{!reserved && ticket.unlisted && (
+					<button
+						type="button"
+						className="btn btn--red"
+						onClick={relist}
+						disabled={busy}
+					>
+						{busy ? 'Relisting…' : 'Relist'}
+					</button>
+				)}
+
 				<Link
 					href="/tickets/[ticketId]"
 					as={`/tickets/${ticket.id}`}
@@ -48,6 +97,13 @@ const ListingRow = ({ ticket }) => {
 };
 
 const Listings = ({ listings, currentUser }) => {
+	const [items, setItems] = useState(listings || []);
+
+	const onChange = (id, patch) =>
+		setItems((prev) =>
+			prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+		);
+
 	if (!currentUser) {
 		return (
 			<div className="container container--mid">
@@ -67,11 +123,11 @@ const Listings = ({ listings, currentUser }) => {
 			<div className="sec-head" style={{ marginTop: 0 }}>
 				<h2>My Listings</h2>
 				<div className="count">
-					{listings.length} {listings.length === 1 ? 'Listing' : 'Listings'}
+					{items.length} {items.length === 1 ? 'Listing' : 'Listings'}
 				</div>
 			</div>
 
-			{listings.length === 0 ? (
+			{items.length === 0 ? (
 				<div className="empty stocked bordered">
 					<h3>Nothing listed yet</h3>
 					<p>List a ticket to sell and it&apos;ll show up here.</p>
@@ -81,8 +137,8 @@ const Listings = ({ listings, currentUser }) => {
 				</div>
 			) : (
 				<ul className="orders">
-					{listings.map((ticket) => (
-						<ListingRow key={ticket.id} ticket={ticket} />
+					{items.map((ticket) => (
+						<ListingRow key={ticket.id} ticket={ticket} onChange={onChange} />
 					))}
 				</ul>
 			)}
@@ -90,8 +146,8 @@ const Listings = ({ listings, currentUser }) => {
 	);
 };
 
-// Returns every ticket this user owns — available, reserved, and sold. Skipped
-// when signed out (the endpoint requires auth and the page shows a prompt).
+// Returns every ticket this user owns — available, reserved, and unlisted.
+// Skipped when signed out (the endpoint requires auth and the page prompts).
 Listings.getInitialProps = async (context, client, currentUser) => {
 	if (!currentUser) {
 		return { listings: [] };

@@ -252,6 +252,7 @@
 .stamp--paid { color: var(--teal); }
 .stamp--void { color: var(--red); }
 .stamp--pending { color: var(--amber); }
+.stamp--muted { color: var(--ink-soft); }
 
 /* ---- perforation + notches ---- */
 .perf { position: relative; height: 0; }

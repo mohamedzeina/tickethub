@@ -23,6 +23,7 @@ interface TicketAttrs {
 	description?: string;
 	category?: TicketCategory;
 	imageUrl?: string;
+	unlisted?: boolean;
 }
 
 interface TicketDoc extends mongoose.Document {
@@ -36,6 +37,9 @@ interface TicketDoc extends mongoose.Document {
 	description?: string;
 	category?: TicketCategory;
 	imageUrl?: string;
+	// Soft-delete flag: a seller can hide a listing from the marketplace without
+	// destroying it, keeping the orders/payments ticket replicas consistent.
+	unlisted?: boolean;
 }
 
 // Interface for the JSON representation after transformation
@@ -84,6 +88,10 @@ const ticketSchema = new mongoose.Schema(
 		},
 		imageUrl: {
 			type: String,
+		},
+		unlisted: {
+			type: Boolean,
+			default: false,
 		},
 	},
 	{
