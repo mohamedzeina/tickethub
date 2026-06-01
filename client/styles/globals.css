@@ -1,6 +1,8 @@
-/* Fonts: Bevan (playbill display) + Spline Sans (UI) + DM Mono (data) — must precede other rules */
-@import url('https://fonts.googleapis.com/css2?family=Bevan:ital@0;1&family=DM+Mono:wght@400;500&family=Spline+Sans:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
+
+/* Fonts (Bevan / Spline Sans / DM Mono) are loaded via next/font in _app.js,
+   which self-hosts + preloads them to avoid a flash of unstyled text. The
+   generated CSS variables are mapped to our role tokens in .fontvars below. */
 
 /* ==============================================================
    TICKETHUB — "ADMIT ONE" design system
@@ -31,10 +33,14 @@
 
 	--r: 4px;
 	--shadow: 0 26px 50px -18px rgba(0, 0, 0, 0.72), 0 2px 0 rgba(0, 0, 0, 0.3);
+}
 
-	--f-display: 'Bevan', Georgia, serif;
-	--f-ui: 'Spline Sans', system-ui, sans-serif;
-	--f-mono: 'DM Mono', ui-monospace, monospace;
+/* Map next/font generated variables to our role tokens. Applied to the wrapper
+   div in _app so every descendant inherits the self-hosted fonts. */
+.fontvars {
+	--f-display: var(--font-bevan, Georgia, serif);
+	--f-ui: var(--font-spline, system-ui, sans-serif);
+	--f-mono: var(--font-dmmono, ui-monospace, monospace);
 }
 
 @layer base {
@@ -43,7 +49,7 @@
 	}
 
 	body {
-		font-family: var(--f-ui);
+		font-family: var(--f-ui, system-ui, sans-serif);
 		background: var(--counter);
 		color: var(--stock);
 		-webkit-font-smoothing: antialiased;
@@ -955,6 +961,27 @@
 
 .altline { margin-top: 22px; text-align: center; font-family: var(--f-mono); font-size: 12px; color: var(--ink-soft); }
 .altline a { color: var(--red); }
+
+/* sign-out — quiet dark loader, no bright card to flash before redirect */
+.signout {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 18px;
+	min-height: 50vh;
+}
+.signout .spinner {
+	border-color: rgba(216, 199, 159, 0.25);
+	border-top-color: var(--red-2);
+}
+.signout__label {
+	font-family: var(--f-mono);
+	font-size: 12px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: rgba(239, 230, 208, 0.7);
+}
 
 /* ==============================================================
    ORDERS — issued tickets with stamps

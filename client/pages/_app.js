@@ -1,6 +1,30 @@
 import '../styles/globals.css';
+import { Bevan, Spline_Sans, DM_Mono } from 'next/font/google';
 import buildClient from '../api/build-client';
 import Header from '../components/Header';
+
+// Self-hosted + preloaded at build time so there's no flash of unstyled text.
+// Each exposes a CSS variable that globals.css maps to a role token.
+const displayFont = Bevan({
+	weight: '400',
+	subsets: ['latin'],
+	variable: '--font-bevan',
+	display: 'swap',
+});
+const uiFont = Spline_Sans({
+	weight: ['400', '500', '600', '700'],
+	subsets: ['latin'],
+	variable: '--font-spline',
+	display: 'swap',
+});
+const monoFont = DM_Mono({
+	weight: ['400', '500'],
+	subsets: ['latin'],
+	variable: '--font-dmmono',
+	display: 'swap',
+});
+
+const fontVars = `fontvars ${displayFont.variable} ${uiFont.variable} ${monoFont.variable}`;
 
 // This file initializes every page. We import the global stylesheet here
 // (Tailwind + our "Admit One" ticket design system) so styling is available
@@ -8,7 +32,7 @@ import Header from '../components/Header';
 
 const AppComponent = ({ Component, pageProps, currentUser }) => {
 	return (
-		<>
+		<div className={fontVars}>
 			{/* warm box-office counter texture + print registration marks */}
 			<div className="counter-bg" aria-hidden="true" />
 			<span className="regmark tl" aria-hidden="true" />
@@ -33,7 +57,7 @@ const AppComponent = ({ Component, pageProps, currentUser }) => {
 					</div>
 				</div>
 			</footer>
-		</>
+		</div>
 	);
 };
 

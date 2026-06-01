@@ -14,13 +14,13 @@ const SignOut = () => {
 		doRequest();
 	}, []); // Empty dependency array ensures this runs only once when the component mounts
 
+	// Kept deliberately minimal and dark-themed: the request resolves almost
+	// instantly, so a bright ticket-stock card would just flash before the
+	// redirect home. A quiet centered loader avoids that pop.
 	return (
-		<div className="container container--narrow">
-			<div className="empty stocked bordered">
-				<span className="spinner" aria-hidden="true" style={{ margin: '0 auto 18px' }} />
-				<h3>Signing you out…</h3>
-				<p>Hang tight — we&apos;ll take you back home.</p>
-			</div>
+		<div className="signout">
+			<span className="spinner" aria-hidden="true" />
+			<div className="signout__label">Signing you out…</div>
 		</div>
 	);
 };
