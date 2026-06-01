@@ -9,23 +9,9 @@ import {
 } from '@stripe/react-stripe-js';
 import useRequest from '../../hooks/useRequest';
 import Router from 'next/router';
+import { formatPrice, formatDateShort } from '../../utils/ticket';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY);
-
-const formatPrice = (price) =>
-	new Intl.NumberFormat('en-US', {
-		style: 'currency',
-		currency: 'USD',
-	}).format(Number(price) || 0);
-
-const formatDate = (value) =>
-	value
-		? new Intl.DateTimeFormat('en-US', {
-				month: 'short',
-				day: 'numeric',
-				year: 'numeric',
-		  }).format(new Date(value))
-		: null;
 
 const formatClock = (totalSeconds) => {
 	const m = Math.floor(totalSeconds / 60);
@@ -33,17 +19,17 @@ const formatClock = (totalSeconds) => {
 	return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-// Styling for the embedded Stripe card field so it matches the TicketHub theme.
+// Styling for the embedded Stripe card field so it matches the ink-on-stock theme.
 const cardElementOptions = {
 	style: {
 		base: {
-			color: '#4c1d95',
-			fontFamily: '"Nunito Sans", ui-sans-serif, system-ui, sans-serif',
-			fontSize: '16px',
+			color: '#211b14',
+			fontFamily: '"DM Mono", ui-monospace, monospace',
+			fontSize: '15px',
 			fontSmoothing: 'antialiased',
-			'::placeholder': { color: '#9b8bbf' },
+			'::placeholder': { color: '#6f6244' },
 		},
-		invalid: { color: '#dc2626', iconColor: '#dc2626' },
+		invalid: { color: '#c4291b', iconColor: '#c4291b' },
 	},
 };
 
@@ -53,6 +39,7 @@ const CheckoutForm = ({ amount, onToken }) => {
 	const stripe = useStripe();
 	const elements = useElements();
 	const [loading, setLoading] = useState(false);
+	const [focused, setFocused] = useState(false);
 	const [cardError, setCardError] = useState(null);
 
 	const handlePay = async () => {
@@ -77,37 +64,34 @@ const CheckoutForm = ({ amount, onToken }) => {
 
 	return (
 		<div>
-			<label className="mb-1.5 block text-left text-sm font-semibold text-ink">
-				Card details
-			</label>
-			<div className="rounded-lg border border-brand-200 bg-white px-3.5 py-3.5 shadow-sm transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-200">
+			<label>Card details</label>
+			<div className={`stripe-field${focused ? ' is-focused' : ''}`}>
 				<CardElement
 					options={cardElementOptions}
+					onFocus={() => setFocused(true)}
+					onBlur={() => setFocused(false)}
 					onChange={(e) => setCardError(e.error ? e.error.message : null)}
 				/>
 			</div>
-			{cardError && (
-				<div className="mt-1.5 text-left text-sm font-medium text-red-600">
-					{cardError}
-				</div>
-			)}
+			{cardError && <div className="card-error">{cardError}</div>}
 
 			<button
 				onClick={handlePay}
 				disabled={!stripe || loading}
-				className="mt-5 w-full cursor-pointer rounded-lg bg-accent-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-accent-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 disabled:cursor-not-allowed disabled:opacity-60"
+				className="btn btn--red btn--block"
+				style={{ marginTop: 16 }}
 			>
-				{loading ? 'Processing…' : `Pay ${formatPrice(amount)}`}
+				{loading ? 'Processing…' : `Validate & Pay ${formatPrice(amount)}`}
 			</button>
 
-			<p className="mt-3 text-center text-xs text-ink-soft">
-				Test card: 4242 4242 4242 4242 · any future date · any CVC
+			<p className="test-note">
+				Test card · 4242 4242 4242 4242 · any future date · any CVC
 			</p>
 		</div>
 	);
 };
 
-const OrderShow = ({ order, currentUser }) => {
+const OrderShow = ({ order }) => {
 	const [timeLeft, setTimeLeft] = useState(0);
 	const { doRequest, generalErrors } = useRequest({
 		url: '/api/payments',
@@ -132,91 +116,62 @@ const OrderShow = ({ order, currentUser }) => {
 
 	if (timeLeft < 0) {
 		return (
-			<div className="mx-auto mt-10 w-full max-w-md">
-				<div className="rounded-2xl border border-red-200 bg-white p-10 text-center shadow-sm">
-					<div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
-						<svg
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth={2}
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							className="h-6 w-6"
-							aria-hidden="true"
-						>
-							<circle cx="12" cy="12" r="9" />
-							<path d="M12 7v5M12 16h.01" />
-						</svg>
+			<div className="container">
+				<div className="gate stocked bordered">
+					<div className="gate--expired">
+						<span className="stamp stamp--void" style={{ marginBottom: 18 }}>
+							Void
+						</span>
+						<div className="big">Order expired</div>
+						<p>
+							This reservation timed out at the gate. Head back and pick up
+							another ticket.
+						</p>
+						<Link href="/" className="btn btn--red" style={{ marginTop: 22 }}>
+							Browse tickets
+						</Link>
 					</div>
-					<h1 className="mt-5 font-display text-xl font-bold text-ink">
-						Order expired
-					</h1>
-					<p className="mt-1 text-sm text-ink-soft">
-						This reservation timed out. You can head back and pick up another
-						ticket.
-					</p>
-					<Link
-						href="/"
-						className="mt-6 inline-block rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-brand-700"
-					>
-						Browse tickets
-					</Link>
 				</div>
 			</div>
 		);
 	}
 
 	const urgent = timeLeft <= 60;
-	const eventDate = formatDate(order.ticket.eventDate);
+	const eventDate = formatDateShort(order.ticket.eventDate);
 	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
 
 	return (
-		<div className="mx-auto mt-6 w-full max-w-md">
-			<div className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-sm">
-				<div className="border-b border-brand-100 px-6 py-6 text-center">
-					<h1 className="font-display text-xl font-bold text-ink">
-						Complete your purchase
-					</h1>
-					<p className="mt-1 text-sm font-medium text-ink">
-						{order.ticket.title}
-					</p>
-					{meta && (
-						<p className="mt-0.5 text-xs text-ink-soft">{meta}</p>
-					)}
+		<div className="container">
+			<div className="gate stocked bordered">
+				<div className="gate__head">
+					<div className="lab">Validate to enter</div>
+					<h2>{order.ticket.title}</h2>
+					{meta && <p>{meta}</p>}
 				</div>
 
-				<div className="px-6 py-7">
-					{/* Countdown */}
-					<div className="text-center">
-						<div className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
-							Time left to pay
-						</div>
-						<div
-							className={`mt-2 font-display text-5xl font-extrabold tabular-nums ${
-								urgent ? 'text-red-600' : 'text-brand-700'
-							}`}
-						>
-							{formatClock(timeLeft)}
-						</div>
-
-						<div className="mt-6 flex items-baseline justify-center gap-2">
-							<span className="text-sm font-medium text-ink-soft">Total</span>
-							<span className="text-2xl font-bold text-ink">
-								{formatPrice(order.ticket.price)}
-							</span>
-						</div>
+				<div className="gate__count">
+					<div className="k">Gate closes in</div>
+					<div className={`clock${urgent ? ' urgent' : ''}`}>
+						{formatClock(timeLeft)}
 					</div>
-
-					<div className="mt-7 border-t border-brand-100 pt-6">
-						<Elements stripe={stripePromise}>
-							<CheckoutForm
-								amount={order.ticket.price}
-								onToken={(token) => doRequest({ token })}
-							/>
-						</Elements>
+					<div className="gate__total">
+						<span className="l">Total Due</span>
+						<span className="a">{formatPrice(order.ticket.price)}</span>
 					</div>
+				</div>
 
+				<div className="perf">
+					<span className="notch notch--l" />
+					<span className="notch notch--r" />
+				</div>
+
+				<div className="gate__pay">
+					<Elements stripe={stripePromise}>
+						<CheckoutForm
+							amount={order.ticket.price}
+							onToken={(token) => doRequest({ token })}
+						/>
+					</Elements>
 					{generalErrors()}
 				</div>
 			</div>

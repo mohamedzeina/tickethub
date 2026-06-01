@@ -3,17 +3,37 @@ import buildClient from '../api/build-client';
 import Header from '../components/Header';
 
 // This file initializes every page. We import the global stylesheet here
-// (Tailwind + our TicketHub design tokens) so styling is available across all
-// pages without importing it in each individual page component.
+// (Tailwind + our "Admit One" ticket design system) so styling is available
+// across all pages without importing it in each individual page component.
 
 const AppComponent = ({ Component, pageProps, currentUser }) => {
 	return (
-		<div className="min-h-screen bg-brand-50 text-ink">
+		<>
+			{/* warm box-office counter texture + print registration marks */}
+			<div className="counter-bg" aria-hidden="true" />
+			<span className="regmark tl" aria-hidden="true" />
+			<span className="regmark tr" aria-hidden="true" />
+			<span className="regmark bl" aria-hidden="true" />
+			<span className="regmark br" aria-hidden="true" />
+
 			<Header currentUser={currentUser} />
-			<main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+
+			<main className="page-main">
 				<Component currentUser={currentUser} {...pageProps} />
 			</main>
-		</div>
+
+			<footer className="appfoot">
+				<div className="appfoot__in">
+					<div className="appfoot__big">
+						Admit <span className="red">one</span>.<br />Enjoy the show.
+					</div>
+					<div className="appfoot__meta">
+						<b>TicketHub</b> · buy &amp; sell, fan to fan
+						<br />Every ticket numbered · every order held at the gate
+					</div>
+				</div>
+			</footer>
+		</>
 	);
 };
 
