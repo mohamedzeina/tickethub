@@ -9,5 +9,11 @@ export interface TicketUpdatedEvent {
 		price: number;
 		userId: string;
 		orderId?: string;
+		// Optional so older publishers/consumers stay compatible.
+		eventDate?: string;
+		venue?: string;
+		description?: string;
+		category?: string;
+		imageUrl?: string;
 	};
 }

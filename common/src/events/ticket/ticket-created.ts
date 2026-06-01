@@ -8,5 +8,11 @@ export interface TicketCreatedEvent {
 		title: string;
 		price: number;
 		userId: string;
+		// Optional so older publishers/consumers stay compatible.
+		eventDate?: string;
+		venue?: string;
+		description?: string;
+		category?: string;
+		imageUrl?: string;
 	};
 }

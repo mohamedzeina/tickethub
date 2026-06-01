@@ -18,6 +18,15 @@ const formatPrice = (price) =>
 		currency: 'USD',
 	}).format(Number(price) || 0);
 
+const formatDate = (value) =>
+	value
+		? new Intl.DateTimeFormat('en-US', {
+				month: 'short',
+				day: 'numeric',
+				year: 'numeric',
+		  }).format(new Date(value))
+		: null;
+
 const formatClock = (totalSeconds) => {
 	const m = Math.floor(totalSeconds / 60);
 	const s = totalSeconds % 60;
@@ -159,6 +168,8 @@ const OrderShow = ({ order, currentUser }) => {
 	}
 
 	const urgent = timeLeft <= 60;
+	const eventDate = formatDate(order.ticket.eventDate);
+	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
 
 	return (
 		<div className="mx-auto mt-6 w-full max-w-md">
@@ -167,7 +178,12 @@ const OrderShow = ({ order, currentUser }) => {
 					<h1 className="font-display text-xl font-bold text-ink">
 						Complete your purchase
 					</h1>
-					<p className="mt-1 text-sm text-ink-soft">{order.ticket.title}</p>
+					<p className="mt-1 text-sm font-medium text-ink">
+						{order.ticket.title}
+					</p>
+					{meta && (
+						<p className="mt-0.5 text-xs text-ink-soft">{meta}</p>
+					)}
 				</div>
 
 				<div className="px-6 py-7">

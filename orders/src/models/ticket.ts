@@ -6,12 +6,22 @@ interface TicketAttrs {
 	id: string; // Added for event handling
 	title: string;
 	price: number;
+	eventDate?: string;
+	venue?: string;
+	description?: string;
+	category?: string;
+	imageUrl?: string;
 }
 export interface TicketDoc extends mongoose.Document {
 	id: string; // Added for event handling
 	version: number;
 	title: string;
 	price: number;
+	eventDate?: Date;
+	venue?: string;
+	description?: string;
+	category?: string;
+	imageUrl?: string;
 	isReserved(): Promise<boolean>;
 }
 interface TicketModel extends mongoose.Model<TicketDoc> {
@@ -40,6 +50,21 @@ const ticketSchema = new mongoose.Schema(
 			required: true,
 			min: 0,
 		},
+		eventDate: {
+			type: mongoose.Schema.Types.Date,
+		},
+		venue: {
+			type: String,
+		},
+		description: {
+			type: String,
+		},
+		category: {
+			type: String,
+		},
+		imageUrl: {
+			type: String,
+		},
 	},
 	{
 		toJSON: {
@@ -59,6 +84,11 @@ ticketSchema.statics.build = (attrs: TicketAttrs) => {
 		_id: attrs.id,
 		title: attrs.title,
 		price: attrs.price,
+		eventDate: attrs.eventDate,
+		venue: attrs.venue,
+		description: attrs.description,
+		category: attrs.category,
+		imageUrl: attrs.imageUrl,
 	});
 };
 

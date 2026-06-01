@@ -6,6 +6,15 @@ const formatPrice = (price) =>
 		currency: 'USD',
 	}).format(Number(price) || 0);
 
+const formatDate = (value) =>
+	value
+		? new Intl.DateTimeFormat('en-US', {
+				month: 'short',
+				day: 'numeric',
+				year: 'numeric',
+		  }).format(new Date(value))
+		: null;
+
 // Map an order status to a pill style + readable label.
 const statusStyles = {
 	complete: 'bg-accent-100 text-accent-700',
@@ -20,6 +29,9 @@ const prettyStatus = (status) =>
 const payable = (status) => status === 'created' || status === 'awaiting:payment';
 
 const OrderRow = ({ order }) => {
+	const date = formatDate(order.ticket.eventDate);
+	const meta = [date, order.ticket.venue].filter(Boolean).join(' · ');
+
 	const pill = (
 		<span
 			className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -36,6 +48,9 @@ const OrderRow = ({ order }) => {
 				<h3 className="truncate font-display text-base font-semibold text-ink">
 					{order.ticket.title}
 				</h3>
+				{meta && (
+					<div className="mt-0.5 truncate text-xs text-ink-soft">{meta}</div>
+				)}
 				<div className="mt-1 text-sm font-medium text-brand-700">
 					{formatPrice(order.ticket.price)}
 				</div>

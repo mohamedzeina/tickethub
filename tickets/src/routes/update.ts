@@ -72,6 +72,11 @@ router.put(
 			title: ticket.title,
 			price: ticket.price,
 			userId: ticket.userId,
+			eventDate: ticket.eventDate?.toISOString(),
+			venue: ticket.venue,
+			description: ticket.description,
+			category: ticket.category,
+			imageUrl: ticket.imageUrl,
 		});
 
 		res.send(ticket);
