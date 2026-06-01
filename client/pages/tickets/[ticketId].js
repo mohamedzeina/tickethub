@@ -121,6 +121,16 @@ const TicketShow = ({ ticket, currentUser }) => {
 							<div className="owner-note__tag">Your listing</div>
 							This is your own ticket — you can&apos;t buy it. Share the link
 							with a buyer instead.
+							{!ticket.orderId && (
+								<Link
+									href="/tickets/edit/[ticketId]"
+									as={`/tickets/edit/${ticket.id}`}
+									className="btn btn--line"
+									style={{ marginTop: 14 }}
+								>
+									Edit listing
+								</Link>
+							)}
 						</div>
 					) : (
 						<div className={`tear${torn ? ' torn' : ''}`} id="tear">

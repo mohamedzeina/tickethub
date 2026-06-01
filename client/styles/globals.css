@@ -418,6 +418,9 @@
 .btn--ink:hover { background: #000; transform: translateY(-1px); }
 .btn--ghost { box-shadow: 0 0 0 1.5px rgba(216, 199, 159, 0.4) inset; color: var(--stock); }
 .btn--ghost:hover { box-shadow: 0 0 0 1.5px var(--stock-edge) inset; background: rgba(216, 199, 159, 0.08); }
+/* outline button for light ticket-stock surfaces (dark ink text) */
+.btn--line { box-shadow: 0 0 0 1.5px var(--stock-edge) inset; color: var(--ink); }
+.btn--line:hover { box-shadow: 0 0 0 1.5px var(--ink) inset; transform: translateY(-1px); }
 .btn--block { width: 100%; padding: 16px; font-size: 13px; }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
@@ -806,6 +809,9 @@
 	font-size: 13px;
 	line-height: 1.55;
 	color: #4a4030;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
 }
 .owner-note__tag {
 	display: inline-block;

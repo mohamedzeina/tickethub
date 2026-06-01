@@ -26,6 +26,15 @@ const ListingRow = ({ ticket }) => {
 				<span className={`stamp ${reserved ? 'stamp--pending' : 'stamp--paid'}`}>
 					{reserved ? 'Reserved' : 'On Sale'}
 				</span>
+				{!reserved && (
+					<Link
+						href="/tickets/edit/[ticketId]"
+						as={`/tickets/edit/${ticket.id}`}
+						className="btn btn--line"
+					>
+						Edit
+					</Link>
+				)}
 				<Link
 					href="/tickets/[ticketId]"
 					as={`/tickets/${ticket.id}`}
