@@ -9,7 +9,7 @@ import {
 	BadRequestError,
 } from '@zeina-tickethub/common';
 
-import { Ticket } from '../models/ticket';
+import { Ticket, TICKET_CATEGORIES } from '../models/ticket';
 import { TicketUpdatedPublisher } from '../events/publishers/ticket-updated-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
@@ -23,6 +23,20 @@ router.put(
 		body('price')
 			.isFloat({ gt: 0 })
 			.withMessage('Price must be greater than 0'),
+		body('eventDate')
+			.isISO8601()
+			.withMessage('A valid event date is required')
+			.toDate(),
+		body('venue').trim().not().isEmpty().withMessage('Venue is required'),
+		body('description').optional({ checkFalsy: true }).trim(),
+		body('category')
+			.optional({ checkFalsy: true })
+			.isIn(TICKET_CATEGORIES)
+			.withMessage('Invalid category'),
+		body('imageUrl')
+			.optional({ checkFalsy: true })
+			.isURL()
+			.withMessage('Image must be a valid URL'),
 	],
 	validateRequest,
 	async (req: Request, res: Response) => {
@@ -43,6 +57,11 @@ router.put(
 		ticket.set({
 			title: req.body.title,
 			price: req.body.price,
+			eventDate: req.body.eventDate,
+			venue: req.body.venue,
+			description: req.body.description,
+			category: req.body.category || 'Other',
+			imageUrl: req.body.imageUrl,
 		});
 
 		await ticket.save();

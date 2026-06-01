@@ -17,6 +17,8 @@ it('returns a ticket if the ticket is found ', async () => {
 		.send({
 			title,
 			price,
+			eventDate: '2030-06-01',
+			venue: 'Test Arena',
 		})
 		.expect(201);
 

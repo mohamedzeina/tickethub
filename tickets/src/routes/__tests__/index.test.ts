@@ -8,6 +8,8 @@ const createTicket = (title: string, price: number) => {
 		.send({
 			title,
 			price,
+			eventDate: '2030-06-01',
+			venue: 'Test Arena',
 		})
 		.expect(201);
 };

@@ -4,6 +4,10 @@ import mongoose from 'mongoose';
 import { Ticket } from '../../models/ticket';
 import { natsWrapper } from '../../nats-wrapper';
 
+// Event date + venue are required by the route, so include them wherever a
+// request needs to pass validation and reach the handler.
+const event = { eventDate: '2030-06-01', venue: 'Test Arena' };
+
 it('returns a 404 if the provided ticket id does not exist', async () => {
 	const id = new mongoose.Types.ObjectId().toHexString();
 	await request(app)
@@ -12,6 +16,7 @@ it('returns a 404 if the provided ticket id does not exist', async () => {
 		.send({
 			title: 'Test title',
 			price: '20',
+			...event,
 		})
 		.expect(404);
 });
@@ -23,6 +28,7 @@ it('returns a 401 if the user is not authenticated', async () => {
 		.send({
 			title: 'Test title',
 			price: '20',
+			...event,
 		})
 		.expect(401);
 });
@@ -34,6 +40,7 @@ it('returns a 401 if the user does not own the ticket', async () => {
 		.send({
 			title: 'Test title',
 			price: 20,
+			...event,
 		})
 		.expect(201);
 
@@ -43,6 +50,7 @@ it('returns a 401 if the user does not own the ticket', async () => {
 		.send({
 			title: 'New test title',
 			price: 1000,
+			...event,
 		})
 		.expect(401);
 
@@ -64,6 +72,7 @@ it('returns a 400 if the user provides an invalid title or price', async () => {
 		.send({
 			title: 'Test title',
 			price: 20,
+			...event,
 		})
 		.expect(201);
 
@@ -73,6 +82,7 @@ it('returns a 400 if the user provides an invalid title or price', async () => {
 		.send({
 			title: '',
 			price: 20,
+			...event,
 		})
 		.expect(400);
 
@@ -82,6 +92,31 @@ it('returns a 400 if the user provides an invalid title or price', async () => {
 		.send({
 			title: 'Test title',
 			price: -10,
+			...event,
+		})
+		.expect(400);
+});
+
+it('returns a 400 if the event date or venue is missing', async () => {
+	const cookie = global.signin();
+
+	const response = await request(app)
+		.post('/api/tickets')
+		.set('Cookie', cookie)
+		.send({
+			title: 'Test title',
+			price: 20,
+			...event,
+		})
+		.expect(201);
+
+	await request(app)
+		.put(`/api/tickets/${response.body.id}`)
+		.set('Cookie', cookie)
+		.send({
+			title: 'New title',
+			price: 40,
+			venue: 'Test Arena',
 		})
 		.expect(400);
 });
@@ -95,6 +130,7 @@ it('updates the ticket provided valid inputs', async () => {
 		.send({
 			title: 'Test title',
 			price: 20,
+			...event,
 		})
 		.expect(201);
 
@@ -107,6 +143,8 @@ it('updates the ticket provided valid inputs', async () => {
 		.send({
 			title: newTitle,
 			price: newPrice,
+			eventDate: '2031-01-15',
+			venue: 'New Stadium',
 		})
 		.expect(200);
 
@@ -116,6 +154,7 @@ it('updates the ticket provided valid inputs', async () => {
 
 	expect(ticketResponse.body.title).toEqual(newTitle);
 	expect(ticketResponse.body.price).toEqual(newPrice);
+	expect(ticketResponse.body.venue).toEqual('New Stadium');
 });
 
 it('publishes an event', async () => {
@@ -127,6 +166,7 @@ it('publishes an event', async () => {
 		.send({
 			title: 'Test title',
 			price: 20,
+			...event,
 		})
 		.expect(201);
 
@@ -139,6 +179,7 @@ it('publishes an event', async () => {
 		.send({
 			title: newTitle,
 			price: newPrice,
+			...event,
 		})
 		.expect(200);
 
@@ -154,6 +195,7 @@ it('rejects updates if the ticket is reserved', async () => {
 		.send({
 			title: 'Test title',
 			price: 20,
+			...event,
 		})
 		.expect(201);
 
@@ -170,6 +212,7 @@ it('rejects updates if the ticket is reserved', async () => {
 		.send({
 			title: newTitle,
 			price: newPrice,
+			...event,
 		})
 		.expect(400);
 });

@@ -1,10 +1,28 @@
 import mongoose from 'mongoose';
 import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 
+// Allowed listing categories (also reused for route validation).
+export const TICKET_CATEGORIES = [
+	'Concerts',
+	'Sports',
+	'Theater',
+	'Festivals',
+	'Other',
+] as const;
+
+export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
+
 interface TicketAttrs {
 	title: string;
 	price: number;
 	userId: string;
+	// Required by the create/update routes at runtime, but kept optional in the
+	// type so direct Ticket.build(...) calls (tests, event replicas) stay valid.
+	eventDate?: Date;
+	venue?: string;
+	description?: string;
+	category?: TicketCategory;
+	imageUrl?: string;
 }
 
 interface TicketDoc extends mongoose.Document {
@@ -13,6 +31,11 @@ interface TicketDoc extends mongoose.Document {
 	userId: string;
 	version: number;
 	orderId?: string;
+	eventDate?: Date;
+	venue?: string;
+	description?: string;
+	category?: TicketCategory;
+	imageUrl?: string;
 }
 
 // Interface for the JSON representation after transformation
@@ -44,6 +67,22 @@ const ticketSchema = new mongoose.Schema(
 			required: true,
 		},
 		orderId: {
+			type: String,
+		},
+		eventDate: {
+			type: mongoose.Schema.Types.Date,
+		},
+		venue: {
+			type: String,
+		},
+		description: {
+			type: String,
+		},
+		category: {
+			type: String,
+			enum: TICKET_CATEGORIES,
+		},
+		imageUrl: {
 			type: String,
 		},
 	},

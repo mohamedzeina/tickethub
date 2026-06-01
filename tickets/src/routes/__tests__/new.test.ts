@@ -60,7 +60,29 @@ it('returns an error if an invalid price is provided', async () => {
 		.expect(400);
 });
 
-it('creates a ticket if valid title and price are provided', async () => {
+it('returns an error if event date or venue is missing', async () => {
+	await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({
+			title: 'test title',
+			price: 20,
+			venue: 'Test Arena',
+		})
+		.expect(400);
+
+	await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({
+			title: 'test title',
+			price: 20,
+			eventDate: '2030-06-01',
+		})
+		.expect(400);
+});
+
+it('creates a ticket if valid inputs are provided', async () => {
 	let tickets = await Ticket.find({});
 	expect(tickets.length).toEqual(0);
 
@@ -72,12 +94,17 @@ it('creates a ticket if valid title and price are provided', async () => {
 		.send({
 			title,
 			price: 20,
+			eventDate: '2030-06-01',
+			venue: 'Test Arena',
+			category: 'Concerts',
 		})
 		.expect(201);
 
 	tickets = await Ticket.find({});
 	expect(tickets.length).toEqual(1);
 	expect(tickets[0].title).toEqual(title);
+	expect(tickets[0].venue).toEqual('Test Arena');
+	expect(tickets[0].category).toEqual('Concerts');
 });
 
 it('publishes an event', async () => {
@@ -89,6 +116,8 @@ it('publishes an event', async () => {
 		.send({
 			title,
 			price: 20,
+			eventDate: '2030-06-01',
+			venue: 'Test Arena',
 		})
 		.expect(201);
 
