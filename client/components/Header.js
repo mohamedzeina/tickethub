@@ -8,7 +8,8 @@ const Header = ({ currentUser }) => {
 	const links = [
 		!currentUser && { label: 'Sign In', href: '/auth/signin', variant: 'ghost' },
 		!currentUser && { label: 'Sign Up', href: '/auth/signup', variant: 'btn-ghost' },
-		currentUser && { label: 'My Tickets', href: '/orders', variant: 'ghost' },
+		currentUser && { label: 'My Orders', href: '/orders', variant: 'ghost' },
+		currentUser && { label: 'My Listings', href: '/listings', variant: 'ghost' },
 		currentUser && { label: 'Sell Tickets', href: '/tickets/new', variant: 'cta' },
 		currentUser && { label: 'Sign Out', href: '/auth/signout', variant: 'ghost' },
 	].filter(Boolean);

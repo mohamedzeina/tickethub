@@ -55,15 +55,15 @@ const OrderIndex = ({ orders }) => {
 	return (
 		<div className="container container--mid">
 			<div className="sec-head" style={{ marginTop: 0 }}>
-				<h2>My Tickets</h2>
+				<h2>My Orders</h2>
 				<div className="count">
-					{orders.length} {orders.length === 1 ? 'Issued' : 'Issued'}
+					{orders.length} {orders.length === 1 ? 'Order' : 'Orders'}
 				</div>
 			</div>
 
 			{orders.length === 0 ? (
 				<div className="empty stocked bordered">
-					<h3>No tickets in hand</h3>
+					<h3>No orders yet</h3>
 					<p>Browse what&apos;s on sale and grab seats to your next event.</p>
 					<Link href="/" className="btn btn--red" style={{ marginTop: 22 }}>
 						Browse tickets
