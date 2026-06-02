@@ -10,7 +10,7 @@ build:
     - image: toxiczeina/auth
       context: auth
       docker:
-        dockerfile: Dockerfile
+        dockerfile: Dockerfile.dev
       sync:
         manual:
           - src: 'src/**/*.ts'
@@ -19,7 +19,7 @@ build:
     - image: toxiczeina/client
       context: client
       docker:
-        dockerfile: Dockerfile
+        dockerfile: Dockerfile.dev
       sync:
         manual:
           - src: '**/*.js'
@@ -28,7 +28,7 @@ build:
     - image: toxiczeina/tickets
       context: tickets
       docker:
-        dockerfile: Dockerfile
+        dockerfile: Dockerfile.dev
       sync:
         manual:
           - src: 'src/**/*.ts'
@@ -37,7 +37,7 @@ build:
     - image: toxiczeina/orders
       context: orders
       docker:
-        dockerfile: Dockerfile
+        dockerfile: Dockerfile.dev
       sync:
         manual:
           - src: 'src/**/*.ts'
@@ -46,7 +46,7 @@ build:
     - image: toxiczeina/expiration
       context: expiration
       docker:
-        dockerfile: Dockerfile
+        dockerfile: Dockerfile.dev
       sync:
         manual:
           - src: 'src/**/*.ts'
@@ -55,7 +55,7 @@ build:
     - image: toxiczeina/payments
       context: payments
       docker:
-        dockerfile: Dockerfile
+        dockerfile: Dockerfile.dev
       sync:
         manual:
           - src: 'src/**/*.ts'

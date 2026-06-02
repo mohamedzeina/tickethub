@@ -3,6 +3,9 @@
 // file changes might not be detected immediately.
 
 export default {
+	// Emit a self-contained server bundle so the prod image runs `node server.js`
+	// (node as PID 1, minimal runtime deps).
+	output: 'standalone',
 	webpack: (config) => {
 		return {
 			...config,
