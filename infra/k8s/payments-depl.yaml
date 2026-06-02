@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: payments-depl
 spec:
-  replicas: 1
+  # replicas managed by the HPA (payments-hpa); omitted so re-apply doesn't fight it
   selector:
     matchLabels:
       app: payments
@@ -16,6 +16,16 @@ spec:
       containers:
         - name: payments
           image: toxiczeina/payments
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              # Higher than the other services: the dev image type-checks the very
+              # large Stripe type definitions via ts-node-dev (the compiled prod
+              # image needs far less).
+              memory: 1Gi
           env:
             - name: JWT_KEY
               valueFrom:

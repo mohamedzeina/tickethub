@@ -31,6 +31,13 @@ spec:
       containers:
         - name: expiration-redis
           image: redis
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
           # Enable AOF so scheduled expiration jobs survive a pod restart.
           command: ['redis-server', '--appendonly', 'yes']
           volumeMounts:

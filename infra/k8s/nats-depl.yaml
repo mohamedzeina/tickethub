@@ -29,6 +29,13 @@ spec:
       containers:
         - name: nats
           image: nats-streaming:0.17.0
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
           # Use the FILE store on a persistent volume so durable subscriptions and
           # unacked messages survive a pod restart (default is in-memory).
           args:

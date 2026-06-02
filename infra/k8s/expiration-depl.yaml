@@ -16,6 +16,13 @@ spec:
       containers:
         - name: expiration
           image: toxiczeina/expiration
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 384Mi
           env:
             - name: NATS_URL
               value: 'http://nats-srv:4222'

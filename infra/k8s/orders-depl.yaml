@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: orders-depl
 spec:
-  replicas: 1
+  # replicas managed by the HPA (orders-hpa); omitted so re-apply doesn't fight it
   selector:
     matchLabels:
       app: orders
@@ -16,6 +16,13 @@ spec:
       containers:
         - name: orders
           image: toxiczeina/orders
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           env:
             - name: JWT_KEY
               valueFrom:
