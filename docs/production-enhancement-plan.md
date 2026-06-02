@@ -164,8 +164,26 @@ _(check off as we go — start here tomorrow)_
 
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
 - [x] Phase B — Event-driven robustness (B1–B4 done, verified in-cluster on common 1.0.37)
-- [ ] Phase C — Payments done properly
+- [~] Phase C — Payments done properly (C1–C3 done; AwaitingPayment + C4–C5 remaining)
 - [ ] Phase D — Observability
+
+**2026-06-03 — C1–C3 done (synchronous-first, then webhook conversion).**
+C1: `stripe.charges.create` → PaymentIntents. C2: `idempotencyKey: orderId` so a
+double-submit replays one PaymentIntent. C3: webhook as source of truth — the
+`POST /api/payments` route now creates a PaymentIntent and returns its
+`client_secret`; the client confirms with `confirmCardPayment`; a new
+`POST /api/payments/webhook` (raw-body, `constructEvent` signature check, mounted
+before `json()`) records the `Payment` + publishes `payment:created` only on
+`payment_intent.succeeded`, idempotent on the intent id. Closes the
+"crash between charge and DB write" gap. Wired `STRIPE_WEBHOOK_SECRET` into
+`payments-depl.yaml` ← `stripe-secret`.
+Tested: 13 payments unit tests (route returns client_secret/records nothing;
+webhook 400-on-bad-sig / records+publishes / idempotent) + a **live webhook e2e**
+through `stripe listen` — real `payment_intent.succeeded` delivered to the cluster
+([200]), order goes `complete`.
+**Deferred:** the `AwaitingPayment` order state — it needs a new `common` event
+(payments → orders) → a `common` bump + npm publish + all-services update, the same
+cross-cutting change C4's `payment:refunded` subject needs. Batch them together.
 
 **2026-06-02 — B4 done: NATS Streaming → JetStream.** Swapped the EOL
 `nats-streaming:0.17.0` + `node-nats-streaming` for `nats:2.10-alpine` (JetStream)
