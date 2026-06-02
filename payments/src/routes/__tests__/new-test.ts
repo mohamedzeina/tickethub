@@ -11,7 +11,7 @@ it('throws a 404 error when purchasing an order that does not exist', async () =
 		.post('/api/payments')
 		.set('Cookie', global.signin())
 		.send({
-			token: 'asfafa',
+			paymentMethodId: 'pm_card_visa',
 			orderId: new mongoose.Types.ObjectId().toHexString(),
 		})
 		.expect(404);
@@ -32,7 +32,7 @@ it('throws a 401 error when purchasing an order that does not belong to the user
 		.post('/api/payments')
 		.set('Cookie', global.signin())
 		.send({
-			token: 'asfafa',
+			paymentMethodId: 'pm_card_visa',
 			orderId: order.id,
 		})
 		.expect(401);
@@ -56,7 +56,7 @@ it('throws a 400 error when purchasing a cancelled order', async () => {
 		.post('/api/payments')
 		.set('Cookie', user)
 		.send({
-			token: 'asfafa',
+			paymentMethodId: 'pm_card_visa',
 			orderId: order.id,
 		})
 		.expect(400);
@@ -81,23 +81,16 @@ it('returns a 201 with valid inputs', async () => {
 		.post('/api/payments')
 		.set('Cookie', user)
 		.send({
-			token: 'tok_visa',
+			paymentMethodId: 'pm_card_visa',
 			orderId: order.id,
 		})
 		.expect(201);
 
-	const stripeCharges = await stripe.charges.list({ limit: 50 });
-	const stripeCharge = stripeCharges.data.find((charge) => {
-		return charge.amount === price * 100;
-	});
-
-	expect(stripeCharge).toBeDefined();
-	expect(stripeCharge!.currency).toEqual('usd');
-
-	const payment = await Payment.findOne({
-		orderId: order.id,
-		stripeId: stripeCharge!.id,
-	});
-
+	const payment = await Payment.findOne({ orderId: order.id });
 	expect(payment).not.toEqual(null);
+
+	const paymentIntent = await stripe.paymentIntents.retrieve(payment!.stripeId);
+	expect(paymentIntent.amount).toEqual(price * 100);
+	expect(paymentIntent.currency).toEqual('usd');
+	expect(paymentIntent.status).toEqual('succeeded');
 });

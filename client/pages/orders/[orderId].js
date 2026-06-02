@@ -33,9 +33,10 @@ const cardElementOptions = {
 	},
 };
 
-// Embedded card form: tokenizes the card client-side, then hands the token to
-// the parent so it can hit /api/payments (which charges via the token source).
-const CheckoutForm = ({ amount, onToken }) => {
+// Embedded card form: builds a PaymentMethod from the card client-side, then
+// hands its id to the parent so it can hit /api/payments (which creates and
+// confirms a PaymentIntent against that PaymentMethod).
+const CheckoutForm = ({ amount, onPaymentMethod }) => {
 	const stripe = useStripe();
 	const elements = useElements();
 	const [loading, setLoading] = useState(false);
@@ -48,9 +49,10 @@ const CheckoutForm = ({ amount, onToken }) => {
 		setLoading(true);
 		setCardError(null);
 
-		const { token, error } = await stripe.createToken(
-			elements.getElement(CardElement),
-		);
+		const { paymentMethod, error } = await stripe.createPaymentMethod({
+			type: 'card',
+			card: elements.getElement(CardElement),
+		});
 
 		if (error) {
 			setCardError(error.message);
@@ -58,7 +60,7 @@ const CheckoutForm = ({ amount, onToken }) => {
 			return;
 		}
 
-		await onToken(token.id);
+		await onPaymentMethod(paymentMethod.id);
 		setLoading(false);
 	};
 
@@ -169,7 +171,9 @@ const OrderShow = ({ order }) => {
 					<Elements stripe={stripePromise}>
 						<CheckoutForm
 							amount={order.ticket.price}
-							onToken={(token) => doRequest({ token })}
+							onPaymentMethod={(paymentMethodId) =>
+								doRequest({ paymentMethodId })
+							}
 						/>
 					</Elements>
 					{generalErrors()}

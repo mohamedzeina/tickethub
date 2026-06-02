@@ -19,10 +19,10 @@ const router = express.Router();
 router.post(
 	'/api/payments',
 	requireAuth,
-	[body('token').not().isEmpty(), body('orderId').not().isEmpty()],
+	[body('paymentMethodId').not().isEmpty(), body('orderId').not().isEmpty()],
 	validateRequest,
 	async (req: Request, res: Response) => {
-		const { token, orderId } = req.body;
+		const { paymentMethodId, orderId } = req.body;
 
 		const order = await Order.findById(orderId);
 
@@ -38,15 +38,20 @@ router.post(
 			throw new BadRequestError('Cannot pay for a cancelled order');
 		}
 
-		const charge = await stripe.charges.create({
-			currency: 'USD',
+		// C1: create + confirm a PaymentIntent in one step (server-side confirm).
+		// allow_redirects: 'never' keeps it to card-style methods so no redirect
+		// handoff is needed for this synchronous flow.
+		const paymentIntent = await stripe.paymentIntents.create({
+			currency: 'usd',
 			amount: order.price * 100,
-			source: token,
+			payment_method: paymentMethodId,
+			confirm: true,
+			automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
 		});
 
 		const payment = Payment.build({
 			orderId,
-			stripeId: charge.id,
+			stripeId: paymentIntent.id,
 		});
 
 		await payment.save();
