@@ -1,9 +1,23 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nats-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nats-depl
 spec:
   replicas: 1
+  # Single-replica + RWO volume: avoid two pods contending for the disk on rollout.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: nats
@@ -15,12 +29,18 @@ spec:
       containers:
         - name: nats
           image: nats-streaming:0.17.0
+          # Use the FILE store on a persistent volume so durable subscriptions and
+          # unacked messages survive a pod restart (default is in-memory).
           args:
             [
               '-p',
               '4222',
               '-m',
               '8222',
+              '-store',
+              'file',
+              '-dir',
+              '/data',
               '-hbi',
               '5s',
               '-hbt',
@@ -31,6 +51,13 @@ spec:
               '-cid',
               'tickethub',
             ]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nats-pvc
 ---
 apiVersion: v1
 kind: Service
