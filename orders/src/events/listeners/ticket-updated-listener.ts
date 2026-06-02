@@ -6,10 +6,13 @@ import {
 } from '@zeina-tickethub/common';
 import { Ticket } from '../../models/ticket';
 import { queueGroupName } from './queue-group-name';
+import { FailedEvent } from '../../models/failed-event';
 
 export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 	readonly subject = Subjects.TicketUpdated;
 	queueGroupName: string = queueGroupName;
+	// B3: cap retries and dead-letter poison messages.
+	protected deadLetterStore = FailedEvent;
 
 	async onMessage(data: TicketUpdatedEvent['data'], msg: Message) {
 		const { id, title, price, userId, unlisted, eventDate, venue, description, category, imageUrl } =

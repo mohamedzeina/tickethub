@@ -9,10 +9,13 @@ import { Ticket } from '../../models/ticket';
 import { ProcessedEvent } from '../../models/processed-event';
 import { TicketUpdatedPublisher } from '../publishers/ticket-updated-publisher';
 import { queueGroupName } from './queue-group-name';
+import { FailedEvent } from '../../models/failed-event';
 
 export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 	readonly subject = Subjects.OrderCancelled;
 	queueGroupName: string = queueGroupName;
+	// B3: cap retries and dead-letter poison messages.
+	protected deadLetterStore = FailedEvent;
 
 	async onMessage(data: OrderCancelledEvent['data'], msg: Message) {
 		await processOnce(

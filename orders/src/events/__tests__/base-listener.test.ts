@@ -106,3 +106,150 @@ it('logs a version conflict calmly (warn, not error) and does not ack', async ()
 	warnSpy.mockRestore();
 	errSpy.mockRestore();
 });
+
+// --- B3: dead-letter handling for poison messages ---
+
+// In-memory DeadLetterStore. recordFailure accumulates by (channel, sequence),
+// so redeliveries of the same message return a rising attempt count.
+class FakeDeadLetterStore {
+	failures = new Map<string, number>();
+	deadLettered: any[] = [];
+	throwOnRecord = false;
+	throwOnDeadLetter = false;
+
+	async recordFailure(channel: string, sequence: number) {
+		if (this.throwOnRecord) throw new Error('store down');
+		const key = `${channel}:${sequence}`;
+		const n = (this.failures.get(key) ?? 0) + 1;
+		this.failures.set(key, n);
+		return n;
+	}
+
+	async deadLetter(entry: any) {
+		if (this.throwOnDeadLetter) throw new Error('write failed');
+		this.deadLettered.push(entry);
+	}
+}
+
+// A listener that always fails, with a small cap so the dead-letter threshold is
+// reachable in a test.
+class PoisonListener extends Listener<{
+	subject: Subjects.OrderCreated;
+	data: { hello: string };
+}> {
+	readonly subject = Subjects.OrderCreated;
+	queueGroupName = 'test-queue-group';
+	store = new FakeDeadLetterStore();
+
+	constructor(client: Stan) {
+		super(client);
+		this.deadLetterStore = this.store;
+		this.maxAttempts = 3;
+	}
+
+	async onMessage(_data: { hello: string }, _msg: Message) {
+		throw new Error('always fails');
+	}
+}
+
+const setupPoison = () => {
+	const subscription = new EventEmitter();
+	const subOptions = {
+		setManualAckMode() {
+			return this;
+		},
+		setAckWait() {
+			return this;
+		},
+		setDeliverAllAvailable() {
+			return this;
+		},
+		setDurableName() {
+			return this;
+		},
+	};
+	const client = {
+		subscriptionOptions: () => subOptions,
+		subscribe: jest.fn().mockReturnValue(subscription),
+	} as unknown as Stan;
+
+	const listener = new PoisonListener(client);
+	return { listener, subscription, store: listener.store };
+};
+
+it('counts failures but does not ack or dead-letter below the cap', async () => {
+	const { listener, subscription, store } = setupPoison();
+	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	listener.listen();
+
+	// Two deliveries, cap is 3.
+	const m1 = buildMsg();
+	const m2 = buildMsg();
+	subscription.emit('message', m1);
+	await flush();
+	subscription.emit('message', m2);
+	await flush();
+
+	expect(store.failures.get('order:created:1')).toBe(2);
+	expect(store.deadLettered).toHaveLength(0);
+	expect(m1.ack).not.toHaveBeenCalled();
+	expect(m2.ack).not.toHaveBeenCalled();
+	errSpy.mockRestore();
+});
+
+it('dead-letters and acks once the attempt cap is reached', async () => {
+	const { listener, subscription, store } = setupPoison();
+	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	listener.listen();
+
+	let last: Message = buildMsg();
+	for (let i = 0; i < 3; i++) {
+		last = buildMsg();
+		subscription.emit('message', last);
+		await flush();
+	}
+
+	expect(store.deadLettered).toHaveLength(1);
+	const entry = store.deadLettered[0];
+	expect(entry.attempts).toBe(3);
+	expect(entry.channel).toBe('order:created');
+	expect(entry.queueGroup).toBe('test-queue-group');
+	expect(entry.data).toBe(JSON.stringify({ hello: 'world' }));
+	// The poison message is acked so NATS stops redelivering it.
+	expect(last.ack).toHaveBeenCalledTimes(1);
+	errSpy.mockRestore();
+});
+
+it('does not ack if the dead-letter store is unreachable (stays for retry)', async () => {
+	const { listener, subscription, store } = setupPoison();
+	store.throwOnRecord = true;
+	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	listener.listen();
+
+	const msg = buildMsg();
+	subscription.emit('message', msg);
+	await flush();
+
+	expect(store.deadLettered).toHaveLength(0);
+	expect(msg.ack).not.toHaveBeenCalled();
+	expect(errSpy).toHaveBeenCalled();
+	errSpy.mockRestore();
+});
+
+it('does not ack if archiving the dead-letter fails (stays for retry)', async () => {
+	const { listener, subscription, store } = setupPoison();
+	store.throwOnDeadLetter = true;
+	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	listener.listen();
+
+	let last: Message = buildMsg();
+	for (let i = 0; i < 3; i++) {
+		last = buildMsg();
+		subscription.emit('message', last);
+		await flush();
+	}
+
+	expect(store.deadLettered).toHaveLength(0);
+	expect(last.ack).not.toHaveBeenCalled();
+	errSpy.mockRestore();
+});

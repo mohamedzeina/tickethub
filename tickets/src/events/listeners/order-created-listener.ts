@@ -9,10 +9,13 @@ import { Ticket } from '../../models/ticket';
 import { ProcessedEvent } from '../../models/processed-event';
 import { TicketUpdatedPublisher } from '../publishers/ticket-updated-publisher';
 import { queueGroupName } from './queue-group-name';
+import { FailedEvent } from '../../models/failed-event';
 
 export class OrderCreatedListner extends Listener<OrderCreatedEvent> {
 	readonly subject = Subjects.OrderCreated;
 	queueGroupName: string = queueGroupName;
+	// B3: cap retries and dead-letter poison messages.
+	protected deadLetterStore = FailedEvent;
 
 	async onMessage(data: OrderCreatedEvent['data'], msg: Message) {
 		await processOnce(
