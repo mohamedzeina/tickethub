@@ -7,6 +7,7 @@ export * from './errors/request-validation-error';
 
 export * from './middlewares/current-user';
 export * from './middlewares/error-handler';
+export * from './middlewares/health-router';
 export * from './middlewares/require-auth';
 export * from './middlewares/validate-request';
 

@@ -2,15 +2,25 @@ import express from 'express';
 import 'express-async-errors';
 import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
+import mongoose from 'mongoose';
 
 import { currentUserRouter } from './routes/current-user';
 import { signInRouter } from './routes/signin';
 import { signOutRouter } from './routes/signout';
 import { signUpRouter } from './routes/signup';
-import { errorHandler, NotFoundError } from '@zeina-tickethub/common';
+import {
+	errorHandler,
+	NotFoundError,
+	healthRouter,
+} from '@zeina-tickethub/common';
 
 const app = express();
 app.set('trust proxy', true);
+app.use(
+	healthRouter({
+		checks: { mongo: () => mongoose.connection.readyState === 1 },
+	}),
+);
 app.use(json());
 app.use(
 	cookieSession({

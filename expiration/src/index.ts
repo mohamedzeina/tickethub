@@ -1,5 +1,6 @@
 import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
+import { startHealthServer } from './health-server';
 
 const startExpirationService = async () => {
 	if (!process.env.NATS_URL) {
@@ -31,6 +32,8 @@ const startExpirationService = async () => {
 	} catch (err) {
 		console.log(err);
 	}
+
+	startHealthServer(3000);
 };
 
 startExpirationService();

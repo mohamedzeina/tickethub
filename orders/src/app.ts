@@ -2,20 +2,31 @@ import express from 'express';
 import 'express-async-errors';
 import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
+import mongoose from 'mongoose';
 
 import {
 	errorHandler,
 	NotFoundError,
 	currentUser,
+	healthRouter,
 } from '@zeina-tickethub/common';
 
 import { indexOrderRouter } from './routes';
 import { newOrderRouter } from './routes/new';
 import { showOrderRouter } from './routes/show';
 import { cancelOrderRouter } from './routes/cancel';
+import { natsWrapper } from './nats-wrapper';
 
 const app = express();
 app.set('trust proxy', true);
+app.use(
+	healthRouter({
+		checks: {
+			mongo: () => mongoose.connection.readyState === 1,
+			nats: () => natsWrapper.isConnected,
+		},
+	}),
+);
 app.use(json());
 app.use(
 	cookieSession({

@@ -1,4 +1,5 @@
 export const natsWrapper = {
+	isConnected: true,
 	client: {
 		publish: jest
 			.fn()

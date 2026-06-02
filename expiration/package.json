@@ -19,7 +19,7 @@
   "description": "",
   "dependencies": {
     "@types/bull": "^3.15.9",
-    "@zeina-tickethub/common": "^1.0.30",
+    "@zeina-tickethub/common": "^1.0.33",
     "bull": "^4.16.5",
     "ts-node-dev": "^2.0.0",
     "typescript": "^6.0.2"
