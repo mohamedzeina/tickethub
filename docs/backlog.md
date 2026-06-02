@@ -33,15 +33,18 @@ NATS + Redis. CI runs per-service test workflows (GitHub Actions).
 
 ### Notable gaps (what the baseline does *not* have)
 
-- Tickets carry only **title + price** — no description, images, event date,
-  venue, category, or quantity.
-- Listing returns **all unreserved tickets** — no search, filter, sort, or
-  pagination on the server.
+Several original gaps are now closed (✅): tickets carry full event details +
+images; listings have server-side search/filter/sort/pagination; sellers can
+edit/unlist; there's a seed-data script; self-purchase is blocked and the hold
+window is 15 min. Remaining gaps:
+
+- Tickets are still **single-unit** — no quantity / multi-seat listings.
 - No **password reset / email verification**, no user **profile**, no **roles**.
 - No **email/notification** of any kind (purchase confirmation, expiry warning).
-- No **refunds / cancellation by buyer**, no **receipts/order history detail**.
+- No **refunds / cancellation by buyer**, no **receipt/order history detail**
+  (charge ref, paid-at) — the order page is checkout-only.
 - No **reviews, ratings, or seller reputation**.
-- No **rate limiting**, **observability/metrics**, or **seed data**.
+- No **rate limiting** or **observability/metrics**.
 
 ---
 
@@ -49,7 +52,7 @@ NATS + Redis. CI runs per-service test workflows (GitHub Actions).
 
 | Tier | Theme | Items |
 |------|-------|-------|
-| **P0 — Near term** | High value, mostly contained to existing services | Richer ticket model, search/filter/pagination, "My listings" + edit/delete UI, buyer order detail, email confirmations |
+| **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI · _remaining:_ buyer order detail/receipt, email confirmations |
 | **P1 — Mid term** | New capability, moderate scope | Notifications service, password reset + email verify, refunds, seller reputation/reviews, ticket quantity |
 | **P2 — Long term** | Platform maturity & scale | Observability stack, rate limiting, admin dashboard, full-text search engine, payment provider abstraction, wishlists/alerts |
 
@@ -59,7 +62,11 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
 ## P0 — Near term
 
-### 1. Richer ticket model (description, event date, venue, category, image)
+### 1. Richer ticket model (description, event date, venue, category, image) — ✅ Done
+- **Status:** Shipped. Ticket model carries `eventDate`, `venue`, `description`,
+  `category`, `imageUrl` (+ `unlisted`); event payloads + orders/payments replicas
+  updated; create/edit forms, cards, and detail page render them. Signed Cloudinary
+  image uploads and past-date rejection included.
 - **Value:** Title + price is too thin for a real marketplace; buyers need
   context and the UI already has space (cards, detail page) for it.
 - **Scope:** `tickets` model + create/update routes + validation; extend
@@ -70,20 +77,23 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   schema carefully and update all listeners together.
 - **Effort:** M
 
-### 2. Server-side search, filter, sort & pagination for listings
-- **Value:** `GET /api/tickets` currently returns *every* unreserved ticket;
-  won't scale and the hero search is client-only.
-- **Scope:** `tickets` index route — query params (`q`, `category`, `minPrice`,
-  `maxPrice`, `sort`, `page`, `limit`), Mongo text index on title/description;
-  client wires the hero search + filter controls to the API.
+### 2. Server-side search, filter, sort & pagination for listings — ✅ Done
+- **Status:** Shipped. `GET /api/tickets` takes `q`, `category`, `minPrice`,
+  `maxPrice`, `sort`, `page`, `limit` (regex title/venue search, strict param
+  validation → 400). Client has category chips, price range, sort dropdown, and
+  pagination. **Extended:** a global navbar search with live typeahead
+  suggestions and a dedicated `/search` results page; the hero now uses
+  Browse/Sell CTAs instead of an inline search.
+- **Follow-up:** swap the regex search for a Mongo text index (or #15) as the
+  catalog grows.
 - **Effort:** M
 
-### 3. "My listings" management (edit / delete in the UI)
-- **Value:** The `update` route exists but there's no UI; sellers can't manage
-  listings, and there's no delete at all.
-- **Scope:** Client page listing the current user's tickets; wire to existing
-  `PUT /api/tickets/:id`; add a **soft-delete/unlist** route + `ticket:updated`
-  flag (avoid hard delete so orders/payments replicas stay consistent).
+### 3. "My listings" management (edit / unlist in the UI) — ✅ Done
+- **Status:** Shipped. `/listings` page + a seller tickets endpoint; edit page
+  with a shared ticket form; soft-delete via an `unlisted` flag propagated over
+  `ticket:updated` to orders/payments (no hard delete). Handles the reserve race
+  and returns a clean 400 when editing a concurrently reserved ticket; unlisted
+  tickets are hidden from non-owners.
 - **Effort:** M
 
 ### 4. Buyer order detail & history page
@@ -195,7 +205,8 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
 ## Quick wins (small, independent)
 
-- **Seed/demo data** script so a fresh cluster isn't empty (helps demos & dev).
+- ~~**Seed/demo data** script so a fresh cluster isn't empty~~ — ✅ Done (`seed/seed.js`
+  resets collections + creates demo users/tickets).
 - **Ticket detail: show seller + listing date** (needs #1's richer model).
 - **Empty-state & loading skeletons** on listings/orders (UI only).
 - **`/healthz` endpoints** + k8s liveness/readiness probes (reliability, S).
@@ -205,15 +216,16 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
 ---
 
-## Suggested first slice
+## Suggested next slice
 
-A coherent, demoable increment that builds on the new UI:
+#1–#3 are shipped. The next coherent increment closes the post-purchase loop:
 
-1. **#1 Richer ticket model** (description, date, venue, image) — unlocks the
-   card/detail UI that already has the space.
-2. **#2 Server-side search/filter/pagination** — makes the hero search real.
-3. **#3 My listings (edit/delete)** + **#4 buyer order detail**.
-4. **#5 Email confirmation** — first real user feedback loop.
+1. **#4 Buyer order detail & history** — persist charge id + paid-at on the order
+   (extend the `payment:created` consumer) and render a real receipt/history,
+   not just the checkout page.
+2. **#5 Email confirmation** on purchase + expiry warning — first feedback loop
+   that reaches users outside the app.
+3. **#8 Refunds / buyer cancellation** — completes the money flow alongside #4.
 
 These stay mostly within existing services, exercise the event-versioning
-discipline, and produce a visibly more complete marketplace.
+discipline, and turn "you bought a ticket" into a trustworthy, closed loop.
