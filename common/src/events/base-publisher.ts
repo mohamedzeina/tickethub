@@ -1,5 +1,7 @@
-import { Stan } from 'node-nats-streaming';
+import { JetStreamClient, JSONCodec } from 'nats';
 import { Subjects } from './subjects';
+
+const jc = JSONCodec();
 
 interface Event {
 	subject: Subjects;
@@ -8,21 +10,17 @@ interface Event {
 
 export abstract class Publisher<T extends Event> {
 	abstract subject: T['subject'];
-	protected client: Stan;
+	protected js: JetStreamClient;
 
-	constructor(client: Stan) {
-		this.client = client;
+	constructor(js: JetStreamClient) {
+		this.js = js;
 	}
 
-	publish(data: T['data']): Promise<void> {
-		return new Promise((resolve, reject) => {
-			this.client.publish(this.subject, JSON.stringify(data), (err) => {
-				if (err) {
-					return reject(err);
-				}
-				console.log(`Event published to subject ${this.subject}`);
-				resolve();
-			});
-		});
+	// Publishes into the JetStream stream. js.publish resolves once the server
+	// has persisted and ack'd the message, so a resolved promise means it's
+	// durably stored (stronger than STAN's fire-and-callback).
+	async publish(data: T['data']): Promise<void> {
+		await this.js.publish(this.subject, jc.encode(data));
+		console.log(`Event published to subject ${this.subject}`);
 	}
 }

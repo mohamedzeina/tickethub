@@ -16,7 +16,7 @@ const router = express.Router();
 // learns the listing changed. Reuses the standard save() flow so the version is
 // bumped in lockstep with consumers (a flag-only updateOne would skew them).
 const publishUpdate = (ticket: any) =>
-	new TicketUpdatedPublisher(natsWrapper.client).publish({
+	new TicketUpdatedPublisher(natsWrapper.js).publish({
 		id: ticket.id,
 		version: ticket.version,
 		title: ticket.title,

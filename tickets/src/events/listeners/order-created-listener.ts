@@ -1,4 +1,4 @@
-import { Message } from 'node-nats-streaming';
+import { JsMsg } from 'nats';
 import {
 	Listener,
 	OrderCreatedEvent,
@@ -17,11 +17,11 @@ export class OrderCreatedListner extends Listener<OrderCreatedEvent> {
 	// B3: cap retries and dead-letter poison messages.
 	protected deadLetterStore = FailedEvent;
 
-	async onMessage(data: OrderCreatedEvent['data'], msg: Message) {
+	async onMessage(data: OrderCreatedEvent['data'], msg: JsMsg) {
 		await processOnce(
 			ProcessedEvent,
 			this.subject,
-			msg.getSequence(),
+			msg.seq,
 			async () => {
 				// Find the ticket that the order is reserving
 				const ticket = await Ticket.findById(data.ticket.id);
@@ -36,7 +36,7 @@ export class OrderCreatedListner extends Listener<OrderCreatedEvent> {
 
 				// Save the ticket
 				await ticket.save();
-				await new TicketUpdatedPublisher(this.client).publish({
+				await new TicketUpdatedPublisher(this.js).publish({
 					id: ticket.id,
 					version: ticket.version,
 					title: ticket.title,

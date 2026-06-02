@@ -163,9 +163,35 @@ D3 (tracing) are the two largest items — schedule them as their own PRs.
 _(check off as we go — start here tomorrow)_
 
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
-- [x] Phase B — Event-driven robustness (B1–B3 done, verified in-cluster on common 1.0.36; **B4 JetStream deferred**)
+- [x] Phase B — Event-driven robustness (B1–B4 done, verified in-cluster on common 1.0.37)
 - [ ] Phase C — Payments done properly
 - [ ] Phase D — Observability
+
+**2026-06-02 — B4 done: NATS Streaming → JetStream.** Swapped the EOL
+`nats-streaming:0.17.0` + `node-nats-streaming` for `nats:2.10-alpine` (JetStream)
++ the `nats` SDK. `common`'s base-publisher/base-listener rewritten: one `tickethub`
+stream (file storage on the PVC) over the 6 subjects, and **pull consumers** (one
+durable per service+subject, 9 total) that load-balance across replicas. Robustness
+now leans on JetStream natives — the retry cap is the consumer's `max_deliver` and a
+poison message is `term()`'d after the delivery cap (the hand-rolled B3 attempt
+counter is retired; a thin `FailedEvent`/Redis store is kept for inspection/replay).
+B1 `processedevents` stays for exactly-once *effects* (keyed on `msg.seq`).
+Migration cleanup: switching brokers reset the message-sequence space, so the
+STAN-era `processedevents`/`failedevents` rows had to be cleared once (their old
+sequences collided with JetStream's fresh ones). Re-ran the full Phase A + B e2e on
+JetStream: **38 checks, all green.**
+
+**2026-06-02 — combined Phase A + B e2e: 38 checks, all green** (live `docker-desktop`
+cluster via the ingress). Covered: health endpoints + liveness/readiness probes;
+graceful-shutdown config (preStop + SIGTERM handlers); 2 replicas for the HTTP
+services + HPAs + resource requests/limits; NATS & Redis PVCs bound with Redis AOF —
+**a scheduled order expiration survives a Redis pod restart** (the A3 bug fix);
+idempotent consumers (`processedevents` recording + unique-index dedup guard);
+graceful listener errors with no service crash through a retry storm; and a **poison
+message dead-lettered after 10 attempts** then acked so it stops looping (per-consumer —
+the same event is processed fine by the non-poisoned service). App flows exercised
+end-to-end: reserve → blocked-while-reserved → cancel → unreserve, and buy → pay →
+complete.
 
 **2026-06-02 — combined Phase A + B e2e: 38 checks, all green** (live `docker-desktop`
 cluster via the ingress). Covered: health endpoints + liveness/readiness probes;

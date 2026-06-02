@@ -1,3 +1,4 @@
+import { ensureStream } from '@zeina-tickethub/common';
 import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
 import { startHealthServer } from './health-server';
@@ -9,28 +10,26 @@ const startExpirationService = async () => {
 	if (!process.env.NATS_URL) {
 		throw new Error('NATS_URL must be defined');
 	}
-	if (!process.env.NATS_CLUSTER_ID) {
-		throw new Error('NATS_CLUSTER_ID must be defined');
-	}
 	if (!process.env.NATS_CLIENT_ID) {
 		throw new Error('NATS_CLIENT_ID must be defined');
 	}
 
 	try {
 		await natsWrapper.connect(
-			process.env.NATS_CLUSTER_ID,
-			process.env.NATS_CLIENT_ID,
 			process.env.NATS_URL,
+			process.env.NATS_CLIENT_ID,
 		);
 
-		natsWrapper.client.on('close', () => {
+		natsWrapper.connection.closed().then(() => {
 			if (!isShuttingDown) {
 				console.log('NATS connection closed unexpectedly, exiting');
 				process.exit(1);
 			}
 		});
 
-		new OrderCreatedListener(natsWrapper.client).listen();
+		await ensureStream(natsWrapper.connection);
+
+		await new OrderCreatedListener(natsWrapper.connection).listen();
 	} catch (err) {
 		console.log(err);
 	}
@@ -52,7 +51,7 @@ const startExpirationService = async () => {
 		try {
 			await new Promise<void>((resolve) => server.close(() => resolve()));
 			await expirationQueue.close();
-			natsWrapper.client.close();
+			await natsWrapper.connection.close();
 		} catch (err) {
 			console.error('Error during graceful shutdown', err);
 		} finally {

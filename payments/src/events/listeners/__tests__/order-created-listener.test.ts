@@ -1,12 +1,12 @@
 import { natsWrapper } from '../../../nats-wrapper';
-import { Message } from 'node-nats-streaming';
+import { JsMsg } from 'nats';
 import { OrderCreatedListener } from '../order-created-listener';
 import { OrderCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
 import mongoose, { set } from 'mongoose';
 import { Order } from '../../../models/order';
 
 const setup = async () => {
-	const listener = new OrderCreatedListener(natsWrapper.client);
+	const listener = new OrderCreatedListener(natsWrapper.connection);
 
 	const data: OrderCreatedEvent['data'] = {
 		id: new mongoose.Types.ObjectId().toHexString(),
@@ -21,9 +21,9 @@ const setup = async () => {
 	};
 
 	// @ts-ignore
-	const msg: Message = {
+	const msg: JsMsg = {
 		ack: jest.fn(),
-		getSequence: () => 1,
+		seq: 1,
 	};
 
 	return { listener, data, msg };

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Message } from 'node-nats-streaming';
+import { JsMsg, JSONCodec } from 'nats';
 import { ExpirationCompleteEvent, OrderStatus } from '@zeina-tickethub/common';
 import { ExpirationCompleteListener } from '../expiration-complete-listener';
 import { natsWrapper } from '../../../nats-wrapper';
@@ -7,7 +7,7 @@ import { Ticket } from '../../../models/ticket';
 import { Order } from '../../../models/order';
 
 const setup = async () => {
-	const listener = new ExpirationCompleteListener(natsWrapper.client);
+	const listener = new ExpirationCompleteListener(natsWrapper.connection);
 
 	const ticket = Ticket.build({
 		id: new mongoose.Types.ObjectId().toHexString(),
@@ -31,9 +31,9 @@ const setup = async () => {
 	};
 
 	// @ts-ignore
-	const msg: Message = {
+	const msg: JsMsg = {
 		ack: jest.fn(),
-		getSequence: () => 1,
+		seq: 1,
 	};
 
 	return { listener, order, ticket, data, msg };
@@ -54,11 +54,9 @@ it('emits an OrderCancelled event', async () => {
 
 	await listener.onMessage(data, msg);
 
-	expect(natsWrapper.client.publish).toHaveBeenCalled();
+	expect(natsWrapper.js.publish).toHaveBeenCalled();
 
-	const eventData = JSON.parse(
-		(natsWrapper.client.publish as jest.Mock).mock.calls[0][1],
-	);
+	const eventData = (JSONCodec().decode((natsWrapper.js.publish as jest.Mock).mock.calls[0][1]) as any);
 
 	expect(eventData.id).toEqual(order.id);
 });
@@ -78,7 +76,7 @@ it('skips a redelivered (duplicate) event, cancelling and publishing once', asyn
 	await listener.onMessage(data, msg);
 
 	// The OrderCancelled event is published a single time.
-	expect(natsWrapper.client.publish).toHaveBeenCalledTimes(1);
+	expect(natsWrapper.js.publish).toHaveBeenCalledTimes(1);
 
 	// And the order ends up cancelled exactly once (version bumped only once).
 	const updatedOrder = await Order.findById(order.id);

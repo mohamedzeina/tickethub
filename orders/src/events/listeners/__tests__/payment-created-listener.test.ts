@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Message } from 'node-nats-streaming';
+import { JsMsg } from 'nats';
 import { PaymentCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
 import { PaymentCreatedListener } from '../payment-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
@@ -7,7 +7,7 @@ import { Ticket } from '../../../models/ticket';
 import { Order } from '../../../models/order';
 
 const setup = async () => {
-	const listener = new PaymentCreatedListener(natsWrapper.client);
+	const listener = new PaymentCreatedListener(natsWrapper.connection);
 
 	const ticket = Ticket.build({
 		id: new mongoose.Types.ObjectId().toHexString(),
@@ -31,9 +31,9 @@ const setup = async () => {
 	};
 
 	// @ts-ignore
-	const msg: Message = {
+	const msg: JsMsg = {
 		ack: jest.fn(),
-		getSequence: () => 1,
+		seq: 1,
 	};
 
 	return { listener, order, data, msg };

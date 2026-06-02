@@ -59,7 +59,7 @@ router.post(
 
 		await ticket.save();
 
-		await new TicketCreatedPublisher(natsWrapper.client).publish({
+		await new TicketCreatedPublisher(natsWrapper.js).publish({
 			id: ticket.id,
 			version: ticket.version,
 			title: ticket.title,

@@ -1,6 +1,17 @@
-import { Message, Stan } from 'node-nats-streaming';
+import {
+	AckPolicy,
+	DeliverPolicy,
+	JetStreamClient,
+	JsMsg,
+	JSONCodec,
+	NatsConnection,
+	nanos,
+} from 'nats';
 import { Subjects } from './subjects';
 import { DeadLetterStore } from './dead-letter';
+import { STREAM_NAME } from './stream';
+
+const jc = JSONCodec();
 
 interface Event {
 	subject: Subjects;
@@ -9,119 +20,153 @@ interface Event {
 
 export abstract class Listener<T extends Event> {
 	abstract subject: T['subject'];
+	// Kept from the STAN model for continuity: it names the durable consumer, so
+	// every replica of a service shares one consumer and JetStream load-balances
+	// deliveries across them (the queue-group equivalent for pull consumers).
 	abstract queueGroupName: string;
-	// Handlers ack on their own success path. If a handler throws, the message
-	// is deliberately left un-acked so NATS redelivers it after `ackWait`.
-	abstract onMessage(data: T['data'], msg: Message): Promise<void> | void;
-	protected client: Stan;
-	private ackWait = 5 * 1000;
-	// Opt-in (B3): a subclass that sets this gets poison-message protection — a
-	// message that keeps failing is dead-lettered and acked after `maxAttempts`
-	// instead of redelivering forever. Left unset, the listener keeps the B2
-	// behaviour (log and retry indefinitely).
-	protected deadLetterStore?: DeadLetterStore;
-	// ~maxAttempts * ackWait of grace before a message is treated as poison.
-	// Generous on purpose: out-of-order events normally resolve within a couple
-	// of redeliveries, and a short dependency blip shouldn't dead-letter a good
-	// event. Subclasses can override.
+	// Handlers ack on their own success path. On throw, the base nak()s for
+	// redelivery; past the delivery cap it dead-letters and term()s.
+	abstract onMessage(data: T['data'], msg: JsMsg): Promise<void> | void;
+
+	protected nc: NatsConnection;
+	protected js: JetStreamClient;
+	// Fallback redelivery if the process dies mid-handle without ack/nak.
+	private ackWait = 30 * 1000;
+	// Explicit backoff applied on nak(), matching the old ~5s redelivery cadence.
+	private retryDelay = 5 * 1000;
+	// Logical poison threshold: dead-letter on the Nth failed delivery. The
+	// consumer's hard max_deliver is set a little higher (see listen) so a failed
+	// dead-letter *write* on attempt N can still be retried instead of getting
+	// stuck at the cap.
 	protected maxAttempts = 10;
+	// Opt-in dead-letter store for inspection / replay.
+	protected deadLetterStore?: DeadLetterStore;
+	// Handle to the background consume loop. In production it runs until the
+	// connection closes (never resolves); exposed so tests can await it.
+	processing?: Promise<void>;
 
-	constructor(client: Stan) {
-		this.client = client;
+	constructor(nc: NatsConnection) {
+		this.nc = nc;
+		this.js = nc.jetstream();
 	}
 
-	subscriptionOptions() {
-		return this.client
-			.subscriptionOptions()
-			.setManualAckMode(true)
-			.setAckWait(this.ackWait)
-			.setDeliverAllAvailable()
-			.setDurableName(this.queueGroupName);
+	// Consumer names can't contain '.', '*' or '>'; the subject's ':' is
+	// normalised so e.g. tickets-service + order:created -> tickets-service-order-created.
+	private durableName() {
+		return `${this.queueGroupName}-${this.subject}`.replace(/[.:*>]/g, '-');
 	}
 
-	listen() {
-		const subscription = this.client.subscribe(
-			this.subject,
-			this.queueGroupName,
-			this.subscriptionOptions(),
-		);
+	async listen() {
+		const durable = this.durableName();
+		const jsm = await this.nc.jetstreamManager();
+		try {
+			await jsm.consumers.add(STREAM_NAME, {
+				durable_name: durable,
+				ack_policy: AckPolicy.Explicit,
+				ack_wait: nanos(this.ackWait),
+				// +2 buffer so a failed dead-letter write on the final logical
+				// attempt can still nak()/retry rather than hit the hard cap.
+				max_deliver: this.maxAttempts + 2,
+				filter_subject: this.subject,
+				deliver_policy: DeliverPolicy.All,
+			});
+		} catch (err) {
+			// Consumer already exists (another replica created it) — fine.
+		}
 
-		subscription.on('message', async (msg: Message) => {
-			const parsedData = this.parseMessage(msg);
-
-			try {
-				await this.onMessage(parsedData, msg);
-			} catch (err) {
-				// Don't ack: NATS redelivers after ackWait so the event can be
-				// retried (e.g. an out-of-order VersionError that resolves once
-				// the preceding version arrives). Past `maxAttempts`, handleError
-				// dead-letters and acks instead so a poison message can't loop.
-				await this.handleError(msg, err);
+		const consumer = await this.js.consumers.get(STREAM_NAME, durable);
+		const messages = await consumer.consume();
+		// Background loop, kept off the caller's await so startup proceeds.
+		this.processing = (async () => {
+			for await (const m of messages) {
+				await this.handle(m);
 			}
+		})();
+		this.processing.catch((err) => {
+			console.error(`[listener] consume loop failed for ${this.subject}:`, err);
 		});
 	}
 
-	// Decides what to do with a failed message. Without a dead-letter store it
-	// keeps the B2 behaviour: log structured context and leave the message
-	// un-acked so NATS retries. With a store, it counts attempts and, once the
-	// cap is hit, archives the message (raw payload + last error) and acks it so
-	// the redelivery loop stops. Store failures degrade safely to plain retry.
-	private async handleError(msg: Message, err: unknown) {
+	private async handle(m: JsMsg) {
+		let data: T['data'];
+		try {
+			data = jc.decode(m.data) as T['data'];
+		} catch (err) {
+			// An unparseable payload can never succeed — dead-letter it outright.
+			await this.deadLetter(m, err);
+			return;
+		}
+
+		try {
+			await this.onMessage(data, m);
+		} catch (err) {
+			await this.handleError(m, err);
+		}
+	}
+
+	private async handleError(m: JsMsg, err: unknown) {
 		const error = err as Error;
 		const outOfOrder = error?.name === 'VersionError';
-		const context = {
+		const deliveries = m.info.redeliveryCount;
+
+		if (deliveries < this.maxAttempts) {
+			this.logFailure(outOfOrder, this.context(m, error), 'will retry');
+			m.nak(this.retryDelay);
+			return;
+		}
+
+		// Final allowed delivery still failed -> poison message.
+		await this.deadLetter(m, err);
+	}
+
+	private async deadLetter(m: JsMsg, err: unknown) {
+		const error = err as Error;
+		const context = this.context(m, error);
+
+		if (this.deadLetterStore) {
+			try {
+				await this.deadLetterStore.deadLetter({
+					channel: this.subject,
+					sequence: m.seq,
+					queueGroup: this.queueGroupName,
+					data: this.dataString(m),
+					errorName: error?.name,
+					error: error?.message,
+					attempts: m.info.redeliveryCount,
+				});
+			} catch (storeErr) {
+				// Couldn't archive — nak so JetStream retries (the max_deliver
+				// buffer leaves room) rather than dropping it silently.
+				this.logFailure(false, context, 'will retry (dead-letter write failed)');
+				m.nak(this.retryDelay);
+				return;
+			}
+		}
+
+		// Archived (or no store configured): stop redelivery for good.
+		m.term();
+		console.error(
+			`[listener] dead-lettered poison message after ${m.info.redeliveryCount} attempts: ${JSON.stringify(context)}`,
+		);
+	}
+
+	private context(m: JsMsg, error: Error) {
+		return {
 			subject: this.subject,
 			queueGroup: this.queueGroupName,
-			sequence: msg.getSequence(),
-			redelivered: msg.isRedelivered(),
+			sequence: m.seq,
+			deliveries: m.info.redeliveryCount,
 			errorName: error?.name,
 			error: error?.message,
 		};
+	}
 
-		if (!this.deadLetterStore) {
-			this.logFailure(outOfOrder, context, 'will retry');
-			return;
-		}
-
-		let attempts: number;
+	private dataString(m: JsMsg) {
 		try {
-			attempts = await this.deadLetterStore.recordFailure(
-				this.subject,
-				msg.getSequence(),
-			);
-		} catch (storeErr) {
-			// Can't reach the dead-letter store — leave un-acked and retry later
-			// rather than risk acking a message we failed to record.
-			this.logFailure(outOfOrder, context, 'will retry (dead-letter store unavailable)');
-			return;
+			return new TextDecoder().decode(m.data);
+		} catch (err) {
+			return '';
 		}
-
-		if (attempts < this.maxAttempts) {
-			this.logFailure(outOfOrder, { ...context, attempts }, 'will retry');
-			return;
-		}
-
-		try {
-			await this.deadLetterStore.deadLetter({
-				channel: this.subject,
-				sequence: msg.getSequence(),
-				queueGroup: this.queueGroupName,
-				data: msg.getData().toString(),
-				errorName: error?.name,
-				error: error?.message,
-				attempts,
-			});
-		} catch (storeErr) {
-			// Couldn't archive it — don't ack, so it survives for another try.
-			this.logFailure(outOfOrder, { ...context, attempts }, 'will retry (dead-letter write failed)');
-			return;
-		}
-
-		// Archived: ack so NATS stops redelivering the poison message.
-		msg.ack();
-		console.error(
-			`[listener] dead-lettered poison message after ${attempts} attempts: ${JSON.stringify(context)}`,
-		);
 	}
 
 	// Out-of-order version conflicts are expected and logged calmly (warn);
@@ -135,12 +180,5 @@ export abstract class Listener<T extends Event> {
 		} else {
 			console.error(line);
 		}
-	}
-
-	parseMessage(msg: Message) {
-		const data = msg.getData();
-		return typeof data === 'string'
-			? JSON.parse(data)
-			: JSON.parse(data.toString('utf8'));
 	}
 }

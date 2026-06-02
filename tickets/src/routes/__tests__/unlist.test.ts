@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { JSONCodec } from 'nats';
 import mongoose from 'mongoose';
 import { app } from '../../app';
 import { Ticket } from '../../models/ticket';
@@ -85,10 +86,10 @@ it('bumps the version and publishes a ticket:updated event when unlisting', asyn
 	// so the orders service can stop the listing being reserved.
 	const after = await Ticket.findById(body.id);
 	expect(after!.version).toEqual(before!.version + 1);
-	expect(natsWrapper.client.publish).toHaveBeenCalled();
+	expect(natsWrapper.js.publish).toHaveBeenCalled();
 
-	const published: any = (natsWrapper.client.publish as jest.Mock).mock.calls.pop();
-	expect(JSON.parse(published[1]).unlisted).toEqual(true);
+	const published: any = (natsWrapper.js.publish as jest.Mock).mock.calls.pop();
+	expect((JSONCodec().decode(published[1]) as any).unlisted).toEqual(true);
 });
 
 it('relists an unlisted ticket for the owner', async () => {

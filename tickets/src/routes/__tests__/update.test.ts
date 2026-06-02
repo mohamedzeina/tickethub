@@ -183,7 +183,7 @@ it('publishes an event', async () => {
 		})
 		.expect(200);
 
-	expect(natsWrapper.client.publish).toHaveBeenCalled();
+	expect(natsWrapper.js.publish).toHaveBeenCalled();
 });
 
 it('rejects updates if the ticket is reserved', async () => {

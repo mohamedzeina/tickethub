@@ -1,10 +1,11 @@
 import mongoose from 'mongoose';
 import { DeadLetterStore, DeadLetterEntry } from '@zeina-tickethub/common';
 
-// Dead-letter record for poison messages (B3). One row per failing
-// (channel, sequence): `attempts` counts redeliveries, and once the base
-// listener gives up it flips `deadLettered` and stores the raw payload + last
-// error so the event can be inspected and replayed. Sibling of ProcessedEvent.
+// Dead-letter record for poison messages (B3). JetStream counts the deliveries
+// and stops redelivering at max_deliver; this just archives the message the base
+// listener gave up on — one row per (channel, sequence) with the raw payload,
+// last error, and `attempts` (JetStream's delivery count) for inspection /
+// replay. Sibling of ProcessedEvent.
 
 interface FailedEventDoc extends mongoose.Document {
 	channel: string;
@@ -38,20 +39,6 @@ const failedEventSchema = new mongoose.Schema<FailedEventDoc>(
 
 // Unique per message so redeliveries land on the same row.
 failedEventSchema.index({ channel: 1, sequence: 1 }, { unique: true });
-
-// Atomic upsert + $inc: concurrent redeliveries (multiple replicas, queue-group
-// rebalance) can't lose a count. Returns the running attempt total.
-failedEventSchema.statics.recordFailure = async function (
-	channel: string,
-	sequence: number,
-) {
-	const doc = await this.findOneAndUpdate(
-		{ channel, sequence },
-		{ $inc: { attempts: 1 }, $setOnInsert: { channel, sequence } },
-		{ upsert: true, new: true },
-	);
-	return doc.attempts;
-};
 
 failedEventSchema.statics.deadLetter = async function (entry: DeadLetterEntry) {
 	await this.findOneAndUpdate(

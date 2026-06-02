@@ -3,11 +3,11 @@ import { OrderCreatedListner } from '../order-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Ticket } from '../../../models/ticket';
 import mongoose from 'mongoose';
-import { Message } from 'node-nats-streaming';
+import { JsMsg, JSONCodec } from 'nats';
 
 const setup = async () => {
 	// Create an instance of the listener
-	const listener = new OrderCreatedListner(natsWrapper.client);
+	const listener = new OrderCreatedListner(natsWrapper.connection);
 
 	// Create and save a ticket
 	const ticket = await Ticket.build({
@@ -33,9 +33,9 @@ const setup = async () => {
 
 	// Create Fake message
 	// @ts-ignore
-	const msg: Message = {
+	const msg: JsMsg = {
 		ack: jest.fn(),
-		getSequence: () => 1,
+		seq: 1,
 	};
 
 	return { listener, data, ticket, msg };
@@ -64,11 +64,9 @@ it('publishes a ticket updated event', async () => {
 
 	await listener.onMessage(data, msg);
 
-	expect(natsWrapper.client.publish).toHaveBeenCalled();
+	expect(natsWrapper.js.publish).toHaveBeenCalled();
 
-	const ticketUpdatedData = JSON.parse(
-		(natsWrapper.client.publish as jest.Mock).mock.calls[0][1],
-	);
+	const ticketUpdatedData = (JSONCodec().decode((natsWrapper.js.publish as jest.Mock).mock.calls[0][1]) as any);
 
 	expect(ticketUpdatedData.orderId).toEqual(data.id);
 });
@@ -80,7 +78,7 @@ it('reserves the ticket only once for a redelivered (duplicate) event', async ()
 	await listener.onMessage(data, msg);
 
 	// Reservation published a single time (version bumped once).
-	expect(natsWrapper.client.publish).toHaveBeenCalledTimes(1);
+	expect(natsWrapper.js.publish).toHaveBeenCalledTimes(1);
 
 	const reservedTicket = await Ticket.findById(ticket.id);
 	expect(reservedTicket!.orderId).toEqual(data.id);

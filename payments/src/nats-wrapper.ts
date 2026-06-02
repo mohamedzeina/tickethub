@@ -1,40 +1,40 @@
-import nats, { Stan } from 'node-nats-streaming';
+import { connect, JetStreamClient, NatsConnection } from 'nats';
 
+// Wraps a single NATS 2.x (JetStream) connection per service. Exposes the raw
+// connection (for the listeners' consumer setup + lifecycle) and a JetStream
+// client (for publishing). `isConnected` backs the /readyz probe.
 class NatsWrapper {
-	private _client?: Stan;
-	private _isConnected = false;
+	private _nc?: NatsConnection;
+	private _js?: JetStreamClient;
+	private _closed = true;
 
-	get client() {
-		if (!this._client) {
-			throw new Error('Cannot access NATS client before connecting');
+	get connection() {
+		if (!this._nc) {
+			throw new Error('Cannot access NATS connection before connecting');
 		}
+		return this._nc;
+	}
 
-		return this._client;
+	get js() {
+		if (!this._js) {
+			throw new Error('Cannot access JetStream before connecting');
+		}
+		return this._js;
 	}
 
 	get isConnected() {
-		return this._isConnected;
+		return !!this._nc && !this._closed;
 	}
 
-	connect(clusterId: string, clientId: string, url: string): Promise<void> {
-		this._client = nats.connect(clusterId, clientId, { url });
-
-		return new Promise((resolve, reject) => {
-			this.client.on('connect', () => {
-				console.log('Connected to NATS');
-				this._isConnected = true;
-				resolve();
-			});
-
-			this.client.on('error', (err) => {
-				this._isConnected = false;
-				reject(err);
-			});
-
-			this.client.on('close', () => {
-				this._isConnected = false;
-			});
+	async connect(servers: string, name: string): Promise<void> {
+		this._nc = await connect({ servers, name });
+		this._js = this._nc.jetstream();
+		this._closed = false;
+		// Flip the readiness flag when the connection finally closes.
+		this._nc.closed().then(() => {
+			this._closed = true;
 		});
+		console.log('Connected to NATS');
 	}
 }
 

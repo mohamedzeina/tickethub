@@ -1,13 +1,13 @@
 import { TicketCreatedEvent } from '@zeina-tickethub/common';
 import { TicketCreatedListener } from '../ticket-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
-import { Message } from 'node-nats-streaming';
+import { JsMsg } from 'nats';
 import mongoose from 'mongoose';
 import { Ticket } from '../../../models/ticket';
 
 const setup = async () => {
 	// Create an instance of the listener
-	const listener = new TicketCreatedListener(natsWrapper.client);
+	const listener = new TicketCreatedListener(natsWrapper.connection);
 	// Create a fake data event
 	const data: TicketCreatedEvent['data'] = {
 		version: 0,
@@ -19,7 +19,7 @@ const setup = async () => {
 
 	// Create a fake message object
 	// @ts-ignore
-	const msg: Message = {
+	const msg: JsMsg = {
 		ack: jest.fn(),
 	};
 

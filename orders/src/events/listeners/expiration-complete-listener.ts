@@ -7,7 +7,7 @@ import {
 } from '@zeina-tickethub/common';
 import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
-import { Message } from 'node-nats-streaming';
+import { JsMsg } from 'nats';
 import { Order } from '../../models/order';
 import { ProcessedEvent } from '../../models/processed-event';
 import { OrderCancelledPublisher } from '../publishers/order-cancelled-publisher';
@@ -18,11 +18,11 @@ export class ExpirationCompleteListener extends Listener<ExpirationCompleteEvent
 	// B3: cap retries and dead-letter poison messages.
 	protected deadLetterStore = FailedEvent;
 
-	async onMessage(data: ExpirationCompleteEvent['data'], msg: Message) {
+	async onMessage(data: ExpirationCompleteEvent['data'], msg: JsMsg) {
 		await processOnce(
 			ProcessedEvent,
 			this.subject,
-			msg.getSequence(),
+			msg.seq,
 			async () => {
 				const order = await Order.findById(data.orderId).populate('ticket');
 
@@ -42,7 +42,7 @@ export class ExpirationCompleteListener extends Listener<ExpirationCompleteEvent
 
 				await order.save();
 
-				await new OrderCancelledPublisher(this.client).publish({
+				await new OrderCancelledPublisher(this.js).publish({
 					id: order.id,
 					version: order.version,
 					ticket: {

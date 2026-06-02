@@ -3,11 +3,11 @@ import { OrderCancelledListener } from '../order-cancelled-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Ticket } from '../../../models/ticket';
 import mongoose from 'mongoose';
-import { Message } from 'node-nats-streaming';
+import { JsMsg, JSONCodec } from 'nats';
 
 const setup = async () => {
 	// Create an instance of the listener
-	const listener = new OrderCancelledListener(natsWrapper.client);
+	const listener = new OrderCancelledListener(natsWrapper.connection);
 
 	const orderId = new mongoose.Types.ObjectId().toHexString();
 	// Create and save a ticket
@@ -33,9 +33,9 @@ const setup = async () => {
 
 	// Create Fake message
 	// @ts-ignore
-	const msg: Message = {
+	const msg: JsMsg = {
 		ack: jest.fn(),
-		getSequence: () => 1,
+		seq: 1,
 	};
 
 	return { listener, data, ticket, msg };
@@ -50,11 +50,9 @@ it('empties the orderId of the ticket, publishes an event, and acks message', as
 
 	expect(orderedTicket!.orderId).not.toBeDefined();
 	expect(msg.ack).toHaveBeenCalled();
-	expect(natsWrapper.client.publish).toHaveBeenCalled();
+	expect(natsWrapper.js.publish).toHaveBeenCalled();
 
-	const ticketUpdatedData = JSON.parse(
-		(natsWrapper.client.publish as jest.Mock).mock.calls[0][1],
-	);
+	const ticketUpdatedData = (JSONCodec().decode((natsWrapper.js.publish as jest.Mock).mock.calls[0][1]) as any);
 
 	expect(ticketUpdatedData.orderId).not.toBeDefined();
 });
@@ -65,7 +63,7 @@ it('releases the reservation only once for a redelivered (duplicate) event', asy
 	await listener.onMessage(data, msg);
 	await listener.onMessage(data, msg);
 
-	expect(natsWrapper.client.publish).toHaveBeenCalledTimes(1);
+	expect(natsWrapper.js.publish).toHaveBeenCalledTimes(1);
 
 	const releasedTicket = await Ticket.findById(ticket.id);
 	expect(releasedTicket!.orderId).not.toBeDefined();

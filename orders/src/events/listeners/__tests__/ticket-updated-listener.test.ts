@@ -1,13 +1,13 @@
 import { TicketUpdatedListener } from '../ticket-updated-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { TicketUpdatedEvent } from '@zeina-tickethub/common';
-import { Message } from 'node-nats-streaming';
+import { JsMsg } from 'nats';
 import mongoose from 'mongoose';
 import { Ticket } from '../../../models/ticket';
 
 const setup = async () => {
 	// Create an instance of the listener
-	const listener = new TicketUpdatedListener(natsWrapper.client);
+	const listener = new TicketUpdatedListener(natsWrapper.connection);
 
 	// Create and save a ticket
 	const ticket = Ticket.build({
@@ -29,7 +29,7 @@ const setup = async () => {
 
 	// Create a fake message object
 	// @ts-ignore
-	const msg: Message = {
+	const msg: JsMsg = {
 		ack: jest.fn(),
 	};
 

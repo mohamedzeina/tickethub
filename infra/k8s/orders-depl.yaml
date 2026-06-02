@@ -35,7 +35,7 @@ spec:
                   name: mongo-secret
                   key: ORDERS_MONGO_URI
             - name: NATS_URL
-              value: 'http://nats-srv:4222'
+              value: 'nats://nats-srv:4222'
             - name: NATS_CLUSTER_ID
               value: 'tickethub'
             - name: NATS_CLIENT_ID

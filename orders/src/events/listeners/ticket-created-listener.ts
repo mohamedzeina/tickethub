@@ -1,4 +1,4 @@
-import { Message } from 'node-nats-streaming';
+import { JsMsg } from 'nats';
 import {
 	Subjects,
 	Listener,
@@ -14,7 +14,7 @@ export class TicketCreatedListener extends Listener<TicketCreatedEvent> {
 	// B3: cap retries and dead-letter poison messages.
 	protected deadLetterStore = FailedEvent;
 
-	async onMessage(data: TicketCreatedEvent['data'], msg: Message) {
+	async onMessage(data: TicketCreatedEvent['data'], msg: JsMsg) {
 		const { id, title, price, userId, unlisted, eventDate, venue, description, category, imageUrl } =
 			data;
 

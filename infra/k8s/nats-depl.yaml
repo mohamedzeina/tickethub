@@ -28,7 +28,10 @@ spec:
     spec:
       containers:
         - name: nats
-          image: nats-streaming:0.17.0
+          # NATS 2.x with JetStream — the maintained successor to the EOL
+          # nats-streaming server. JetStream supersedes the STAN file-store:
+          # it persists streams, consumers and un-acked messages to disk.
+          image: nats:2.10-alpine
           resources:
             requests:
               cpu: 50m
@@ -36,27 +39,17 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
-          # Use the FILE store on a persistent volume so durable subscriptions and
-          # unacked messages survive a pod restart (default is in-memory).
+          # -js enables JetStream; -sd points its file store at the PVC so
+          # streams/consumers survive a pod restart; -m exposes monitoring.
           args:
             [
               '-p',
               '4222',
               '-m',
               '8222',
-              '-store',
-              'file',
-              '-dir',
+              '-js',
+              '-sd',
               '/data',
-              '-hbi',
-              '5s',
-              '-hbt',
-              '5s',
-              '-hbf',
-              '2',
-              '-SD',
-              '-cid',
-              'tickethub',
             ]
           volumeMounts:
             - name: data

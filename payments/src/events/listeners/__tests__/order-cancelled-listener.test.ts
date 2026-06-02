@@ -5,7 +5,7 @@ import { Order } from '../../../models/order';
 import mongoose from 'mongoose';
 
 const setup = async () => {
-	const listener = new OrderCancelledListener(natsWrapper.client);
+	const listener = new OrderCancelledListener(natsWrapper.connection);
 
 	const order = await Order.build({
 		id: new mongoose.Types.ObjectId().toHexString(),
@@ -26,9 +26,9 @@ const setup = async () => {
 	};
 
 	// @ts-ignore
-	const msg: Message = {
+	const msg: JsMsg = {
 		ack: jest.fn(),
-		getSequence: () => 1,
+		seq: 1,
 	};
 
 	return { listener, data, msg, order };

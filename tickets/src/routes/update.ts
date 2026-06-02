@@ -91,7 +91,7 @@ router.put(
 			throw err;
 		}
 
-		new TicketUpdatedPublisher(natsWrapper.client).publish({
+		new TicketUpdatedPublisher(natsWrapper.js).publish({
 			id: ticket.id,
 			version: ticket.version,
 			title: ticket.title,
