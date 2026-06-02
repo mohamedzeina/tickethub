@@ -94,3 +94,36 @@ it('returns a 201 with valid inputs', async () => {
 	expect(paymentIntent.currency).toEqual('usd');
 	expect(paymentIntent.status).toEqual('succeeded');
 });
+
+it('does not double-charge when the same order is paid twice (idempotency key)', async () => {
+	const userId = new mongoose.Types.ObjectId().toHexString();
+	const price = Math.floor(Math.random() * 100000) + 1;
+	const user = global.signin(userId);
+
+	const order = Order.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		status: OrderStatus.Created,
+		version: 0,
+		userId,
+		price,
+	});
+
+	await order.save();
+
+	const pay = () =>
+		request(app)
+			.post('/api/payments')
+			.set('Cookie', user)
+			.send({ paymentMethodId: 'pm_card_visa', orderId: order.id })
+			.expect(201);
+
+	await pay();
+	await pay();
+
+	// Both requests resolve to the SAME underlying PaymentIntent — Stripe replays
+	// the first response for the second (idempotent) call, so the card is only
+	// charged once.
+	const payments = await Payment.find({ orderId: order.id });
+	const stripeIds = new Set(payments.map((p) => p.stripeId));
+	expect(stripeIds.size).toEqual(1);
+});

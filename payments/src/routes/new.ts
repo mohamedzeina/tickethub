@@ -41,13 +41,18 @@ router.post(
 		// C1: create + confirm a PaymentIntent in one step (server-side confirm).
 		// allow_redirects: 'never' keeps it to card-style methods so no redirect
 		// handoff is needed for this synchronous flow.
-		const paymentIntent = await stripe.paymentIntents.create({
-			currency: 'usd',
-			amount: order.price * 100,
-			payment_method: paymentMethodId,
-			confirm: true,
-			automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
-		});
+		// C2: key the request on the order so a double-submit / refresh replays
+		// the same PaymentIntent instead of charging the card twice.
+		const paymentIntent = await stripe.paymentIntents.create(
+			{
+				currency: 'usd',
+				amount: order.price * 100,
+				payment_method: paymentMethodId,
+				confirm: true,
+				automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+			},
+			{ idempotencyKey: orderId },
+		);
 
 		const payment = Payment.build({
 			orderId,
