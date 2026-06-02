@@ -13,6 +13,7 @@ let mongo: any;
 
 beforeAll(async () => {
 	process.env.JWT_KEY = '123456';
+	process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_secret';
 
 	mongo = await MongoMemoryServer.create();
 	const mongoUri = mongo.getUri();

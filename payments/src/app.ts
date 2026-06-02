@@ -4,6 +4,7 @@ import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
 import mongoose from 'mongoose';
 import { createChargeRouter } from './routes/new';
+import { paymentWebhookRouter } from './routes/webhook';
 
 import {
 	errorHandler,
@@ -24,6 +25,9 @@ app.use(
 		},
 	}),
 );
+// Mounted before json() so the Stripe webhook can read the raw request body
+// for signature verification (it uses its own express.raw parser).
+app.use(paymentWebhookRouter);
 app.use(json());
 app.use(
 	cookieSession({

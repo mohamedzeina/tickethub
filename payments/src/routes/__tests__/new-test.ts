@@ -6,18 +6,17 @@ import { OrderStatus } from '@zeina-tickethub/common';
 import { stripe } from '../../stripe';
 import { Payment } from '../../models/payment';
 
-it('throws a 404 error when purchasing an order that does not exist', async () => {
+it('throws a 404 error when paying for an order that does not exist', async () => {
 	await request(app)
 		.post('/api/payments')
 		.set('Cookie', global.signin())
 		.send({
-			paymentMethodId: 'pm_card_visa',
 			orderId: new mongoose.Types.ObjectId().toHexString(),
 		})
 		.expect(404);
 });
 
-it('throws a 401 error when purchasing an order that does not belong to the user', async () => {
+it('throws a 401 error when paying for an order that does not belong to the user', async () => {
 	const order = Order.build({
 		id: new mongoose.Types.ObjectId().toHexString(),
 		status: OrderStatus.Created,
@@ -32,13 +31,12 @@ it('throws a 401 error when purchasing an order that does not belong to the user
 		.post('/api/payments')
 		.set('Cookie', global.signin())
 		.send({
-			paymentMethodId: 'pm_card_visa',
 			orderId: order.id,
 		})
 		.expect(401);
 });
 
-it('throws a 400 error when purchasing a cancelled order', async () => {
+it('throws a 400 error when paying for a cancelled order', async () => {
 	const userId = new mongoose.Types.ObjectId().toHexString();
 	const user = global.signin(userId);
 
@@ -56,46 +54,12 @@ it('throws a 400 error when purchasing a cancelled order', async () => {
 		.post('/api/payments')
 		.set('Cookie', user)
 		.send({
-			paymentMethodId: 'pm_card_visa',
 			orderId: order.id,
 		})
 		.expect(400);
 });
 
-it('returns a 201 with valid inputs', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
-	const price = Math.floor(Math.random() * 100000);
-	const user = global.signin(userId);
-
-	const order = Order.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		status: OrderStatus.Created,
-		version: 0,
-		userId,
-		price,
-	});
-
-	await order.save();
-
-	await request(app)
-		.post('/api/payments')
-		.set('Cookie', user)
-		.send({
-			paymentMethodId: 'pm_card_visa',
-			orderId: order.id,
-		})
-		.expect(201);
-
-	const payment = await Payment.findOne({ orderId: order.id });
-	expect(payment).not.toEqual(null);
-
-	const paymentIntent = await stripe.paymentIntents.retrieve(payment!.stripeId);
-	expect(paymentIntent.amount).toEqual(price * 100);
-	expect(paymentIntent.currency).toEqual('usd');
-	expect(paymentIntent.status).toEqual('succeeded');
-});
-
-it('does not double-charge when the same order is paid twice (idempotency key)', async () => {
+it('creates a PaymentIntent and returns its client_secret, but records no Payment yet', async () => {
 	const userId = new mongoose.Types.ObjectId().toHexString();
 	const price = Math.floor(Math.random() * 100000) + 1;
 	const user = global.signin(userId);
@@ -110,20 +74,23 @@ it('does not double-charge when the same order is paid twice (idempotency key)',
 
 	await order.save();
 
-	const pay = () =>
-		request(app)
-			.post('/api/payments')
-			.set('Cookie', user)
-			.send({ paymentMethodId: 'pm_card_visa', orderId: order.id })
-			.expect(201);
+	const response = await request(app)
+		.post('/api/payments')
+		.set('Cookie', user)
+		.send({ orderId: order.id })
+		.expect(201);
 
-	await pay();
-	await pay();
+	expect(response.body.clientSecret).toBeDefined();
 
-	// Both requests resolve to the SAME underlying PaymentIntent — Stripe replays
-	// the first response for the second (idempotent) call, so the card is only
-	// charged once.
-	const payments = await Payment.find({ orderId: order.id });
-	const stripeIds = new Set(payments.map((p) => p.stripeId));
-	expect(stripeIds.size).toEqual(1);
+	// The client_secret is `${paymentIntentId}_secret_...` — recover the intent
+	// id from it and confirm Stripe created it for the right amount.
+	const paymentIntentId = response.body.clientSecret.split('_secret_')[0];
+	const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+	expect(paymentIntent.amount).toEqual(price * 100);
+	expect(paymentIntent.currency).toEqual('usd');
+	expect(paymentIntent.metadata.orderId).toEqual(order.id);
+
+	// The Payment is recorded by the webhook on payment_intent.succeeded, not here.
+	const payment = await Payment.findOne({ orderId: order.id });
+	expect(payment).toEqual(null);
 });

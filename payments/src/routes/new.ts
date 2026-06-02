@@ -10,19 +10,21 @@ import {
 } from '@zeina-tickethub/common';
 import { Order } from '../models/order';
 import { stripe } from '../stripe';
-import { Payment } from '../models/payment';
-import { PaymentCreatedPublisher } from '../events/publishers/payment-created-publisher';
-import { natsWrapper } from '../nats-wrapper';
 
 const router = express.Router();
 
+// C3: this route no longer charges the card. It creates a PaymentIntent and
+// hands the client_secret back to the browser, which confirms the card with
+// Stripe.js. The Payment is recorded (and payment:created published) only once
+// Stripe calls back to the webhook with payment_intent.succeeded — so a crash
+// between charging and the DB write can no longer lose a paid order.
 router.post(
 	'/api/payments',
 	requireAuth,
-	[body('paymentMethodId').not().isEmpty(), body('orderId').not().isEmpty()],
+	[body('orderId').not().isEmpty()],
 	validateRequest,
 	async (req: Request, res: Response) => {
-		const { paymentMethodId, orderId } = req.body;
+		const { orderId } = req.body;
 
 		const order = await Order.findById(orderId);
 
@@ -38,36 +40,20 @@ router.post(
 			throw new BadRequestError('Cannot pay for a cancelled order');
 		}
 
-		// C1: create + confirm a PaymentIntent in one step (server-side confirm).
-		// allow_redirects: 'never' keeps it to card-style methods so no redirect
-		// handoff is needed for this synchronous flow.
 		// C2: key the request on the order so a double-submit / refresh replays
-		// the same PaymentIntent instead of charging the card twice.
+		// the same PaymentIntent instead of creating a second one.
+		// metadata.orderId lets the webhook map the PaymentIntent back to the order.
 		const paymentIntent = await stripe.paymentIntents.create(
 			{
 				currency: 'usd',
 				amount: order.price * 100,
-				payment_method: paymentMethodId,
-				confirm: true,
+				metadata: { orderId },
 				automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
 			},
 			{ idempotencyKey: orderId },
 		);
 
-		const payment = Payment.build({
-			orderId,
-			stripeId: paymentIntent.id,
-		});
-
-		await payment.save();
-
-		await new PaymentCreatedPublisher(natsWrapper.js).publish({
-			id: payment.id,
-			orderId: payment.orderId,
-			stripeId: payment.stripeId,
-		});
-
-		res.status(201).send({ id: payment.id });
+		res.status(201).send({ clientSecret: paymentIntent.client_secret });
 	},
 );
 

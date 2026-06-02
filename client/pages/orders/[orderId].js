@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
 import {
 	Elements,
@@ -7,7 +8,6 @@ import {
 	useStripe,
 	useElements,
 } from '@stripe/react-stripe-js';
-import useRequest from '../../hooks/useRequest';
 import Router from 'next/router';
 import { formatPrice, formatDateShort } from '../../utils/ticket';
 
@@ -33,10 +33,10 @@ const cardElementOptions = {
 	},
 };
 
-// Embedded card form: builds a PaymentMethod from the card client-side, then
-// hands its id to the parent so it can hit /api/payments (which creates and
-// confirms a PaymentIntent against that PaymentMethod).
-const CheckoutForm = ({ amount, onPaymentMethod }) => {
+// Embedded card form. C3: the server creates a PaymentIntent and returns its
+// client_secret; the browser confirms the card directly with Stripe. The order
+// is marked paid by the webhook (payment_intent.succeeded), not by this request.
+const CheckoutForm = ({ amount, orderId }) => {
 	const stripe = useStripe();
 	const elements = useElements();
 	const [loading, setLoading] = useState(false);
@@ -49,19 +49,36 @@ const CheckoutForm = ({ amount, onPaymentMethod }) => {
 		setLoading(true);
 		setCardError(null);
 
-		const { paymentMethod, error } = await stripe.createPaymentMethod({
-			type: 'card',
-			card: elements.getElement(CardElement),
-		});
+		try {
+			// 1. ask the server to create a PaymentIntent for this order
+			const { data } = await axios.post('/api/payments', { orderId });
 
-		if (error) {
-			setCardError(error.message);
+			// 2. confirm the card against that intent, client-side
+			const result = await stripe.confirmCardPayment(data.clientSecret, {
+				payment_method: { card: elements.getElement(CardElement) },
+			});
+
+			if (result.error) {
+				setCardError(result.error.message);
+				setLoading(false);
+				return;
+			}
+
+			if (result.paymentIntent?.status === 'succeeded') {
+				// The webhook will flip the order to complete shortly after.
+				Router.push('/orders');
+				return;
+			}
+
+			setCardError('Payment could not be completed. Please try again.');
 			setLoading(false);
-			return;
+		} catch (err) {
+			const message =
+				err?.response?.data?.errors?.[0]?.message ||
+				'Something went wrong. Please try again.';
+			setCardError(message);
+			setLoading(false);
 		}
-
-		await onPaymentMethod(paymentMethod.id);
-		setLoading(false);
 	};
 
 	return (
@@ -95,12 +112,6 @@ const CheckoutForm = ({ amount, onPaymentMethod }) => {
 
 const OrderShow = ({ order }) => {
 	const [timeLeft, setTimeLeft] = useState(0);
-	const { doRequest, generalErrors } = useRequest({
-		url: '/api/payments',
-		method: 'post',
-		body: { orderId: order.id },
-		onSuccess: () => Router.push('/orders'),
-	});
 
 	useEffect(() => {
 		const findTimeLeft = () => {
@@ -169,14 +180,8 @@ const OrderShow = ({ order }) => {
 
 				<div className="gate__pay">
 					<Elements stripe={stripePromise}>
-						<CheckoutForm
-							amount={order.ticket.price}
-							onPaymentMethod={(paymentMethodId) =>
-								doRequest({ paymentMethodId })
-							}
-						/>
+						<CheckoutForm amount={order.ticket.price} orderId={order.id} />
 					</Elements>
-					{generalErrors()}
 				</div>
 			</div>
 		</div>
