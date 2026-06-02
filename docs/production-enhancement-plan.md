@@ -163,6 +163,18 @@ D3 (tracing) are the two largest items — schedule them as their own PRs.
 _(check off as we go — start here tomorrow)_
 
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
-- [ ] Phase B — Event-driven robustness
+- [x] Phase B — Event-driven robustness (B1–B3 done, verified in-cluster on common 1.0.36; **B4 JetStream deferred**)
 - [ ] Phase C — Payments done properly
 - [ ] Phase D — Observability
+
+**2026-06-02 — combined Phase A + B e2e: 38 checks, all green** (live `docker-desktop`
+cluster via the ingress). Covered: health endpoints + liveness/readiness probes;
+graceful-shutdown config (preStop + SIGTERM handlers); 2 replicas for the HTTP
+services + HPAs + resource requests/limits; NATS & Redis PVCs bound with Redis AOF —
+**a scheduled order expiration survives a Redis pod restart** (the A3 bug fix);
+idempotent consumers (`processedevents` recording + unique-index dedup guard);
+graceful listener errors with no service crash through a retry storm; and a **poison
+message dead-lettered after 10 attempts** then acked so it stops looping (per-consumer —
+the same event is processed fine by the non-poisoned service). App flows exercised
+end-to-end: reserve → blocked-while-reserved → cancel → unreserve, and buy → pay →
+complete. B4 (NATS Streaming → JetStream) remains the one open Phase B item.
