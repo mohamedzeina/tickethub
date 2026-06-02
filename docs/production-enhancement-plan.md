@@ -162,7 +162,7 @@ D3 (tracing) are the two largest items — schedule them as their own PRs.
 
 _(check off as we go — start here tomorrow)_
 
-- [ ] Phase A — Reliability & infra hardening
+- [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
 - [ ] Phase B — Event-driven robustness
 - [ ] Phase C — Payments done properly
 - [ ] Phase D — Observability
