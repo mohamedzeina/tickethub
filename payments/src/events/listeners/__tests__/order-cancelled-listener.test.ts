@@ -28,6 +28,7 @@ const setup = async () => {
 	// @ts-ignore
 	const msg: Message = {
 		ack: jest.fn(),
+		getSequence: () => 1,
 	};
 
 	return { listener, data, msg, order };
@@ -49,4 +50,17 @@ it('acks the message', async () => {
 	await listener.onMessage(data, msg);
 
 	expect(msg.ack).toHaveBeenCalled();
+});
+
+it('cancels the order only once for a redelivered (duplicate) event', async () => {
+	const { listener, data, msg, order } = await setup();
+
+	await listener.onMessage(data, msg);
+	await listener.onMessage(data, msg);
+
+	const updatedOrder = await Order.findById(data.id);
+	expect(updatedOrder!.status).toEqual(OrderStatus.Cancelled);
+	// Version bumped only on the first delivery.
+	expect(updatedOrder!.version).toEqual(order.version + 1);
+	expect(msg.ack).toHaveBeenCalledTimes(2);
 });

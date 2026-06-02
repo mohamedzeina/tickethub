@@ -35,6 +35,7 @@ const setup = async () => {
 	// @ts-ignore
 	const msg: Message = {
 		ack: jest.fn(),
+		getSequence: () => 1,
 	};
 
 	return { listener, data, ticket, msg };
@@ -70,4 +71,20 @@ it('publishes a ticket updated event', async () => {
 	);
 
 	expect(ticketUpdatedData.orderId).toEqual(data.id);
+});
+
+it('reserves the ticket only once for a redelivered (duplicate) event', async () => {
+	const { listener, ticket, data, msg } = await setup();
+
+	await listener.onMessage(data, msg);
+	await listener.onMessage(data, msg);
+
+	// Reservation published a single time (version bumped once).
+	expect(natsWrapper.client.publish).toHaveBeenCalledTimes(1);
+
+	const reservedTicket = await Ticket.findById(ticket.id);
+	expect(reservedTicket!.orderId).toEqual(data.id);
+	expect(reservedTicket!.version).toEqual(ticket.version + 1);
+
+	expect(msg.ack).toHaveBeenCalledTimes(2);
 });

@@ -23,6 +23,7 @@ const setup = async () => {
 	// @ts-ignore
 	const msg: Message = {
 		ack: jest.fn(),
+		getSequence: () => 1,
 	};
 
 	return { listener, data, msg };
@@ -44,4 +45,16 @@ it('acks the message', async () => {
 	await listener.onMessage(data, msg);
 
 	expect(msg.ack).toHaveBeenCalled();
+});
+
+it('replicates the order only once for a redelivered (duplicate) event', async () => {
+	const { listener, data, msg } = await setup();
+
+	await listener.onMessage(data, msg);
+	// A naive second create would throw a duplicate-key error; dedup skips it.
+	await listener.onMessage(data, msg);
+
+	const orders = await Order.find({ _id: data.id });
+	expect(orders.length).toEqual(1);
+	expect(msg.ack).toHaveBeenCalledTimes(2);
 });
