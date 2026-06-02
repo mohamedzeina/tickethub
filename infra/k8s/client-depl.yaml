@@ -12,6 +12,7 @@ spec:
       labels:
         app: client
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: client
           image: toxiczeina/client
@@ -37,6 +38,10 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 3
             failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ['sh', '-c', 'sleep 5']
 
 ---
 apiVersion: v1

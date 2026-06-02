@@ -1,8 +1,11 @@
 import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
 import { startHealthServer } from './health-server';
+import { expirationQueue } from './queues/expiration-queue';
 
 const startExpirationService = async () => {
+	let isShuttingDown = false;
+
 	if (!process.env.NATS_URL) {
 		throw new Error('NATS_URL must be defined');
 	}
@@ -21,19 +24,45 @@ const startExpirationService = async () => {
 		);
 
 		natsWrapper.client.on('close', () => {
-			console.log('NATS connection closed!');
-			process.exit();
+			if (!isShuttingDown) {
+				console.log('NATS connection closed unexpectedly, exiting');
+				process.exit(1);
+			}
 		});
-
-		process.on('SIGINT', () => natsWrapper.client.close());
-		process.on('SIGTERM', () => natsWrapper.client.close());
 
 		new OrderCreatedListener(natsWrapper.client).listen();
 	} catch (err) {
 		console.log(err);
 	}
 
-	startHealthServer(3000);
+	const server = startHealthServer(3000);
+
+	const shutdown = async (signal: string) => {
+		if (isShuttingDown) return;
+		isShuttingDown = true;
+		console.log(`${signal} received, shutting down gracefully`);
+
+		// Backstop in case draining hangs.
+		const forceExit = setTimeout(() => {
+			console.error('Could not shut down in time, forcing exit');
+			process.exit(1);
+		}, 10000);
+		forceExit.unref();
+
+		try {
+			await new Promise<void>((resolve) => server.close(() => resolve()));
+			await expirationQueue.close();
+			natsWrapper.client.close();
+		} catch (err) {
+			console.error('Error during graceful shutdown', err);
+		} finally {
+			clearTimeout(forceExit);
+			process.exit(0);
+		}
+	};
+
+	process.on('SIGINT', () => shutdown('SIGINT'));
+	process.on('SIGTERM', () => shutdown('SIGTERM'));
 };
 
 startExpirationService();

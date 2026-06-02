@@ -7,6 +7,8 @@ import { ExpirationCompleteListener } from './events/listeners/expiration-comple
 import { PaymentCreatedListener } from './events/listeners/payment-created-listener';
 
 const startOrdersService = async () => {
+	let isShuttingDown = false;
+
 	if (!process.env.JWT_KEY) {
 		throw new Error('JWT_KEY must be defined');
 	}
@@ -35,12 +37,11 @@ const startOrdersService = async () => {
 		);
 
 		natsWrapper.client.on('close', () => {
-			console.log('NATS connection closed!');
-			process.exit();
+			if (!isShuttingDown) {
+				console.log('NATS connection closed unexpectedly, exiting');
+				process.exit(1);
+			}
 		});
-
-		process.on('SIGINT', () => natsWrapper.client.close());
-		process.on('SIGTERM', () => natsWrapper.client.close());
 
 		new TicketCreatedListener(natsWrapper.client).listen();
 		new TicketUpdatedListener(natsWrapper.client).listen();
@@ -53,9 +54,38 @@ const startOrdersService = async () => {
 		console.error(err);
 	}
 
-	app.listen(3000, () => {
+	const server = app.listen(3000, () => {
 		console.log('Orders service is running on port 3000');
 	});
+
+	const shutdown = async (signal: string) => {
+		if (isShuttingDown) return;
+		isShuttingDown = true;
+		console.log(`${signal} received, shutting down gracefully`);
+
+		// Backstop in case draining hangs (e.g. a stuck keep-alive connection).
+		const forceExit = setTimeout(() => {
+			console.error('Could not shut down in time, forcing exit');
+			process.exit(1);
+		}, 10000);
+		forceExit.unref();
+
+		try {
+			await new Promise<void>((resolve, reject) => {
+				server.close((err) => (err ? reject(err) : resolve()));
+			});
+			natsWrapper.client.close();
+			await mongoose.disconnect();
+		} catch (err) {
+			console.error('Error during graceful shutdown', err);
+		} finally {
+			clearTimeout(forceExit);
+			process.exit(0);
+		}
+	};
+
+	process.on('SIGINT', () => shutdown('SIGINT'));
+	process.on('SIGTERM', () => shutdown('SIGTERM'));
 };
 
 startOrdersService();
