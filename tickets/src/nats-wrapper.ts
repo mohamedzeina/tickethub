@@ -1,4 +1,5 @@
 import { connect, JetStreamClient, NatsConnection } from 'nats';
+import { logger } from '@zeina-tickethub/common';
 
 // Wraps a single NATS 2.x (JetStream) connection per service. Exposes the raw
 // connection (for the listeners' consumer setup + lifecycle) and a JetStream
@@ -34,7 +35,7 @@ class NatsWrapper {
 		this._nc.closed().then(() => {
 			this._closed = true;
 		});
-		console.log('Connected to NATS');
+		logger.info('connected to NATS');
 	}
 }
 

@@ -10,6 +10,7 @@ import {
 import { Subjects } from './subjects';
 import { DeadLetterStore } from './dead-letter';
 import { STREAM_NAME } from './stream';
+import { logger } from '../logger';
 
 const jc = JSONCodec();
 
@@ -83,7 +84,10 @@ export abstract class Listener<T extends Event> {
 			}
 		})();
 		this.processing.catch((err) => {
-			console.error(`[listener] consume loop failed for ${this.subject}:`, err);
+			logger.error(
+				{ subject: this.subject, queueGroup: this.queueGroupName, err },
+				'listener consume loop failed',
+			);
 		});
 	}
 
@@ -145,8 +149,9 @@ export abstract class Listener<T extends Event> {
 
 		// Archived (or no store configured): stop redelivery for good.
 		m.term();
-		console.error(
-			`[listener] dead-lettered poison message after ${m.info.redeliveryCount} attempts: ${JSON.stringify(context)}`,
+		logger.error(
+			{ ...context, attempts: m.info.redeliveryCount },
+			'dead-lettered poison message',
 		);
 	}
 
@@ -172,13 +177,13 @@ export abstract class Listener<T extends Event> {
 	// Out-of-order version conflicts are expected and logged calmly (warn);
 	// everything else is a real error.
 	private logFailure(outOfOrder: boolean, context: object, disposition: string) {
-		const line = `[listener] ${
-			outOfOrder ? 'out-of-order event' : 'failed to process event'
-		}, ${disposition}: ${JSON.stringify(context)}`;
+		const msg = outOfOrder
+			? 'out-of-order event, will retry'
+			: 'failed to process event';
 		if (outOfOrder) {
-			console.warn(line);
+			logger.warn({ ...context, disposition }, msg);
 		} else {
-			console.error(line);
+			logger.error({ ...context, disposition }, msg);
 		}
 	}
 }

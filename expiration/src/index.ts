@@ -1,4 +1,4 @@
-import { ensureStream } from '@zeina-tickethub/common';
+import { ensureStream, logger } from '@zeina-tickethub/common';
 import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
 import { startHealthServer } from './health-server';
@@ -22,7 +22,7 @@ const startExpirationService = async () => {
 
 		natsWrapper.connection.closed().then(() => {
 			if (!isShuttingDown) {
-				console.log('NATS connection closed unexpectedly, exiting');
+				logger.error('NATS connection closed unexpectedly, exiting');
 				process.exit(1);
 			}
 		});
@@ -31,7 +31,7 @@ const startExpirationService = async () => {
 
 		await new OrderCreatedListener(natsWrapper.connection).listen();
 	} catch (err) {
-		console.log(err);
+		logger.error({ err }, 'failed to start service');
 	}
 
 	const server = startHealthServer(3000);
@@ -39,11 +39,11 @@ const startExpirationService = async () => {
 	const shutdown = async (signal: string) => {
 		if (isShuttingDown) return;
 		isShuttingDown = true;
-		console.log(`${signal} received, shutting down gracefully`);
+		logger.info({ signal }, 'received signal, shutting down gracefully');
 
 		// Backstop in case draining hangs.
 		const forceExit = setTimeout(() => {
-			console.error('Could not shut down in time, forcing exit');
+			logger.error('could not shut down in time, forcing exit');
 			process.exit(1);
 		}, 10000);
 		forceExit.unref();
@@ -53,7 +53,7 @@ const startExpirationService = async () => {
 			await expirationQueue.close();
 			await natsWrapper.connection.close();
 		} catch (err) {
-			console.error('Error during graceful shutdown', err);
+			logger.error({ err }, 'error during graceful shutdown');
 		} finally {
 			clearTimeout(forceExit);
 			process.exit(0);

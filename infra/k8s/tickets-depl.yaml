@@ -24,6 +24,8 @@ spec:
               cpu: 500m
               memory: 512Mi
           env:
+            - name: SERVICE_NAME
+              value: 'tickets'
             - name: JWT_KEY
               valueFrom:
                 secretKeyRef:

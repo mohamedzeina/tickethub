@@ -1,5 +1,5 @@
 import { JSONCodec, JsMsg, NatsConnection } from 'nats';
-import { Listener, Subjects } from '@zeina-tickethub/common';
+import { Listener, Subjects, logger } from '@zeina-tickethub/common';
 
 const jc = JSONCodec();
 
@@ -88,7 +88,7 @@ it('acks the message when the handler succeeds', async () => {
 it('naks (does not ack) when the handler throws below the cap', async () => {
 	const listener = new TestListener();
 	listener.failNext = true;
-	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	const errSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
 	const msg = buildMsg(1);
 	await run(listener, [msg]);
 	expect(msg.ack).not.toHaveBeenCalled();
@@ -100,8 +100,8 @@ it('naks (does not ack) when the handler throws below the cap', async () => {
 it('logs a version conflict calmly (warn, not error) and naks', async () => {
 	const listener = new TestListener();
 	listener.versionConflict = true;
-	const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+	const errSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
 	const msg = buildMsg(1);
 	await run(listener, [msg]);
 	expect(msg.ack).not.toHaveBeenCalled();
@@ -144,7 +144,7 @@ class PoisonListener extends Listener<{
 
 it('naks below the cap without dead-lettering', async () => {
 	const listener = new PoisonListener();
-	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	const errSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
 	const msg = buildMsg(1);
 	await run(listener, [msg]);
 	expect(listener.store.deadLettered).toHaveLength(0);
@@ -155,7 +155,7 @@ it('naks below the cap without dead-lettering', async () => {
 
 it('dead-letters and term()s on the final delivery', async () => {
 	const listener = new PoisonListener();
-	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	const errSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
 	const msg = buildMsg(3); // redeliveryCount === maxAttempts
 	await run(listener, [msg]);
 	expect(listener.store.deadLettered).toHaveLength(1);
@@ -172,7 +172,7 @@ it('dead-letters and term()s on the final delivery', async () => {
 it('naks (does not term) if the dead-letter write fails, leaving room to retry', async () => {
 	const listener = new PoisonListener();
 	listener.store.throwOnDeadLetter = true;
-	const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+	const errSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
 	const msg = buildMsg(3);
 	await run(listener, [msg]);
 	expect(listener.store.deadLettered).toHaveLength(0);

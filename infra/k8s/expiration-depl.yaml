@@ -24,6 +24,8 @@ spec:
               cpu: 300m
               memory: 384Mi
           env:
+            - name: SERVICE_NAME
+              value: 'expiration'
             - name: NATS_URL
               value: 'nats://nats-srv:4222'
             - name: NATS_CLUSTER_ID

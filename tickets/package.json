@@ -24,7 +24,7 @@
     "@types/express": "^4.17.25",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.96",
-    "@zeina-tickethub/common": "^1.0.39",
+    "@zeina-tickethub/common": "^1.0.41",
     "cloudinary": "^2.10.0",
     "cookie-session": "^2.1.1",
     "express": "^4.22.1",

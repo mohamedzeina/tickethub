@@ -9,6 +9,7 @@ import {
 	NotFoundError,
 	currentUser,
 	healthRouter,
+	requestLogger,
 } from '@zeina-tickethub/common';
 
 import { createTicketRouter } from './routes/new';
@@ -30,6 +31,7 @@ app.use(
 		},
 	}),
 );
+app.use(requestLogger);
 app.use(json());
 app.use(
 	cookieSession({

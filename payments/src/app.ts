@@ -11,6 +11,7 @@ import {
 	NotFoundError,
 	currentUser,
 	healthRouter,
+	requestLogger,
 } from '@zeina-tickethub/common';
 
 import { natsWrapper } from './nats-wrapper';
@@ -25,6 +26,7 @@ app.use(
 		},
 	}),
 );
+app.use(requestLogger);
 // Mounted before json() so the Stripe webhook can read the raw request body
 // for signature verification (it uses its own express.raw parser).
 app.use(paymentWebhookRouter);

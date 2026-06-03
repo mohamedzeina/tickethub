@@ -1,4 +1,9 @@
-import { Listener, OrderCreatedEvent, Subjects } from '@zeina-tickethub/common';
+import {
+	Listener,
+	OrderCreatedEvent,
+	Subjects,
+	logger,
+} from '@zeina-tickethub/common';
 import { queueGroupName } from './queue-group-name';
 import { JsMsg } from 'nats';
 import { expirationQueue } from '../../queues/expiration-queue';
@@ -13,7 +18,7 @@ export class OrderCreatedListener extends Listener<OrderCreatedEvent> {
 	async onMessage(data: OrderCreatedEvent['data'], msg: JsMsg) {
 		const delay = new Date(data.expiresAt).getTime() - new Date().getTime();
 
-		console.log('Order ', data.id, ' expiring in ', delay, ' milliseconds');
+		logger.info({ orderId: data.id, delayMs: delay }, 'scheduling order expiration');
 
 		await expirationQueue.add(
 			{

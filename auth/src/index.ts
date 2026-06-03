@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { logger } from '@zeina-tickethub/common';
 
 import { app } from './app';
 
@@ -12,21 +13,21 @@ const startAuthService = async () => {
 
 	try {
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log('Connected to Auth MongoDB');
+		logger.info('connected to MongoDB');
 	} catch (err) {
-		console.error(err);
+		logger.error({ err }, 'failed to connect to MongoDB');
 	}
 
 	const server = app.listen(3000, () => {
-		console.log('Auth service is running on port 3000');
+		logger.info({ port: 3000 }, 'service listening');
 	});
 
 	const shutdown = async (signal: string) => {
-		console.log(`${signal} received, shutting down gracefully`);
+		logger.info({ signal }, 'received signal, shutting down gracefully');
 
 		// Backstop in case draining hangs (e.g. a stuck keep-alive connection).
 		const forceExit = setTimeout(() => {
-			console.error('Could not shut down in time, forcing exit');
+			logger.error('could not shut down in time, forcing exit');
 			process.exit(1);
 		}, 10000);
 		forceExit.unref();
@@ -37,7 +38,7 @@ const startAuthService = async () => {
 			});
 			await mongoose.disconnect();
 		} catch (err) {
-			console.error('Error during graceful shutdown', err);
+			logger.error({ err }, 'error during graceful shutdown');
 		} finally {
 			clearTimeout(forceExit);
 			process.exit(0);

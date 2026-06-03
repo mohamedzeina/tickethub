@@ -27,6 +27,8 @@ spec:
               # image needs far less).
               memory: 1Gi
           env:
+            - name: SERVICE_NAME
+              value: 'payments'
             - name: JWT_KEY
               valueFrom:
                 secretKeyRef:

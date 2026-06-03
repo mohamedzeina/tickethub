@@ -103,7 +103,7 @@ via the `payment:created` consumer; render a real receipt on the order detail/hi
 
 ## Phase D — Observability (Med, the demo showpiece)
 
-**D1. Structured logging.** Add `pino` + `pino-http` to each service (replace
+**D1. Structured logging.** ✅ Done. Add `pino` + `pino-http` to each service (replace
 `console.log`); include service name, request id, and event ids; JSON to stdout.
 
 **D2. Metrics.** Add `prom-client` + a `/metrics` endpoint per service (default +
@@ -162,10 +162,25 @@ D3 (tracing) are the two largest items — schedule them as their own PRs.
 
 _(check off as we go — start here tomorrow)_
 
+**2026-06-03 — D1 (structured logging) done; common 1.0.41.** Shared `pino` logger
+in `common` (`logger` + `requestLogger`), service name from `SERVICE_NAME` (set per
+depl), level `silent` under test / `info` otherwise, JSON to stdout. `requestLogger`
+(pino-http) logs one line per request with a request id (reuses inbound
+`x-request-id`, else generates one), demotes `/healthz` + `/readyz` to debug, and
+bumps 4xx→warn / 5xx→error. Replaced every `console.*` across all 5 services +
+common's base-listener/publisher/error-handler with structured `logger` calls
+(event logs carry `subject`; expiration carries `orderId`+`delayMs`). Wired
+`SERVICE_NAME` into all 5 depl yamls. Tested: auth 12 / tickets 52 / orders 37 /
+payments 15 unit tests green (orders' base-listener test now spies on `logger`);
+**live e2e — 11/11 checks** through the ingress (reserve → own-ticket block →
+already-reserved block → pay-intent → AwaitingPayment → cancel → cancelled),
+confirmed JSON logs with `service` + request ids + event subjects on all five
+services, no probe-log noise, no error-level logs.
+
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
 - [x] Phase B — Event-driven robustness (B1–B4 done, verified in-cluster on common 1.0.37)
 - [x] Phase C — Payments done properly (C1–C5 + AwaitingPayment, verified in-cluster on common 1.0.39)
-- [ ] Phase D — Observability
+- [ ] Phase D — Observability (D1 structured logging done; D2–D4 pending)
 
 **2026-06-03 — C5 (receipt/history) done; closes backlog #4.** orders now persists
 `stripeId` + `paidAt` on the order when `payment:created` completes it. The order

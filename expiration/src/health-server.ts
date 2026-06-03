@@ -1,4 +1,5 @@
 import http from 'http';
+import { logger } from '@zeina-tickethub/common';
 
 import { natsWrapper } from './nats-wrapper';
 import { expirationQueue } from './queues/expiration-queue';
@@ -37,7 +38,7 @@ export const startHealthServer = (port = 3000) => {
 	});
 
 	server.listen(port, () => {
-		console.log(`Expiration health server is running on port ${port}`);
+		logger.info({ port }, 'health server listening');
 	});
 
 	return server;

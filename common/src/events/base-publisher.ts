@@ -1,5 +1,6 @@
 import { JetStreamClient, JSONCodec } from 'nats';
 import { Subjects } from './subjects';
+import { logger } from '../logger';
 
 const jc = JSONCodec();
 
@@ -21,6 +22,6 @@ export abstract class Publisher<T extends Event> {
 	// durably stored (stronger than STAN's fire-and-callback).
 	async publish(data: T['data']): Promise<void> {
 		await this.js.publish(this.subject, jc.encode(data));
-		console.log(`Event published to subject ${this.subject}`);
+		logger.info({ subject: this.subject }, 'event published');
 	}
 }

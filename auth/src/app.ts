@@ -12,6 +12,7 @@ import {
 	errorHandler,
 	NotFoundError,
 	healthRouter,
+	requestLogger,
 } from '@zeina-tickethub/common';
 
 const app = express();
@@ -21,6 +22,7 @@ app.use(
 		checks: { mongo: () => mongoose.connection.readyState === 1 },
 	}),
 );
+app.use(requestLogger);
 app.use(json());
 app.use(
 	cookieSession({
