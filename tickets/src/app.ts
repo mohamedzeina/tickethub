@@ -10,6 +10,8 @@ import {
 	currentUser,
 	healthRouter,
 	requestLogger,
+	metricsRouter,
+	httpMetrics,
 } from '@zeina-tickethub/common';
 
 import { createTicketRouter } from './routes/new';
@@ -31,6 +33,8 @@ app.use(
 		},
 	}),
 );
+app.use(metricsRouter());
+app.use(httpMetrics);
 app.use(requestLogger);
 app.use(json());
 app.use(

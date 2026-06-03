@@ -5,6 +5,7 @@ import {
 	validateRequest,
 	BadRequestError,
 	OrderStatus,
+	client,
 } from '@zeina-tickethub/common';
 import { body } from 'express-validator';
 import { Ticket } from '../models/ticket';
@@ -13,6 +14,11 @@ import { OrderCreatedPublisher } from '../events/publishers/order-created-publis
 import { natsWrapper } from '../nats-wrapper';
 
 const router = express.Router();
+
+const ordersCreated = new client.Counter({
+	name: 'orders_created_total',
+	help: 'Orders created (tickets reserved)',
+});
 
 router.post(
 	'/api/orders',
@@ -60,6 +66,7 @@ router.post(
 			ticket,
 		});
 		await order.save();
+		ordersCreated.inc();
 
 		// Publish an event saying that an order was created
 		new OrderCreatedPublisher(natsWrapper.js).publish({

@@ -11,6 +11,10 @@ import { Subjects } from './subjects';
 import { DeadLetterStore } from './dead-letter';
 import { STREAM_NAME } from './stream';
 import { logger } from '../logger';
+import {
+	eventsProcessed,
+	eventRedeliveries,
+} from '../metrics';
 
 const jc = JSONCodec();
 
@@ -103,6 +107,11 @@ export abstract class Listener<T extends Event> {
 
 		try {
 			await this.onMessage(data, m);
+			eventsProcessed.inc({
+				subject: this.subject,
+				queue_group: this.queueGroupName,
+				result: 'success',
+			});
 		} catch (err) {
 			await this.handleError(m, err);
 		}
@@ -115,6 +124,15 @@ export abstract class Listener<T extends Event> {
 
 		if (deliveries < this.maxAttempts) {
 			this.logFailure(outOfOrder, this.context(m, error), 'will retry');
+			eventsProcessed.inc({
+				subject: this.subject,
+				queue_group: this.queueGroupName,
+				result: 'retry',
+			});
+			eventRedeliveries.inc({
+				subject: this.subject,
+				queue_group: this.queueGroupName,
+			});
 			m.nak(this.retryDelay);
 			return;
 		}
@@ -142,6 +160,10 @@ export abstract class Listener<T extends Event> {
 				// Couldn't archive — nak so JetStream retries (the max_deliver
 				// buffer leaves room) rather than dropping it silently.
 				this.logFailure(false, context, 'will retry (dead-letter write failed)');
+				eventRedeliveries.inc({
+					subject: this.subject,
+					queue_group: this.queueGroupName,
+				});
 				m.nak(this.retryDelay);
 				return;
 			}
@@ -149,6 +171,11 @@ export abstract class Listener<T extends Event> {
 
 		// Archived (or no store configured): stop redelivery for good.
 		m.term();
+		eventsProcessed.inc({
+			subject: this.subject,
+			queue_group: this.queueGroupName,
+			result: 'dead_letter',
+		});
 		logger.error(
 			{ ...context, attempts: m.info.redeliveryCount },
 			'dead-lettered poison message',

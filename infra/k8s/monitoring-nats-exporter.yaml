@@ -1,0 +1,53 @@
+# NATS exposes its monitoring data as JSON on :8222 (/varz, /jsz, ...), which
+# Prometheus can't parse. This sidecar-style exporter polls that endpoint and
+# re-exposes it as Prometheus metrics on :7777, scraped via the pod annotation.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats-exporter-depl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nats-exporter
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '7777'
+        prometheus.io/path: '/metrics'
+      labels:
+        app: nats-exporter
+    spec:
+      containers:
+        - name: nats-exporter
+          image: natsio/prometheus-nats-exporter:0.15.0
+          args:
+            - '-varz'
+            - '-connz'
+            - '-subz'
+            - '-jsz=all'
+            - '-port=7777'
+            - 'http://nats-srv:8222'
+          ports:
+            - containerPort: 7777
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-exporter-srv
+spec:
+  selector:
+    app: nats-exporter
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 7777
+      targetPort: 7777

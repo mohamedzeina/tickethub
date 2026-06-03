@@ -1,10 +1,20 @@
 import express, { Request, Response } from 'express';
+import { client } from '@zeina-tickethub/common';
 import { stripe } from '../stripe';
 import { Payment } from '../models/payment';
 import { PaymentCreatedPublisher } from '../events/publishers/payment-created-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
 const router = express.Router();
+
+const paymentsSucceeded = new client.Counter({
+	name: 'payments_succeeded_total',
+	help: 'Stripe payments that succeeded (recorded via webhook)',
+});
+const paymentsFailed = new client.Counter({
+	name: 'payments_failed_total',
+	help: 'Stripe payments that failed (payment_intent.payment_failed)',
+});
 
 // Stripe signs each webhook with the endpoint's secret over the *raw* request
 // body, so this route parses the body as a Buffer (express.raw) instead of JSON.
@@ -47,6 +57,9 @@ router.post(
 				});
 
 				await payment.save();
+				// Count unique successful payments (the !existing guard dedups
+				// Stripe's at-least-once webhook redelivery).
+				paymentsSucceeded.inc();
 
 				await new PaymentCreatedPublisher(natsWrapper.js).publish({
 					id: payment.id,
@@ -54,6 +67,8 @@ router.post(
 					stripeId: payment.stripeId,
 				});
 			}
+		} else if (event.type === 'payment_intent.payment_failed') {
+			paymentsFailed.inc();
 		}
 
 		res.send({ received: true });

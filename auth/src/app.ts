@@ -13,6 +13,8 @@ import {
 	NotFoundError,
 	healthRouter,
 	requestLogger,
+	metricsRouter,
+	httpMetrics,
 } from '@zeina-tickethub/common';
 
 const app = express();
@@ -22,6 +24,8 @@ app.use(
 		checks: { mongo: () => mongoose.connection.readyState === 1 },
 	}),
 );
+app.use(metricsRouter());
+app.use(httpMetrics);
 app.use(requestLogger);
 app.use(json());
 app.use(

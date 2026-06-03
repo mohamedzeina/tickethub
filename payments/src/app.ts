@@ -12,6 +12,8 @@ import {
 	currentUser,
 	healthRouter,
 	requestLogger,
+	metricsRouter,
+	httpMetrics,
 } from '@zeina-tickethub/common';
 
 import { natsWrapper } from './nats-wrapper';
@@ -26,6 +28,8 @@ app.use(
 		},
 	}),
 );
+app.use(metricsRouter());
+app.use(httpMetrics);
 app.use(requestLogger);
 // Mounted before json() so the Stripe webhook can read the raw request body
 // for signature verification (it uses its own express.raw parser).

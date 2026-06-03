@@ -106,7 +106,7 @@ via the `payment:created` consumer; render a real receipt on the order detail/hi
 **D1. Structured logging.** ✅ Done. Add `pino` + `pino-http` to each service (replace
 `console.log`); include service name, request id, and event ids; JSON to stdout.
 
-**D2. Metrics.** Add `prom-client` + a `/metrics` endpoint per service (default +
+**D2. Metrics.** ✅ Done. Add `prom-client` + a `/metrics` endpoint per service (default +
 custom: orders created, payments succeeded/failed, events processed, redelivery count).
 Deploy Prometheus + Grafana manifests under `infra/k8s/` scraping `/metrics` and the NATS
 monitoring port (8222); add Grafana dashboards.
@@ -162,6 +162,30 @@ D3 (tracing) are the two largest items — schedule them as their own PRs.
 
 _(check off as we go — start here tomorrow)_
 
+**2026-06-03 — D2 (metrics) done; common 1.0.42.** Shared `prom-client` registry in
+`common` (`metrics.ts`): default node/process metrics, `service` default label,
+`httpMetrics` middleware (`http_requests_total` + `http_request_duration_seconds`
+histogram, labelled by route *template* so order ids don't blow up cardinality),
+`metricsRouter()` (`GET /metrics`) for the Express services, and `renderMetrics()`
+for expiration's raw-http server. Event counters live in `common`'s
+publisher/listener: `events_published_total{subject}`,
+`events_processed_total{subject,queue_group,result=success|retry|dead_letter}`,
+`event_redeliveries_total{subject,queue_group}`. Domain counters:
+`orders_created_total` (orders/new), `payments_succeeded_total` /
+`payments_failed_total` (payments webhook). Re-exported `client` so services
+declare counters without their own dep. k8s: `prometheus.io/scrape` annotations on
+all 5 service pods; `monitoring-prometheus.yaml` (RBAC + pod-discovery scrape +
+emptyDir), `monitoring-nats-exporter.yaml` (translates NATS :8222 JSON →
+Prometheus :7777), `monitoring-grafana.yaml` (provisioned Prometheus datasource +
+TicketHub Overview dashboard, anonymous viewing). Tested: 116 unit tests green
+(auth 12 / tickets 52 / orders 37 / payments 15); **live in-cluster** — e2e flow
+11/11, all **11 Prometheus targets up**, custom metrics queryable
+(orders_created, http_requests_total by service, events_published/processed by
+subject/result, redeliveries, gnatsd_varz_connections), and Grafana → Prometheus
+proxy returns live data with the dashboard provisioned. Grafana/Prometheus are
+viewable via `kubectl port-forward svc/grafana-srv 3001:3000` /
+`svc/prometheus-srv 9090:9090` (no ingress host wired yet).
+
 **2026-06-03 — D1 (structured logging) done; common 1.0.41.** Shared `pino` logger
 in `common` (`logger` + `requestLogger`), service name from `SERVICE_NAME` (set per
 depl), level `silent` under test / `info` otherwise, JSON to stdout. `requestLogger`
@@ -180,7 +204,7 @@ services, no probe-log noise, no error-level logs.
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
 - [x] Phase B — Event-driven robustness (B1–B4 done, verified in-cluster on common 1.0.37)
 - [x] Phase C — Payments done properly (C1–C5 + AwaitingPayment, verified in-cluster on common 1.0.39)
-- [ ] Phase D — Observability (D1 structured logging done; D2–D4 pending)
+- [ ] Phase D — Observability (D1 logging + D2 metrics done; D3–D4 pending)
 
 **2026-06-03 — C5 (receipt/history) done; closes backlog #4.** orders now persists
 `stripeId` + `paidAt` on the order when `payment:created` completes it. The order

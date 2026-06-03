@@ -1,0 +1,237 @@
+# Grafana with the Prometheus datasource + a TicketHub overview dashboard
+# provisioned from ConfigMaps, so it comes up populated with no manual setup.
+# Anonymous viewing is enabled for the local demo (admin login still works).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+data:
+  datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://prometheus-srv:9090
+        isDefault: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+data:
+  provider.yaml: |
+    apiVersion: 1
+    providers:
+      - name: tickethub
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+data:
+  tickethub-overview.json: |
+    {
+      "uid": "tickethub-overview",
+      "title": "TicketHub Overview",
+      "tags": ["tickethub"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "10s",
+      "time": { "from": "now-30m", "to": "now" },
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "HTTP request rate (req/s by service)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (service) (rate(http_requests_total[5m]))",
+              "legendFormat": "{{service}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "HTTP p95 latency (s by service)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{service}}"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Orders created (last 1h)",
+          "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "sum(increase(orders_created_total[1h]))" }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Payments succeeded / failed (last 1h)",
+          "gridPos": { "h": 8, "w": 6, "x": 6, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "sum(increase(payments_succeeded_total[1h]))", "legendFormat": "succeeded" },
+            { "refId": "B", "expr": "sum(increase(payments_failed_total[1h]))", "legendFormat": "failed" }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Events processed (by result)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (result) (rate(events_processed_total[5m]))",
+              "legendFormat": "{{result}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Events published (by subject)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (subject) (rate(events_published_total[5m]))",
+              "legendFormat": "{{subject}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Listener redeliveries (by subject)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (subject) (rate(event_redeliveries_total[5m]))",
+              "legendFormat": "{{subject}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Resident memory (by service)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (service) (process_resident_memory_bytes)",
+              "legendFormat": "{{service}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "NATS JetStream messages",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(jetstream_stream_total_messages)",
+              "legendFormat": "stream messages"
+            }
+          ]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-depl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.2.0
+          env:
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: 'admin'
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: 'true'
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: 'Admin'
+            - name: GF_USERS_DEFAULT_THEME
+              value: 'dark'
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-srv
+spec:
+  selector:
+    app: grafana
+  ports:
+    - name: web
+      protocol: TCP
+      port: 3000
+      targetPort: 3000

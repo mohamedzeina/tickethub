@@ -1,5 +1,5 @@
 import http from 'http';
-import { logger } from '@zeina-tickethub/common';
+import { logger, renderMetrics } from '@zeina-tickethub/common';
 
 import { natsWrapper } from './nats-wrapper';
 import { expirationQueue } from './queues/expiration-queue';
@@ -13,6 +13,18 @@ export const startHealthServer = (port = 3000) => {
 			res.writeHead(status, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(body));
 		};
+
+		// Prometheus scrape endpoint — expiration has no Express app, so render the
+		// shared registry directly.
+		if (req.url === '/metrics') {
+			renderMetrics()
+				.then(({ contentType, body }) => {
+					res.writeHead(200, { 'Content-Type': contentType });
+					res.end(body);
+				})
+				.catch(() => send(500, { status: 'error' }));
+			return;
+		}
 
 		if (req.url === '/healthz') {
 			return send(200, { status: 'ok' });
