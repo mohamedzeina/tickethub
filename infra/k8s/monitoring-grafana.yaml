@@ -182,12 +182,19 @@ spec:
         - name: grafana
           image: grafana/grafana:11.2.0
           env:
+            # Admin password comes from a Secret (created out-of-band like the
+            # app's jwt/mongo/stripe secrets), never a literal in the manifest.
             - name: GF_SECURITY_ADMIN_PASSWORD
-              value: 'admin'
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin
+                  key: admin-password
+            # Anonymous access is view-only — enough to browse dashboards on the
+            # local/demo cluster without a login; editing still requires admin.
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: 'true'
             - name: GF_AUTH_ANONYMOUS_ORG_ROLE
-              value: 'Admin'
+              value: 'Viewer'
             - name: GF_USERS_DEFAULT_THEME
               value: 'dark'
           ports:
