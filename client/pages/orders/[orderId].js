@@ -40,10 +40,29 @@ const cardElementOptions = {
 // Embedded card form. C3: the server creates a PaymentIntent and returns its
 // client_secret; the browser confirms the card directly with Stripe. The order
 // is marked paid by the webhook (payment_intent.succeeded), not by this request.
+// The card succeeds at Stripe, but the order is only marked `complete` once the
+// webhook (payment_intent.succeeded) reaches payments → publishes payment:created
+// → the orders listener flips it. That's eventually consistent (~1–2s). Poll the
+// order until it reflects the payment so the buyer doesn't land back on a stale
+// "Pay now" list. Capped so a missed webhook still redirects rather than hangs.
+const waitForCompletion = async (orderId, { attempts = 20, intervalMs = 600 } = {}) => {
+	for (let i = 0; i < attempts; i++) {
+		try {
+			const { data } = await axios.get(`/api/orders/${orderId}`);
+			if (data.status === 'complete') return true;
+		} catch (err) {
+			// transient — keep polling
+		}
+		await new Promise((resolve) => setTimeout(resolve, intervalMs));
+	}
+	return false;
+};
+
 const CheckoutForm = ({ amount, orderId }) => {
 	const stripe = useStripe();
 	const elements = useElements();
 	const [loading, setLoading] = useState(false);
+	const [finalizing, setFinalizing] = useState(false);
 	const [focused, setFocused] = useState(false);
 	const [cardError, setCardError] = useState(null);
 
@@ -69,7 +88,10 @@ const CheckoutForm = ({ amount, orderId }) => {
 			}
 
 			if (result.paymentIntent?.status === 'succeeded') {
-				// The webhook will flip the order to complete shortly after.
+				// 3. wait for the order to actually reflect the payment before
+				// sending the buyer back to their (otherwise stale) orders list.
+				setFinalizing(true);
+				await waitForCompletion(orderId);
 				Router.push('/orders');
 				return;
 			}
@@ -82,6 +104,7 @@ const CheckoutForm = ({ amount, orderId }) => {
 				'Something went wrong. Please try again.';
 			setCardError(message);
 			setLoading(false);
+			setFinalizing(false);
 		}
 	};
 
@@ -104,7 +127,11 @@ const CheckoutForm = ({ amount, orderId }) => {
 				className="btn btn--red btn--block"
 				style={{ marginTop: 16 }}
 			>
-				{loading ? 'Processing…' : `Validate & Pay ${formatPrice(amount)}`}
+				{finalizing
+					? 'Finalizing payment…'
+					: loading
+						? 'Processing…'
+						: `Validate & Pay ${formatPrice(amount)}`}
 			</button>
 
 			<p className="test-note">
