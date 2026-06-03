@@ -74,10 +74,12 @@ router.post(
 			version: order.version,
 			status: order.status,
 			userId: order.userId,
+			userEmail: req.currentUser!.email,
 			expiresAt: order.expiresAt.toISOString(),
 			ticket: {
 				id: ticket.id,
 				price: ticket.price,
+				title: ticket.title,
 			},
 		});
 

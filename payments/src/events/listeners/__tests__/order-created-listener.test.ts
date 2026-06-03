@@ -13,10 +13,12 @@ const setup = async () => {
 		version: 0,
 		expiresAt: 'swfasf',
 		userId: 'asfafssf',
+		userEmail: 'buyer@test.com',
 		status: OrderStatus.Created,
 		ticket: {
 			id: 'asfmakf',
 			price: 20,
+			title: 'Test Show',
 		},
 	};
 

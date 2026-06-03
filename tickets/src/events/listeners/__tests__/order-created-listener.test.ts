@@ -24,10 +24,12 @@ const setup = async () => {
 		version: 0,
 		status: OrderStatus.Created,
 		userId: '123',
+		userEmail: 'buyer@test.com',
 		expiresAt: '123',
 		ticket: {
 			id: ticket.id,
 			price: ticket.price,
+			title: ticket.title,
 		},
 	};
 

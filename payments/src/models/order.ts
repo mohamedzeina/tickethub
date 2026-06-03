@@ -8,6 +8,10 @@ interface OrderAttrs {
 	version: number;
 	userId: string;
 	price: number;
+	// Carried on order:created so the webhook can email a receipt. (#5)
+	// Optional so replays of pre-#5 events still build.
+	userEmail?: string;
+	ticketTitle?: string;
 }
 
 interface OrderDoc extends mongoose.Document {
@@ -15,6 +19,8 @@ interface OrderDoc extends mongoose.Document {
 	version: number;
 	userId: string;
 	price: number;
+	userEmail?: string;
+	ticketTitle?: string;
 }
 
 // Interface for the JSON representation after transformation
@@ -44,6 +50,14 @@ const orderSchema = new mongoose.Schema(
 			type: String,
 			required: true,
 		},
+		userEmail: {
+			type: String,
+			required: false,
+		},
+		ticketTitle: {
+			type: String,
+			required: false,
+		},
 	},
 	{
 		toJSON: {
@@ -65,6 +79,8 @@ orderSchema.statics.build = (attrs: OrderAttrs) => {
 		price: attrs.price,
 		userId: attrs.userId,
 		status: attrs.status,
+		userEmail: attrs.userEmail,
+		ticketTitle: attrs.ticketTitle,
 	});
 };
 

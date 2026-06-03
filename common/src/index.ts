@@ -1,5 +1,7 @@
 export * from './logger';
 export * from './metrics';
+export * from './mailer';
+export * from './emails/receipt';
 
 export * from './errors/bad-request-error';
 export * from './errors/custom-error';

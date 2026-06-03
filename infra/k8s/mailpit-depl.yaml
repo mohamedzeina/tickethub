@@ -1,0 +1,55 @@
+# Mailpit — local SMTP capture + web inbox for dev. Services send mail to
+# mailpit-srv:1025 (no auth); view captured messages at the web UI on :8025
+# (port-forward: kubectl port-forward svc/mailpit-srv 8025:8025).
+# In production these MAIL_* envs point at a real relay (Brevo/Resend/SES) and
+# Mailpit is not deployed.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit-depl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailpit
+  template:
+    metadata:
+      labels:
+        app: mailpit
+    spec:
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:v1.21
+          ports:
+            - containerPort: 1025 # SMTP
+            - containerPort: 8025 # web UI / API
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8025
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit-srv
+spec:
+  selector:
+    app: mailpit
+  ports:
+    - name: smtp
+      protocol: TCP
+      port: 1025
+      targetPort: 1025
+    - name: web
+      protocol: TCP
+      port: 8025
+      targetPort: 8025

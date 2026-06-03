@@ -32,6 +32,10 @@ const paymentSchema = new mongoose.Schema(
 		stripeId: {
 			required: true,
 			type: String,
+			// One payment per Stripe intent. Makes the webhook idempotent against
+			// concurrent redeliveries (the check-then-insert guard alone races
+			// across pods): the losing insert hits a duplicate-key error. (#5)
+			unique: true,
 		},
 	},
 	{
