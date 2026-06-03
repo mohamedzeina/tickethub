@@ -1,3 +1,4 @@
+import './tracing'; // must be first — registers OTel instrumentation before other imports load
 import { ensureStream, logger } from '@zeina-tickethub/common';
 import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';

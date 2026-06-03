@@ -111,7 +111,7 @@ custom: orders created, payments succeeded/failed, events processed, redelivery 
 Deploy Prometheus + Grafana manifests under `infra/k8s/` scraping `/metrics` and the NATS
 monitoring port (8222); add Grafana dashboards.
 
-**D3. Distributed tracing.** OpenTelemetry SDK auto-instrumenting Express/Mongoose/NATS,
+**D3. Distributed tracing.** ✅ Done. OpenTelemetry SDK auto-instrumenting Express/Mongoose/NATS,
 exporting to an OTel collector → Jaeger/Tempo. Propagate trace context across NATS by
 injecting/extracting headers in `common`’s publisher/listener — yields end-to-end traces
 of the order → payment → expiration flow.
@@ -162,6 +162,29 @@ D3 (tracing) are the two largest items — schedule them as their own PRs.
 
 _(check off as we go — start here tomorrow)_
 
+**2026-06-03 — D3 (distributed tracing) done; common 1.0.43.** OpenTelemetry across
+all 5 services. Each service has `src/tracing.ts` (NodeSDK + auto-instrumentations,
+fs disabled, OTLP/HTTP → Jaeger) imported as the **first line** of `index.ts` so
+instrumentation patches express/mongoose/http before they load. NATS doesn't
+auto-instrument, so `common` propagates W3C trace context by hand: base-publisher
+injects the active context into JetStream message headers inside a PRODUCER span;
+base-listener extracts it and re-roots handling under a CONSUMER span (new
+`events/trace.ts`; common exports `eventsTracer`). Jaeger all-in-one
+(`monitoring-jaeger.yaml`, native OTLP receiver — no standalone collector). Per-svc
+env `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` → `jaeger-srv:4318`.
+**Gotchas hit & fixed:** (1) ts-node-dev type-checks at startup and the OTel type
+graph OOM'd the dev images → added `TS_NODE_TRANSPILE_ONLY=true` (tsc/CI still
+type-checks); (2) runtime OTel module load still OOM'd V8 at 512Mi → bumped
+auth/orders/tickets to 1Gi (matching payments) + liveness initialDelay 30s for the
+slower OTel boot; (3) NEVER `kubectl apply` the raw depl yamls over a skaffold
+deployment — it reverts `image: toxiczeina/*` to the stale Docker Hub `:latest`;
+re-run `skaffold run` instead. Tested: 116 unit tests green; **live e2e 11/11**;
+all 5 services report to Jaeger and a single `POST /api/orders` produces **one
+43-span trace across orders→tickets→payments→expiration** (order:created consumer
+spans in payments/expiration/tickets are children of the orders publish span across
+the NATS boundary; ticket:updated hops back into orders). Jaeger UI via
+`kubectl port-forward svc/jaeger-srv 16686:16686`.
+
 **2026-06-03 — D2 (metrics) done; common 1.0.42.** Shared `prom-client` registry in
 `common` (`metrics.ts`): default node/process metrics, `service` default label,
 `httpMetrics` middleware (`http_requests_total` + `http_request_duration_seconds`
@@ -204,7 +227,7 @@ services, no probe-log noise, no error-level logs.
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
 - [x] Phase B — Event-driven robustness (B1–B4 done, verified in-cluster on common 1.0.37)
 - [x] Phase C — Payments done properly (C1–C5 + AwaitingPayment, verified in-cluster on common 1.0.39)
-- [ ] Phase D — Observability (D1 logging + D2 metrics done; D3–D4 pending)
+- [ ] Phase D — Observability (D1 logging + D2 metrics + D3 tracing done; D4 alerting pending)
 
 **2026-06-03 — C5 (receipt/history) done; closes backlog #4.** orders now persists
 `stripeId` + `paidAt` on the order when `payment:created` completes it. The order

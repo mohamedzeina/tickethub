@@ -26,10 +26,16 @@ spec:
               memory: 128Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 1Gi
           env:
             - name: SERVICE_NAME
               value: 'auth'
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: 'http://jaeger-srv:4318/v1/traces'
+            # ts-node-dev type-checks at startup; the OTel type graph is huge and
+            # OOMs the dev image. Skip runtime type-checking (tsc/CI still checks).
+            - name: TS_NODE_TRANSPILE_ONLY
+              value: 'true'
             - name: JWT_KEY
               valueFrom:
                 secretKeyRef:
@@ -54,7 +60,7 @@ spec:
             httpGet:
               path: /healthz
               port: 3000
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 3
             failureThreshold: 3

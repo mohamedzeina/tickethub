@@ -1,3 +1,4 @@
+import './tracing'; // must be first — registers OTel instrumentation before other imports load
 import mongoose from 'mongoose';
 import { ensureStream, logger } from '@zeina-tickethub/common';
 import { app } from './app';

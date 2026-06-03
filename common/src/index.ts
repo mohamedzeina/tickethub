@@ -16,6 +16,7 @@ export * from './middlewares/validate-request';
 
 export * from './events/base-listener';
 export * from './events/base-publisher';
+export * from './events/trace';
 export * from './events/dead-letter';
 export * from './events/stream';
 export * from './events/idempotent';

@@ -19,8 +19,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@opentelemetry/auto-instrumentations-node": "^0.65.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.205.0",
+    "@opentelemetry/resources": "^2.7.1",
+    "@opentelemetry/sdk-node": "^0.205.0",
+    "@opentelemetry/semantic-conventions": "^1.41.1",
     "@types/bull": "^3.15.9",
-    "@zeina-tickethub/common": "^1.0.42",
+    "@zeina-tickethub/common": "^1.0.43",
     "bull": "^4.16.5",
     "nats": "^2.29.3"
   },

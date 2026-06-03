@@ -7,6 +7,12 @@ import {
 	NatsConnection,
 	nanos,
 } from 'nats';
+import {
+	context,
+	Span,
+	SpanKind,
+	SpanStatusCode,
+} from '@opentelemetry/api';
 import { Subjects } from './subjects';
 import { DeadLetterStore } from './dead-letter';
 import { STREAM_NAME } from './stream';
@@ -15,6 +21,7 @@ import {
 	eventsProcessed,
 	eventRedeliveries,
 } from '../metrics';
+import { eventsTracer, extractTraceContext } from './trace';
 
 const jc = JSONCodec();
 
@@ -96,11 +103,26 @@ export abstract class Listener<T extends Event> {
 	}
 
 	private async handle(m: JsMsg) {
+		// Re-root under the publisher's context (carried in the message headers)
+		// so this consumer span and its mongoose/http children join the same trace.
+		const parentCtx = extractTraceContext(m);
+		await context.with(parentCtx, () =>
+			eventsTracer().startActiveSpan(
+				`${this.subject} process`,
+				{ kind: SpanKind.CONSUMER },
+				(span) => this.handleSpanned(m, span).finally(() => span.end()),
+			),
+		);
+	}
+
+	private async handleSpanned(m: JsMsg, span: Span) {
 		let data: T['data'];
 		try {
 			data = jc.decode(m.data) as T['data'];
 		} catch (err) {
 			// An unparseable payload can never succeed — dead-letter it outright.
+			span.recordException(err as Error);
+			span.setStatus({ code: SpanStatusCode.ERROR });
 			await this.deadLetter(m, err);
 			return;
 		}
@@ -113,6 +135,8 @@ export abstract class Listener<T extends Event> {
 				result: 'success',
 			});
 		} catch (err) {
+			span.recordException(err as Error);
+			span.setStatus({ code: SpanStatusCode.ERROR });
 			await this.handleError(m, err);
 		}
 	}
