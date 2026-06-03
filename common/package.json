@@ -1,13 +1,13 @@
 {
   "name": "@zeina-tickethub/common",
-  "version": "1.0.37",
+  "version": "1.0.39",
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
   "files": [
     "build/**/*"
   ],
   "scripts": {
-    "clean": "del ./build/*",
+    "clean": "rm -rf ./build",
     "build": "npm run clean && tsc",
     "pub": "npm version patch && npm run build && npm publish"
   },

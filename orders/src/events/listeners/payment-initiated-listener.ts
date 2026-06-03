@@ -1,6 +1,6 @@
 import {
 	Listener,
-	PaymentCreatedEvent,
+	PaymentInitiatedEvent,
 	Subjects,
 	OrderStatus,
 	processOnce,
@@ -11,13 +11,12 @@ import { JsMsg } from 'nats';
 import { Order } from '../../models/order';
 import { ProcessedEvent } from '../../models/processed-event';
 
-export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
-	readonly subject = Subjects.PaymentCreated;
+export class PaymentInitiatedListener extends Listener<PaymentInitiatedEvent> {
+	readonly subject = Subjects.PaymentInitiated;
 	queueGroupName: string = queueGroupName;
-	// B3: cap retries and dead-letter poison messages.
 	protected deadLetterStore = FailedEvent;
 
-	async onMessage(data: PaymentCreatedEvent['data'], msg: JsMsg) {
+	async onMessage(data: PaymentInitiatedEvent['data'], msg: JsMsg) {
 		await processOnce(
 			ProcessedEvent,
 			this.subject,
@@ -29,18 +28,12 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 					throw new Error('Order not found');
 				}
 
-				// If the order was already cancelled (e.g. it expired right as the
-				// payment landed), don't complete it — the payments service refunds
-				// the charge off order:cancelled. Record it as handled and move on.
-				if (order.status === OrderStatus.Cancelled) {
-					return;
+				// Only nudge a fresh order forward. If it's already complete,
+				// cancelled, or awaiting, leave it — never walk a status backwards.
+				if (order.status === OrderStatus.Created) {
+					order.set({ status: OrderStatus.AwaitingPayment });
+					await order.save();
 				}
-
-				order.set({
-					status: OrderStatus.Complete,
-				});
-
-				await order.save();
 			},
 		);
 

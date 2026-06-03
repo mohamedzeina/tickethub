@@ -10,6 +10,8 @@ import {
 } from '@zeina-tickethub/common';
 import { Order } from '../models/order';
 import { stripe } from '../stripe';
+import { PaymentInitiatedPublisher } from '../events/publishers/payment-initiated-publisher';
+import { natsWrapper } from '../nats-wrapper';
 
 const router = express.Router();
 
@@ -52,6 +54,9 @@ router.post(
 			},
 			{ idempotencyKey: orderId },
 		);
+
+		// Tell orders the order is now awaiting payment (Created → AwaitingPayment).
+		await new PaymentInitiatedPublisher(natsWrapper.js).publish({ orderId });
 
 		res.status(201).send({ clientSecret: paymentIntent.client_secret });
 	},

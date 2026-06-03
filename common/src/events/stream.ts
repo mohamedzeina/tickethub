@@ -14,7 +14,9 @@ const STREAM_SUBJECTS: string[] = [
 	Subjects.OrderCreated,
 	Subjects.OrderCancelled,
 	Subjects.ExpirationComplete,
+	Subjects.PaymentInitiated,
 	Subjects.PaymentCreated,
+	Subjects.PaymentRefunded,
 ];
 
 // Create the stream if it doesn't exist. Every service calls this at startup;
@@ -32,5 +34,11 @@ export const ensureStream = async (nc: NatsConnection): Promise<void> => {
 		// Already created by another service (or a prior boot). Confirm it's
 		// really there — info() throws only if the stream is genuinely absent.
 		await jsm.streams.info(STREAM_NAME);
+
+		// Reconcile the subject list: adding new subjects (e.g. payment:initiated,
+		// payment:refunded) to an existing stream needs an update(), since the
+		// add() above no-ops once the stream exists. Adding subjects is a safe,
+		// non-destructive change.
+		await jsm.streams.update(STREAM_NAME, { subjects: STREAM_SUBJECTS });
 	}
 };

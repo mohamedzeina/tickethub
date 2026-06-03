@@ -1,13 +1,13 @@
 import mongoose from 'mongoose';
 import { JsMsg } from 'nats';
-import { PaymentCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
-import { PaymentCreatedListener } from '../payment-created-listener';
+import { PaymentInitiatedEvent, OrderStatus } from '@zeina-tickethub/common';
+import { PaymentInitiatedListener } from '../payment-initiated-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Ticket } from '../../../models/ticket';
 import { Order } from '../../../models/order';
 
-const setup = async () => {
-	const listener = new PaymentCreatedListener(natsWrapper.connection);
+const setup = async (status: OrderStatus = OrderStatus.Created) => {
+	const listener = new PaymentInitiatedListener(natsWrapper.connection);
 
 	const ticket = Ticket.build({
 		id: new mongoose.Types.ObjectId().toHexString(),
@@ -17,17 +17,15 @@ const setup = async () => {
 	await ticket.save();
 
 	const order = Order.build({
-		status: OrderStatus.Created,
+		status,
 		userId: 'abc',
 		expiresAt: new Date(),
 		ticket,
 	});
 	await order.save();
 
-	const data: PaymentCreatedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+	const data: PaymentInitiatedEvent['data'] = {
 		orderId: order.id,
-		stripeId: 'stripe123',
 	};
 
 	// @ts-ignore
@@ -39,13 +37,13 @@ const setup = async () => {
 	return { listener, order, data, msg };
 };
 
-it('marks the order as complete', async () => {
+it('moves a created order to awaiting payment', async () => {
 	const { listener, order, data, msg } = await setup();
 
 	await listener.onMessage(data, msg);
 
 	const updatedOrder = await Order.findById(order.id);
-	expect(updatedOrder!.status).toEqual(OrderStatus.Complete);
+	expect(updatedOrder!.status).toEqual(OrderStatus.AwaitingPayment);
 });
 
 it('acks the message', async () => {
@@ -56,29 +54,23 @@ it('acks the message', async () => {
 	expect(msg.ack).toHaveBeenCalled();
 });
 
-it('skips a redelivered (duplicate) event, completing the order once', async () => {
-	const { listener, order, data, msg } = await setup();
+it('never walks a completed order backwards', async () => {
+	const { listener, order, data, msg } = await setup(OrderStatus.Complete);
 
-	await listener.onMessage(data, msg);
 	await listener.onMessage(data, msg);
 
 	const updatedOrder = await Order.findById(order.id);
 	expect(updatedOrder!.status).toEqual(OrderStatus.Complete);
-	// Saved (version bumped) only on the first delivery.
-	expect(updatedOrder!.version).toEqual(order.version + 1);
-	expect(msg.ack).toHaveBeenCalledTimes(2);
 });
 
-it('does not complete an order that was already cancelled', async () => {
+it('transitions once for a redelivered (duplicate) event', async () => {
 	const { listener, order, data, msg } = await setup();
 
-	// The order expired (or was cancelled) before the payment landed.
-	order.set({ status: OrderStatus.Cancelled });
-	await order.save();
-
+	await listener.onMessage(data, msg);
 	await listener.onMessage(data, msg);
 
 	const updatedOrder = await Order.findById(order.id);
-	expect(updatedOrder!.status).toEqual(OrderStatus.Cancelled);
-	expect(msg.ack).toHaveBeenCalled();
+	expect(updatedOrder!.status).toEqual(OrderStatus.AwaitingPayment);
+	expect(updatedOrder!.version).toEqual(order.version + 1);
+	expect(msg.ack).toHaveBeenCalledTimes(2);
 });

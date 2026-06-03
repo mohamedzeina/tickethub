@@ -5,6 +5,7 @@ import { natsWrapper } from './nats-wrapper';
 import { TicketCreatedListener } from './events/listeners/ticket-created-listener';
 import { TicketUpdatedListener } from './events/listeners/ticket-updated-listener';
 import { ExpirationCompleteListener } from './events/listeners/expiration-complete-listener';
+import { PaymentInitiatedListener } from './events/listeners/payment-initiated-listener';
 import { PaymentCreatedListener } from './events/listeners/payment-created-listener';
 
 const startOrdersService = async () => {
@@ -45,6 +46,7 @@ const startOrdersService = async () => {
 		await new TicketCreatedListener(natsWrapper.connection).listen();
 		await new TicketUpdatedListener(natsWrapper.connection).listen();
 		await new ExpirationCompleteListener(natsWrapper.connection).listen();
+		await new PaymentInitiatedListener(natsWrapper.connection).listen();
 		await new PaymentCreatedListener(natsWrapper.connection).listen();
 
 		await mongoose.connect(process.env.MONGO_URI);

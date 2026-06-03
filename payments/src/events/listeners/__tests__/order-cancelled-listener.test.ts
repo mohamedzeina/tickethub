@@ -2,6 +2,8 @@ import { OrderCancelledEvent, OrderStatus } from '@zeina-tickethub/common';
 import { OrderCancelledListener } from '../order-cancelled-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
+import { Payment } from '../../../models/payment';
+import { stripe } from '../../../stripe';
 import mongoose from 'mongoose';
 
 const setup = async () => {
@@ -63,4 +65,40 @@ it('cancels the order only once for a redelivered (duplicate) event', async () =
 	// Version bumped only on the first delivery.
 	expect(updatedOrder!.version).toEqual(order.version + 1);
 	expect(msg.ack).toHaveBeenCalledTimes(2);
+});
+
+it('does not refund or publish when the cancelled order was never paid', async () => {
+	const { listener, data, msg } = await setup();
+
+	await listener.onMessage(data, msg);
+
+	// No Payment for this order → no payment:refunded event.
+	expect(natsWrapper.js.publish).not.toHaveBeenCalled();
+});
+
+it('refunds the charge and publishes payment:refunded when the order was paid', async () => {
+	const { listener, data, msg } = await setup();
+
+	// A real, succeeded PaymentIntent that the listener will refund.
+	const paymentIntent = await stripe.paymentIntents.create({
+		amount: 2000,
+		currency: 'usd',
+		payment_method: 'pm_card_visa',
+		confirm: true,
+		automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+	});
+
+	const payment = Payment.build({ orderId: data.id, stripeId: paymentIntent.id });
+	await payment.save();
+
+	await listener.onMessage(data, msg);
+
+	// Stripe issued a refund against the intent...
+	const refunds = await stripe.refunds.list({
+		payment_intent: paymentIntent.id,
+	});
+	expect(refunds.data.length).toBeGreaterThan(0);
+
+	// ...and we announced it.
+	expect(natsWrapper.js.publish).toHaveBeenCalledTimes(1);
 });
