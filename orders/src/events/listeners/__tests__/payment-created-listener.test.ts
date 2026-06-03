@@ -48,6 +48,16 @@ it('marks the order as complete', async () => {
 	expect(updatedOrder!.status).toEqual(OrderStatus.Complete);
 });
 
+it('stamps the receipt metadata (stripeId + paidAt) on completion', async () => {
+	const { listener, order, data, msg } = await setup();
+
+	await listener.onMessage(data, msg);
+
+	const updatedOrder = await Order.findById(order.id);
+	expect(updatedOrder!.stripeId).toEqual(data.stripeId);
+	expect(updatedOrder!.paidAt).toBeInstanceOf(Date);
+});
+
 it('acks the message', async () => {
 	const { listener, data, msg } = await setup();
 

@@ -33,6 +33,9 @@ const OrderRow = ({ order }) => {
 				<div className="ord__price">
 					{formatPrice(order.ticket.price)} · No. {serialFromId(order.id)}
 				</div>
+				{order.status === 'complete' && order.paidAt && (
+					<div className="ord__paid">Paid {formatDateShort(order.paidAt)}</div>
+				)}
 			</div>
 
 			<div className="ord__right">
@@ -44,6 +47,15 @@ const OrderRow = ({ order }) => {
 						className="btn btn--red"
 					>
 						Pay now
+					</Link>
+				)}
+				{order.status === 'complete' && (
+					<Link
+						href="/orders/[orderId]"
+						as={`/orders/${order.id}`}
+						className="btn btn--ghost"
+					>
+						View receipt
 					</Link>
 				)}
 			</div>

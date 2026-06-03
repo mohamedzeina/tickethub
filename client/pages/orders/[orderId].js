@@ -9,7 +9,11 @@ import {
 	useElements,
 } from '@stripe/react-stripe-js';
 import Router from 'next/router';
-import { formatPrice, formatDateShort } from '../../utils/ticket';
+import {
+	formatPrice,
+	formatDateShort,
+	serialFromId,
+} from '../../utils/ticket';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY);
 
@@ -110,6 +114,83 @@ const CheckoutForm = ({ amount, orderId }) => {
 	);
 };
 
+// Formats the paid-at timestamp as e.g. "Jun 3, 2026 · 2:48 AM".
+const formatPaidAt = (value) => {
+	if (!value) return null;
+	const d = new Date(value);
+	if (Number.isNaN(d.getTime())) return null;
+	const date = d.toLocaleDateString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+	});
+	const time = d.toLocaleTimeString('en-US', {
+		hour: 'numeric',
+		minute: '2-digit',
+	});
+	return `${date} · ${time}`;
+};
+
+// C5: a real receipt for a paid order — replaces the checkout gate once the
+// webhook-driven payment:created event has completed the order.
+const Receipt = ({ order }) => {
+	const eventDate = formatDateShort(order.ticket.eventDate);
+	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
+	const paidAt = formatPaidAt(order.paidAt);
+
+	return (
+		<div className="container">
+			<div className="gate stocked bordered">
+				<div className="gate__head">
+					<span className="stamp stamp--paid" style={{ marginBottom: 14 }}>
+						Paid
+					</span>
+					<h2>{order.ticket.title}</h2>
+					{meta && <p>{meta}</p>}
+				</div>
+
+				<div className="perf">
+					<span className="notch notch--l" />
+					<span className="notch notch--r" />
+				</div>
+
+				<div className="gate__pay">
+					<dl className="receipt">
+						<div className="receipt__row">
+							<dt>Amount paid</dt>
+							<dd>{formatPrice(order.ticket.price)}</dd>
+						</div>
+						{paidAt && (
+							<div className="receipt__row">
+								<dt>Paid on</dt>
+								<dd>{paidAt}</dd>
+							</div>
+						)}
+						<div className="receipt__row">
+							<dt>Order no.</dt>
+							<dd>{serialFromId(order.id)}</dd>
+						</div>
+						{order.stripeId && (
+							<div className="receipt__row">
+								<dt>Stripe ref</dt>
+								<dd className="receipt__ref">{order.stripeId}</dd>
+							</div>
+						)}
+					</dl>
+
+					<Link
+						href="/orders"
+						className="btn btn--red btn--block"
+						style={{ marginTop: 18 }}
+					>
+						Back to my orders
+					</Link>
+				</div>
+			</div>
+		</div>
+	);
+};
+
 const OrderShow = ({ order }) => {
 	const [timeLeft, setTimeLeft] = useState(0);
 
@@ -126,6 +207,11 @@ const OrderShow = ({ order }) => {
 			clearInterval(timerId);
 		};
 	}, [order]);
+
+	// A paid order shows its receipt, not the checkout gate.
+	if (order.status === 'complete') {
+		return <Receipt order={order} />;
+	}
 
 	if (timeLeft < 0) {
 		return (

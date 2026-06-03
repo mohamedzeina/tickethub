@@ -36,8 +36,12 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 					return;
 				}
 
+				// C5: stamp the receipt metadata so the order detail / history
+				// page can show a real receipt (Stripe reference + paid-at).
 				order.set({
 					status: OrderStatus.Complete,
+					stripeId: data.stripeId,
+					paidAt: new Date(),
 				});
 
 				await order.save();

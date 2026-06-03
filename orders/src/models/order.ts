@@ -18,6 +18,9 @@ interface OrderDoc extends mongoose.Document {
 	status: OrderStatus;
 	expiresAt: Date;
 	ticket: TicketDoc;
+	// Receipt metadata, set when payment:created completes the order (C5).
+	stripeId?: string;
+	paidAt?: Date;
 }
 
 interface OrderModel extends mongoose.Model<OrderDoc> {
@@ -29,6 +32,8 @@ interface OrderJSON {
 	status: OrderStatus;
 	expiresAt?: Date | null;
 	ticket?: mongoose.Types.ObjectId | null;
+	stripeId?: string | null;
+	paidAt?: Date | null;
 	_id?: mongoose.Types.ObjectId; // Optional for deletion
 	id?: string; // Added during transformation
 }
@@ -51,6 +56,12 @@ const orderSchema = new mongoose.Schema(
 		ticket: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: 'Ticket',
+		},
+		stripeId: {
+			type: String,
+		},
+		paidAt: {
+			type: mongoose.Schema.Types.Date,
 		},
 	},
 	{

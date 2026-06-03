@@ -1326,7 +1326,29 @@
 .ord__title { font-family: var(--f-display); color: var(--ink); font-size: 22px; line-height: 0.96; }
 .ord__meta { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--ink-soft); margin-top: 7px; }
 .ord__price { font-family: var(--f-mono); font-size: 13px; color: var(--red-press); margin-top: 4px; }
+.ord__paid { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--ink-soft); margin-top: 6px; }
 .ord__right { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+
+/* C5 — paid-order receipt (order detail page) */
+.receipt { margin: 4px 0 0; padding: 0; }
+.receipt__row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 11px 0;
+	border-bottom: 1px dashed var(--rule, rgba(33, 27, 20, 0.18));
+}
+.receipt__row:last-child { border-bottom: 0; }
+.receipt__row dt {
+	font-family: var(--f-mono);
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+}
+.receipt__row dd { margin: 0; font-family: var(--f-display); font-size: 16px; color: var(--ink); }
+.receipt__ref { font-family: var(--f-mono) !important; font-size: 12px !important; word-break: break-all; text-align: right; }
 
 /* ==============================================================
    CHECKOUT — validation gate
