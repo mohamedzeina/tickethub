@@ -4,20 +4,25 @@ A prioritized list of features and improvements, grounded in how the system
 currently works. Use this as a living roadmap; check items off or move them
 between tiers as priorities shift.
 
+> The platform-maturity work (reliability, event-driven robustness, payments,
+> observability) shipped as Phases A–D — see
+> [production-enhancements.md](production-enhancements.md). Items below that this
+> closed are marked ✅.
+
 ---
 
 ## How the system works today (baseline)
 
 TicketHub is an event-driven microservices app (StubHub-style ticket resale).
 
-**Services** (each owns its own MongoDB; communicate over NATS Streaming):
+**Services** (each owns its own MongoDB; communicate over NATS JetStream):
 
 | Service | Responsibility | Routes / jobs |
 |---------|----------------|---------------|
 | **auth** | Accounts & sessions | signup, signin, signout, currentuser (JWT in a cookie) |
 | **tickets** | Ticket listings | create, update, show, list |
 | **orders** | Reservations | create (reserves ticket + sets `expiresAt`), cancel, show, list |
-| **payments** | Charging | create (Stripe charge via card token) |
+| **payments** | Charging | create-intent (Stripe PaymentIntent), webhook (source of truth), refund on cancel |
 | **expiration** | Reservation timeout | Bull/Redis delayed job → publishes `expiration:complete` |
 | **client** | Next.js (pages router) UI | Tailwind, server-rendered via ingress |
 | **common** | Shared lib (`@zeina-tickethub/common`) | errors, middlewares, event base classes + subjects |
@@ -36,15 +41,15 @@ NATS + Redis. CI runs per-service test workflows (GitHub Actions).
 Several original gaps are now closed (✅): tickets carry full event details +
 images; listings have server-side search/filter/sort/pagination; sellers can
 edit/unlist; there's a seed-data script; self-purchase is blocked and the hold
-window is 15 min. Remaining gaps:
+window is 15 min. **Phases A–D** then added refunds + receipts/order history,
+PaymentIntents + webhooks, and a full observability stack (logs, metrics,
+tracing, alerting) with health checks. Remaining gaps:
 
 - Tickets are still **single-unit** — no quantity / multi-seat listings.
 - No **password reset / email verification**, no user **profile**, no **roles**.
 - No **email/notification** of any kind (purchase confirmation, expiry warning).
-- No **refunds / cancellation by buyer**, no **receipt/order history detail**
-  (charge ref, paid-at) — the order page is checkout-only.
 - No **reviews, ratings, or seller reputation**.
-- No **rate limiting** or **observability/metrics**.
+- No **rate limiting**.
 
 ---
 
@@ -52,9 +57,9 @@ window is 15 min. Remaining gaps:
 
 | Tier | Theme | Items |
 |------|-------|-------|
-| **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI · _remaining:_ buyer order detail/receipt, email confirmations |
-| **P1 — Mid term** | New capability, moderate scope | Notifications service, password reset + email verify, refunds, seller reputation/reviews, ticket quantity |
-| **P2 — Long term** | Platform maturity & scale | Observability stack, rate limiting, admin dashboard, full-text search engine, payment provider abstraction, wishlists/alerts |
+| **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI, ✅ buyer order detail/receipt · _remaining:_ email confirmations |
+| **P1 — Mid term** | New capability, moderate scope | Notifications service, password reset + email verify, ✅ refunds, seller reputation/reviews, ticket quantity |
+| **P2 — Long term** | Platform maturity & scale | ✅ Observability stack, rate limiting, admin dashboard, full-text search engine, ✅ PaymentIntents (provider abstraction still open), wishlists/alerts |
 
 Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
@@ -96,7 +101,10 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   tickets are hidden from non-owners.
 - **Effort:** M
 
-### 4. Buyer order detail & history page
+### 4. Buyer order detail & history page — ✅ Done (C5)
+- **Status:** Shipped. orders persists `stripeId` + `paidAt` via the
+  `payment:created` consumer; the order-detail page renders a real receipt (paid
+  stamp, amount, paid-at, Stripe ref) and history shows a paid date + receipt link.
 - **Value:** Orders list shows title/status only; no receipt, no purchase date,
   no Stripe reference.
 - **Scope:** Persist purchase metadata (charge id, paid-at) — extend
@@ -129,7 +137,11 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   (via Notifications/mailer); client flows (verify, forgot/reset password).
 - **Effort:** M
 
-### 8. Refunds & buyer-initiated cancellation
+### 8. Refunds & buyer-initiated cancellation — ✅ Done (C4)
+- **Status:** Shipped. payments' `order:cancelled` listener issues a Stripe
+  refund (idempotency-keyed on the order) when a Payment exists and publishes
+  `payment:refunded`; orders frees the ticket on cancel. (Buyer cancels an
+  unpaid/paid order via the existing cancel flow.)
 - **Value:** Real marketplaces must support refunds; payments only charges.
 - **Scope:** **payments** refund route (Stripe refund) + `payment:refunded`
   event; **orders** transitions order to a refunded/cancelled state and frees
@@ -162,7 +174,11 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
 ## P2 — Long term / platform
 
-### 12. Observability: metrics, tracing, structured logs, health checks
+### 12. Observability: metrics, tracing, structured logs, health checks — ✅ Done (Phase A + D)
+- **Status:** Shipped. `/healthz` + `/readyz` probes (Phase A); structured pino
+  logs, prom-client metrics → Prometheus + Grafana, OpenTelemetry tracing across
+  services + NATS → Jaeger, and AlertManager rules (Phase D). See
+  [production-enhancements.md](production-enhancements.md).
 - **Value:** No insight into the running system today.
 - **Scope:** Prometheus/Grafana, OpenTelemetry tracing across services + NATS,
   structured logging, `/healthz` + readiness probes in k8s manifests.
@@ -194,7 +210,10 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   `ticket:updated`; delivered via Notifications (#6).
 - **Effort:** M
 
-### 17. Payment provider abstraction + modern Stripe (PaymentIntents)
+### 17. Payment provider abstraction + modern Stripe (PaymentIntents) — ✅ PaymentIntents done (C1–C3)
+- **Status:** PaymentIntents + webhooks shipped (C1–C3): server creates the
+  intent, client confirms via Stripe.js, and the webhook is the source of truth.
+  A provider-agnostic abstraction layer is still open.
 - **Value:** Charges API is legacy; PaymentIntents support SCA/3DS and more
   methods. An abstraction eases future providers.
 - **Scope:** Refactor **payments** to PaymentIntents + webhooks; client already
@@ -209,7 +228,7 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   resets collections + creates demo users/tickets).
 - **Ticket detail: show seller + listing date** (needs #1's richer model).
 - **Empty-state & loading skeletons** on listings/orders (UI only).
-- **`/healthz` endpoints** + k8s liveness/readiness probes (reliability, S).
+- ~~**`/healthz` endpoints** + k8s liveness/readiness probes~~ — ✅ Done (Phase A).
 - **Currency/locale formatting** centralized in a client util (already started
   with `Intl.NumberFormat`).
 - **OpenAPI/Swagger** docs per service (developer experience).
@@ -218,14 +237,16 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
 ## Suggested next slice
 
-#1–#3 are shipped. The next coherent increment closes the post-purchase loop:
+The post-purchase loop is now closed: #4 (receipts/history) and #8 (refunds)
+shipped in Phase C, and the platform-maturity work (#12 observability, #17
+PaymentIntents) shipped in Phases A–D. The next coherent increment is **user
+feedback + accounts**:
 
-1. **#4 Buyer order detail & history** — persist charge id + paid-at on the order
-   (extend the `payment:created` consumer) and render a real receipt/history,
-   not just the checkout page.
-2. **#5 Email confirmation** on purchase + expiry warning — first feedback loop
-   that reaches users outside the app.
-3. **#8 Refunds / buyer cancellation** — completes the money flow alongside #4.
+1. **#5 Email confirmation** on purchase + expiry warning — first feedback loop
+   that reaches users outside the app (quick mailer, or fold into #6).
+2. **#6 Notifications service** — centralizes order/expiry/price-drop comms; clean
+   fit for the event-driven model.
+3. **#7 Account hardening** — email verification + password reset.
 
-These stay mostly within existing services, exercise the event-versioning
-discipline, and turn "you bought a ticket" into a trustworthy, closed loop.
+These build on the now-mature platform (events, observability, payments) and turn
+one-off transactions into an engaged, trustworthy experience.
