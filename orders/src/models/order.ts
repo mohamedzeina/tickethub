@@ -7,6 +7,7 @@ export { OrderStatus };
 
 interface OrderAttrs {
 	userId: string;
+	userEmail?: string;
 	status: OrderStatus;
 	expiresAt: Date;
 	ticket: TicketDoc;
@@ -14,6 +15,8 @@ interface OrderAttrs {
 
 interface OrderDoc extends mongoose.Document {
 	userId: string;
+	// Buyer's email, kept so expiry/cancel notifications can reach them (#5b/5c).
+	userEmail?: string;
 	version: number;
 	status: OrderStatus;
 	expiresAt: Date;
@@ -43,6 +46,9 @@ const orderSchema = new mongoose.Schema(
 		userId: {
 			type: String,
 			required: true,
+		},
+		userEmail: {
+			type: String,
 		},
 		status: {
 			type: String,

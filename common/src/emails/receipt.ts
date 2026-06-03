@@ -1,4 +1,5 @@
 import { MailMessage } from '../mailer';
+import { escapeHtml } from './escape';
 
 export interface ReceiptDetails {
 	to: string;
@@ -43,15 +44,15 @@ export const purchaseReceiptEmail = (d: ReceiptDetails): MailMessage => {
 	             style="background:#f3ecd8;border-radius:10px;overflow:hidden;">
 	        <tr><td style="padding:28px 32px 8px;">
 	          <div style="color:#c0392b;font-size:13px;letter-spacing:.18em;text-transform:uppercase;">Admit One · Payment Confirmed</div>
-	          <h1 style="margin:8px 0 0;color:#211b16;font-size:30px;line-height:1.05;">${d.ticketTitle}</h1>
+	          <h1 style="margin:8px 0 0;color:#211b16;font-size:30px;line-height:1.05;">${escapeHtml(d.ticketTitle)}</h1>
 	        </td></tr>
 	        <tr><td style="padding:16px 32px;">
 	          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
 	                 style="font-family:'Courier New',monospace;font-size:13px;color:#5c5446;">
 	            <tr><td style="padding:6px 0;">AMOUNT</td><td align="right" style="color:#c0392b;font-weight:bold;">${money(d.price)}</td></tr>
-	            <tr><td style="padding:6px 0;">ORDER</td><td align="right">No. ${ref}</td></tr>
+	            <tr><td style="padding:6px 0;">ORDER</td><td align="right">No. ${escapeHtml(ref)}</td></tr>
 	            <tr><td style="padding:6px 0;">PAID</td><td align="right">${paid}</td></tr>
-	            <tr><td style="padding:6px 0;">STRIPE REF</td><td align="right" style="font-size:11px;">${d.stripeId}</td></tr>
+	            <tr><td style="padding:6px 0;">STRIPE REF</td><td align="right" style="font-size:11px;">${escapeHtml(d.stripeId)}</td></tr>
 	          </table>
 	        </td></tr>
 	        <tr><td style="padding:18px 32px 28px;border-top:1px dashed #c9bfa6;">

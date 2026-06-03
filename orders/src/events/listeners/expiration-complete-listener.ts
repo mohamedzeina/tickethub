@@ -4,6 +4,8 @@ import {
 	Subjects,
 	OrderStatus,
 	processOnce,
+	sendMail,
+	orderCancelledEmail,
 } from '@zeina-tickethub/common';
 import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
@@ -49,6 +51,17 @@ export class ExpirationCompleteListener extends Listener<ExpirationCompleteEvent
 						id: order.ticket.id,
 					},
 				});
+
+				// 5c: tell the buyer their unpaid hold lapsed. Best-effort.
+				if (order.userEmail) {
+					await sendMail(
+						orderCancelledEmail({
+							to: order.userEmail,
+							ticketTitle: order.ticket.title,
+							orderId: order.id,
+						}),
+					);
+				}
 			},
 		);
 

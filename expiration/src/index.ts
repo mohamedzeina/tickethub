@@ -4,6 +4,7 @@ import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
 import { startHealthServer } from './health-server';
 import { expirationQueue } from './queues/expiration-queue';
+import { warningQueue } from './queues/warning-queue';
 
 const startExpirationService = async () => {
 	let isShuttingDown = false;
@@ -52,6 +53,7 @@ const startExpirationService = async () => {
 		try {
 			await new Promise<void>((resolve) => server.close(() => resolve()));
 			await expirationQueue.close();
+			await warningQueue.close();
 			await natsWrapper.connection.close();
 		} catch (err) {
 			logger.error({ err }, 'error during graceful shutdown');

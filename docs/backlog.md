@@ -57,7 +57,7 @@ tracing, alerting) with health checks. Remaining gaps:
 
 | Tier | Theme | Items |
 |------|-------|-------|
-| **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI, ✅ buyer order detail/receipt, ✅ purchase-confirmation email (5a) · _remaining:_ expiry-warning email (5b) |
+| **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI, ✅ buyer order detail/receipt, ✅ email notifications (purchase + expiry) |
 | **P1 — Mid term** | New capability, moderate scope | Notifications service, password reset + email verify, ✅ refunds, seller reputation/reviews, ticket quantity |
 | **P2 — Long term** | Platform maturity & scale | ✅ Observability stack, rate limiting, admin dashboard, full-text search engine, ✅ PaymentIntents (provider abstraction still open), wishlists/alerts |
 
@@ -111,17 +111,20 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   `payment:created` consumer in **orders**; client order-detail page.
 - **Effort:** S–M
 
-### 5. Email confirmation on purchase & expiry warning — ⏳ 5a done
-- **Status:** **5a (purchase confirmation) shipped.** A shared `mailer` (nodemailer
-  SMTP) + receipt template live in **common**; `order:created` now carries
-  `userEmail` + `ticket.title`, so **payments** emails an "Admit One" receipt on
-  payment success. Sending is best-effort (never breaks the webhook) and
-  idempotent (unique index on `stripeId` → no double receipts). Local capture via
-  **Mailpit**; prod swaps the `MAIL_*` env for a real relay (Brevo/Resend/SES).
-  **Remaining (5b):** expiry warning ("hold expires soon" + "expired/cancelled").
+### 5. Email confirmation on purchase & expiry warning — ✅ Done
+- **Status:** Shipped. A shared `mailer` (nodemailer SMTP) + templates live in
+  **common**; `order:created` carries `userEmail` + `ticket.title`.
+  - **5a** — **payments** emails an "Admit One" receipt on payment success;
+    best-effort (never breaks the webhook) + idempotent (unique `stripeId` index →
+    no double receipts).
+  - **5b** — **expiration** schedules a second delayed job that fires an
+    `expiration:warning` event a configurable lead before the hold lapses;
+    **orders** emails "hold expiring soon" only if the order is still unpaid.
+  - **5c** — **orders** emails "hold expired" when it cancels an unpaid order on
+    `expiration:complete`.
+  - Local capture via **Mailpit**; prod swaps the `MAIL_*` env for a real relay
+    (Brevo/Resend/SES).
 - **Value:** Users get zero feedback outside the app. Highest-impact trust win.
-- **Scope:** Quick version — a small mailer in **payments** (on `payment:created`)
-  and **orders**; better version folds into the Notifications service (P1).
 - **Effort:** M
 
 ---
@@ -248,11 +251,11 @@ shipped in Phase C, and the platform-maturity work (#12 observability, #17
 PaymentIntents) shipped in Phases A–D. The next coherent increment is **user
 feedback + accounts**:
 
-1. **#5 Email confirmation** — ✅ 5a (purchase confirmation) shipped; **5b
-   (expiry warning)** is the immediate next step (a 2nd delayed job in
-   **expiration** + "cancelled" mail from **orders** on `expiration:complete`).
-2. **#6 Notifications service** — centralizes order/expiry/price-drop comms; clean
-   fit for the event-driven model (the common mailer from 5a is its seed).
+1. **#5 Email confirmation** — ✅ Done (purchase receipt + expiry warning +
+   cancellation). The common mailer is now in place.
+2. **#6 Notifications service** — the next step: centralize order/expiry/price-drop
+   comms (in-app feed + email) behind one service. The common mailer + the
+   `userEmail`-on-events groundwork from #5 is its seed.
 3. **#7 Account hardening** — email verification + password reset.
 
 These build on the now-mature platform (events, observability, payments) and turn

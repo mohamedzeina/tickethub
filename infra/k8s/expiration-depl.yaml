@@ -46,6 +46,9 @@ spec:
                   fieldPath: metadata.name
             - name: REDIS_HOST
               value: expiration-redis-srv
+            # 5b: how long before a hold expires to fire the warning event.
+            - name: EXPIRATION_WARNING_LEAD_SECONDS
+              value: '120'
           ports:
             - containerPort: 3000
           readinessProbe:

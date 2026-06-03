@@ -56,6 +56,14 @@ spec:
                   fieldPath: metadata.name
             - name: EXPIRATION_WINDOW_SECONDS
               value: '900'
+            # 5b/5c: orders sends the "hold expiring" + "hold expired" emails.
+            # Local → Mailpit; prod → a real relay.
+            - name: MAIL_HOST
+              value: 'mailpit-srv'
+            - name: MAIL_PORT
+              value: '1025'
+            - name: MAIL_FROM
+              value: 'TicketHub <no-reply@tickethub.com>'
           ports:
             - containerPort: 3000
           readinessProbe:

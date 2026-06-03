@@ -2,6 +2,7 @@ export * from './logger';
 export * from './metrics';
 export * from './mailer';
 export * from './emails/receipt';
+export * from './emails/expiry';
 
 export * from './errors/bad-request-error';
 export * from './errors/custom-error';
@@ -29,6 +30,7 @@ export * from './events/types/order-status';
 export * from './events/order/order-created';
 export * from './events/order/order-cancelled';
 export * from './events/expiration/expiration-complete';
+export * from './events/expiration/expiration-warning';
 export * from './events/payments/payment-initiated';
 export * from './events/payments/payment-created';
 export * from './events/payments/payment-refunded';
