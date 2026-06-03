@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Plus } from './icons';
 import NavSearch from './NavSearch';
+import NotificationsBell from './NotificationsBell';
 
 // Box-office marquee nav. Link set depends on auth state:
 //  - signed out: Will Call (sign in) + Sign Up
@@ -26,6 +27,7 @@ const Header = ({ currentUser }) => {
 				<NavSearch />
 
 				<div className="nav__links">
+					{currentUser && <NotificationsBell />}
 					{links.map(({ label, href, variant }) => {
 						if (variant === 'cta') {
 							return (

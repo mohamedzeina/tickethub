@@ -80,3 +80,10 @@ export const Alert = (props) => (
 		<path d="M12 7v5M12 16h.01" />
 	</svg>
 );
+
+export const Bell = (props) => (
+	<svg {...base} {...props}>
+		<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+		<path d="M13.7 21a2 2 0 0 1-3.4 0" />
+	</svg>
+);

@@ -131,9 +131,20 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
 ## P1 — Mid term
 
-### 6. Notifications service (email + in-app)
-- **Value:** Centralizes all comms (order confirmed, ticket sold, reservation
-  expiring/expired, price drop). Clean fit for the event-driven model.
+### 6. Notifications service (email + in-app) — 🟡 In progress (in-app feed shipped)
+- **Status:** A dedicated `notifications` service now subscribes to
+  `order:created`, `payment:created`, `payment:refunded`, `expiration:warning`
+  and `expiration:complete`, keeps a small order replica (seeded from
+  `order:created`, the only event carrying userId + title), and writes an
+  **in-app notification feed** per user. REST API (`GET /api/notifications` with
+  unread count, `POST /:id/read`, `POST /read-all`) + k8s deployment + ingress
+  route + its own Mongo DB (`tickethub-notifications`). Client has a navbar bell
+  with an unread badge + dropdown and a `/notifications` page. Idempotent via the
+  shared `processOnce`; suppresses expiry warnings/cancellations for orders that
+  are already paid. Verified end to end (order:created → feed in ~2s).
+- **Deferred (next slices):** centralize the transactional **emails** (the
+  receipt in payments + expiry/cancel in orders still send inline) behind this
+  service; add **price-drop / availability** notifications (ties into #16).
 - **Scope:** New `notifications` service subscribing to `order:created`,
   `payment:created`, `expiration:complete`, etc.; k8s deployment; templating;
   in-app notification feed via the client.
@@ -253,9 +264,9 @@ feedback + accounts**:
 
 1. **#5 Email confirmation** — ✅ Done (purchase receipt + expiry warning +
    cancellation). The common mailer is now in place.
-2. **#6 Notifications service** — the next step: centralize order/expiry/price-drop
-   comms (in-app feed + email) behind one service. The common mailer + the
-   `userEmail`-on-events groundwork from #5 is its seed.
+2. **#6 Notifications service** — 🟡 in-app feed shipped (dedicated service +
+   navbar bell + `/notifications` page). Remaining: fold the transactional emails
+   into it and add price-drop alerts.
 3. **#7 Account hardening** — email verification + password reset.
 
 These build on the now-mature platform (events, observability, payments) and turn

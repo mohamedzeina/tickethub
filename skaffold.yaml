@@ -60,3 +60,12 @@ build:
         manual:
           - src: 'src/**/*.ts'
             dest: .
+
+    - image: toxiczeina/notifications
+      context: notifications
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: 'src/**/*.ts'
+            dest: .

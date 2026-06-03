@@ -39,6 +39,13 @@ spec:
                 name: payments-srv
                 port:
                   number: 3000
+          - path: /api/notifications/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: notifications-srv
+                port:
+                  number: 3000
           - path: /?(.*)
             pathType: ImplementationSpecific
             backend:
