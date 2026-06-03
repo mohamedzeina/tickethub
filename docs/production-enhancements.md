@@ -1,4 +1,21 @@
-# TicketHub — Production-Maturity Enhancement Plan
+# TicketHub — Production Enhancements
+
+> **Status: complete (Phases A–D shipped).** This is the engineering record of how
+> the base microservices demo was hardened to production-grade — the rationale,
+> design decisions, gotchas, and verification behind each change. For the
+> high-level overview and how to run the project, see the [README](../README.md).
+
+## Summary — what shipped
+
+| Phase | Theme | Outcome |
+| --- | --- | --- |
+| **A** | Reliability & infra | Shared `/healthz` + `/readyz` with k8s liveness/readiness probes, graceful SIGTERM shutdown (+ `preStop`), persistent NATS & Redis (fixes dropped expirations on restart), resource requests/limits + 2 replicas + CPU HPAs, pinned `common`. |
+| **B** | Event-driven robustness | Idempotent consumers (exactly-once *effects*), graceful version-conflict/error handling with redelivery, dead-letter for poison messages, and a full migration from EOL **NATS Streaming → JetStream** (durable pull consumers, native persistence). |
+| **C** | Payments done properly | Stripe **PaymentIntents** + idempotency keys, **webhook as source of truth**, refunds on cancellation, an `AwaitingPayment` order state, and persisted receipts/history. |
+| **D** | Observability | Structured logging (pino), metrics (prom-client → Prometheus + Grafana), distributed tracing (OpenTelemetry → Jaeger, with trace context propagated across NATS), and alerting (AlertManager). |
+
+The four phases were independently shippable; the detailed plan, decisions, and the
+dated progress log follow.
 
 ## Context
 
