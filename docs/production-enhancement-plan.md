@@ -116,7 +116,7 @@ exporting to an OTel collector → Jaeger/Tempo. Propagate trace context across 
 injecting/extracting headers in `common`’s publisher/listener — yields end-to-end traces
 of the order → payment → expiration flow.
 
-**D4. (Optional) Alerting.** Prometheus AlertManager rules (payment failure rate,
+**D4. (Optional) Alerting.** ✅ Done. Prometheus AlertManager rules (payment failure rate,
 listener redelivery spikes).
 
 ---
@@ -161,6 +161,21 @@ D3 (tracing) are the two largest items — schedule them as their own PRs.
 ## Status / progress
 
 _(check off as we go — start here tomorrow)_
+
+**2026-06-03 — D4 (alerting) done. Phase D complete.** AlertManager
+(`monitoring-alertmanager.yaml`) + a Prometheus rules ConfigMap wired into
+`monitoring-prometheus.yaml` (`rule_files` + `alerting`→`alertmanager-srv:9093`,
+rules mounted at /etc/prometheus/rules). Alerts: **HighPaymentFailureRate** (>20%
+of payment volume over 10m), **ListenerRedeliverySpike** (`event_redeliveries_total`
+rate >0.5 for 10m), **EventsDeadLettered**, **ServiceDown** (no healthy replicas),
+**HighHttpErrorRate** (5xx >5%), plus a **Watchdog** (always-firing dead-man's
+switch). AlertManager routes Watchdog → null receiver, everything else → default
+(no external notifier wired for the demo; add slack/webhook in prod). No code/common
+change — pure k8s, deployed via `skaffold run`. Verified live: all 6 rules loaded;
+the 5 real alerts **inactive** (healthy system); **Watchdog firing in Prometheus and
+received by AlertManager** (`/api/v2/alerts`), proving the Prometheus→AlertManager
+path end-to-end. UIs via `kubectl port-forward svc/prometheus-srv 9090` /
+`svc/alertmanager-srv 9093`.
 
 **2026-06-03 — D3 (distributed tracing) done; common 1.0.43.** OpenTelemetry across
 all 5 services. Each service has `src/tracing.ts` (NodeSDK + auto-instrumentations,
@@ -227,7 +242,7 @@ services, no probe-log noise, no error-level logs.
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
 - [x] Phase B — Event-driven robustness (B1–B4 done, verified in-cluster on common 1.0.37)
 - [x] Phase C — Payments done properly (C1–C5 + AwaitingPayment, verified in-cluster on common 1.0.39)
-- [ ] Phase D — Observability (D1 logging + D2 metrics + D3 tracing done; D4 alerting pending)
+- [x] Phase D — Observability (D1 logging + D2 metrics + D3 tracing + D4 alerting done)
 
 **2026-06-03 — C5 (receipt/history) done; closes backlog #4.** orders now persists
 `stripeId` + `paidAt` on the order when `payment:created` completes it. The order
