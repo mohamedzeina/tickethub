@@ -164,8 +164,16 @@ _(check off as we go — start here tomorrow)_
 
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
 - [x] Phase B — Event-driven robustness (B1–B4 done, verified in-cluster on common 1.0.37)
-- [~] Phase C — Payments done properly (C1–C4 + AwaitingPayment done; C5 remaining)
+- [x] Phase C — Payments done properly (C1–C5 + AwaitingPayment, verified in-cluster on common 1.0.39)
 - [ ] Phase D — Observability
+
+**2026-06-03 — C5 (receipt/history) done; closes backlog #4.** orders now persists
+`stripeId` + `paidAt` on the order when `payment:created` completes it. The order
+detail page renders a real receipt (Paid stamp, amount, paid-at, Stripe ref, order
+no.) for completed orders instead of the checkout gate, and the order history page
+shows a paid date + "View receipt" link. No `common` change. Tested: orders 37/37
+unit tests; live e2e — pay an order, then GET returns stripeId + paidAt and the
+receipt page + history render correctly. **Phase C complete.**
 
 **2026-06-03 — AwaitingPayment + C4 (refunds) done; common 1.0.39.** Added two
 `common` subjects: `payment:initiated` (payments → orders) and `payment:refunded`.
