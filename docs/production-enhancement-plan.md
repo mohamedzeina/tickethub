@@ -164,8 +164,28 @@ _(check off as we go — start here tomorrow)_
 
 - [x] Phase A — Reliability & infra hardening (A1–A6 done, tested in-cluster)
 - [x] Phase B — Event-driven robustness (B1–B4 done, verified in-cluster on common 1.0.37)
-- [~] Phase C — Payments done properly (C1–C3 done; AwaitingPayment + C4–C5 remaining)
+- [~] Phase C — Payments done properly (C1–C4 + AwaitingPayment done; C5 remaining)
 - [ ] Phase D — Observability
+
+**2026-06-03 — AwaitingPayment + C4 (refunds) done; common 1.0.39.** Added two
+`common` subjects: `payment:initiated` (payments → orders) and `payment:refunded`.
+AwaitingPayment: the create-intent route publishes `payment:initiated`; a new
+orders listener moves Created → AwaitingPayment (never walks a status backwards).
+C4 refunds: payments' `order:cancelled` listener now refunds the charge
+(`stripe.refunds.create`, idempotency-keyed on the order) when a Payment exists
+and publishes `payment:refunded`; orders' `payment:created` listener no longer
+completes an already-cancelled order. Fixed a latent issue introduced by
+AwaitingPayment — it bumps the order version in orders without notifying payments,
+so payments' `order:cancelled` replica sync switched from `version-1` matching to
+id-based + idempotent (processOnce already dedups). `ensureStream` now `update()`s
+the existing stream's subject list so the two new subjects are captured.
+Pinned all 5 services to `^1.0.39`.
+Tested: payments 15/15 + orders 36/36 unit tests; **live e2e** — order goes
+`awaiting:payment` after create-intent, and cancelling a paid order issues a real
+Stripe refund ($175 `succeeded`) and lands the order in `cancelled`.
+Note: `common`'s `clean` script was `del ./build/*` (del-cli ESM error skipped
+tsc, publishing a stale 1.0.38) — switched to `rm -rf ./build`; 1.0.38 is a dud,
+use 1.0.39.
 
 **2026-06-03 — C1–C3 done (synchronous-first, then webhook conversion).**
 C1: `stripe.charges.create` → PaymentIntents. C2: `idempotencyKey: orderId` so a
