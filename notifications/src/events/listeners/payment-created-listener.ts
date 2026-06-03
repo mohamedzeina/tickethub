@@ -4,6 +4,8 @@ import {
 	Subjects,
 	OrderStatus,
 	processOnce,
+	sendMail,
+	purchaseReceiptEmail,
 } from '@zeina-tickethub/common';
 import { JsMsg } from 'nats';
 import { queueGroupName } from './queue-group-name';
@@ -39,6 +41,21 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 				orderId: data.orderId,
 			});
 			await notification.save();
+
+			// Centralized receipt email (was in payments). Best-effort — sendMail
+			// never throws, and it's the last step so a DB failure above can't
+			// leave a sent email un-recorded. Skip if we never saw the email.
+			if (order.userEmail) {
+				await sendMail(
+					purchaseReceiptEmail({
+						to: order.userEmail,
+						ticketTitle: order.ticketTitle || 'your ticket',
+						price: order.price ?? 0,
+						orderId: order.id,
+						stripeId: data.stripeId,
+					}),
+				);
+			}
 		});
 
 		msg.ack();

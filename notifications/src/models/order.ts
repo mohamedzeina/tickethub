@@ -16,12 +16,19 @@ interface OrderAttrs {
 	userId: string;
 	ticketTitle: string;
 	status: OrderStatus;
+	// Carried from order:created so this service can send the transactional
+	// emails (receipt / expiry) without a separate user or ticket lookup.
+	// Optional so a replay of any pre-email order:created still builds.
+	userEmail?: string;
+	price?: number;
 }
 
 interface OrderDoc extends mongoose.Document {
 	userId: string;
 	ticketTitle: string;
 	status: OrderStatus;
+	userEmail?: string;
+	price?: number;
 }
 
 interface OrderModel extends mongoose.Model<OrderDoc> {
@@ -33,6 +40,8 @@ const orderSchema = new mongoose.Schema<OrderDoc>(
 		userId: { type: String, required: true },
 		ticketTitle: { type: String, required: true },
 		status: { type: String, required: true },
+		userEmail: { type: String, required: false },
+		price: { type: Number, required: false },
 	},
 	{
 		toJSON: {
@@ -51,6 +60,8 @@ orderSchema.statics.build = (attrs: OrderAttrs) => {
 		userId: attrs.userId,
 		ticketTitle: attrs.ticketTitle,
 		status: attrs.status,
+		userEmail: attrs.userEmail,
+		price: attrs.price,
 	});
 };
 

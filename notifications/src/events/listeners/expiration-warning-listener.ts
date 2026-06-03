@@ -5,6 +5,8 @@ import {
 	OrderStatus,
 	processOnce,
 	logger,
+	sendMail,
+	holdExpiringEmail,
 } from '@zeina-tickethub/common';
 import { JsMsg } from 'nats';
 import { queueGroupName } from './queue-group-name';
@@ -48,6 +50,17 @@ export class ExpirationWarningListener extends Listener<ExpirationWarningEvent> 
 				orderId: order.id,
 			});
 			await notification.save();
+
+			// Centralized "hold expiring" email (was in orders). Best-effort.
+			if (order.userEmail) {
+				await sendMail(
+					holdExpiringEmail({
+						to: order.userEmail,
+						ticketTitle: order.ticketTitle,
+						orderId: order.id,
+					}),
+				);
+			}
 		});
 
 		msg.ack();

@@ -1,8 +1,7 @@
 import express, { Request, Response } from 'express';
-import { client, sendMail, purchaseReceiptEmail } from '@zeina-tickethub/common';
+import { client } from '@zeina-tickethub/common';
 import { stripe } from '../stripe';
 import { Payment } from '../models/payment';
-import { Order } from '../models/order';
 import { PaymentCreatedPublisher } from '../events/publishers/payment-created-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
@@ -62,7 +61,7 @@ router.post(
 				} catch (err) {
 					// The unique index on stripeId rejects a concurrent redelivery
 					// that slipped past the !existing check (race across pods).
-					// The winning request already published + emailed, so just ack.
+					// The winning request already published, so just ack.
 					if ((err as { code?: number }).code === 11000) {
 						return res.send({ received: true });
 					}
@@ -73,27 +72,13 @@ router.post(
 				// index dedup Stripe's at-least-once webhook redelivery).
 				paymentsSucceeded.inc();
 
+				// The receipt email is now sent by the notifications service off
+				// this same payment:created event (centralized comms, #6).
 				await new PaymentCreatedPublisher(natsWrapper.js).publish({
 					id: payment.id,
 					orderId: payment.orderId,
 					stripeId: payment.stripeId,
 				});
-
-				// 5a: email the buyer their receipt. Best-effort — sendMail never
-				// throws, so a mail outage can't fail the webhook or lose the
-				// payment we just recorded.
-				const order = await Order.findById(orderId);
-				if (order?.userEmail) {
-					await sendMail(
-						purchaseReceiptEmail({
-							to: order.userEmail,
-							ticketTitle: order.ticketTitle || 'your ticket',
-							price: order.price,
-							orderId: order.id,
-							stripeId: payment.stripeId,
-						}),
-					);
-				}
 			}
 		} else if (event.type === 'payment_intent.payment_failed') {
 			paymentsFailed.inc();

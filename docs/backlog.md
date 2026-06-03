@@ -131,20 +131,27 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
 ## P1 — Mid term
 
-### 6. Notifications service (email + in-app) — 🟡 In progress (in-app feed shipped)
-- **Status:** A dedicated `notifications` service now subscribes to
-  `order:created`, `payment:created`, `payment:refunded`, `expiration:warning`
-  and `expiration:complete`, keeps a small order replica (seeded from
-  `order:created`, the only event carrying userId + title), and writes an
-  **in-app notification feed** per user. REST API (`GET /api/notifications` with
-  unread count, `POST /:id/read`, `POST /read-all`) + k8s deployment + ingress
-  route + its own Mongo DB (`tickethub-notifications`). Client has a navbar bell
-  with an unread badge + dropdown and a `/notifications` page. Idempotent via the
-  shared `processOnce`; suppresses expiry warnings/cancellations for orders that
-  are already paid. Verified end to end (order:created → feed in ~2s).
-- **Deferred (next slices):** centralize the transactional **emails** (the
-  receipt in payments + expiry/cancel in orders still send inline) behind this
-  service; add **price-drop / availability** notifications (ties into #16).
+### 6. Notifications service (email + in-app) — 🟢 Mostly done (in-app feed + centralized email)
+- **Status:** A dedicated `notifications` service subscribes to `order:created`,
+  `payment:created`, `payment:refunded`, `expiration:warning` and
+  `expiration:complete`, keeps a small order replica (seeded from `order:created`,
+  the only event carrying userId + title + email), and writes an **in-app
+  notification feed** per user. REST API (`GET /api/notifications` with unread
+  count, `POST /:id/read`, `POST /read-all`) + k8s deployment + ingress route +
+  its own Mongo DB (`tickethub-notifications`). Client has a navbar bell with an
+  unread badge + dropdown, toasts on new arrivals, and a `/notifications` page.
+  Idempotent via the shared `processOnce`; suppresses expiry warnings/cancels for
+  already-paid orders.
+  - **Centralized email:** the three transactional emails (receipt,
+    hold-expiring, hold-expired) are now sent by this service off the same events
+    — the inline sends were removed from payments + orders, so it's the single
+    comms owner. Verified e2e: each email sent exactly once (no duplicates).
+  - **Note:** the seed script now also resets the `tickethub-notifications` DB —
+    its `(channel, sequence)` idempotency guard would otherwise collide with a
+    fresh NATS stream's reused sequence numbers after a `skaffold` restart.
+- **Deferred (next slices):** a **refund email** (in-app "Refund issued" exists;
+  email needs a new template + a `common` publish); **price-drop / availability**
+  notifications (ties into #16); optional **real-time SSE** delivery.
 - **Scope:** New `notifications` service subscribing to `order:created`,
   `payment:created`, `expiration:complete`, etc.; k8s deployment; templating;
   in-app notification feed via the client.

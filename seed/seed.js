@@ -2,7 +2,7 @@
  * TicketHub seed script.
  *
  * Every run:
- *   1. Drops ALL service databases (auth, tickets, orders, payments).
+ *   1. Drops ALL service databases (auth, tickets, orders, payments, notifications).
  *   2. Creates two users — test@test.com and test2@test.com (password 123456).
  *   3. Creates a spread of nice demo tickets, owned by both users.
  *
@@ -42,12 +42,18 @@ if (!process.env.NODE_TLS_REJECT_UNAUTHORIZED && targetHost === 'tickethub.com')
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 
-// service -> key inside the mongo-secret Kubernetes secret
+// service -> key inside the mongo-secret Kubernetes secret.
+// Note: the notifications db MUST be reset alongside the others. Its
+// idempotency guard keys on (channel, sequence); a fresh NATS stream after a
+// `skaffold` restart reuses low sequence numbers, so stale ProcessedEvent rows
+// would make this run's order:created/payment:created look already-handled and
+// get silently skipped (no replica, no notification, no email).
 const MONGO_SECRET_KEYS = {
 	auth: 'AUTH_MONGO_URI',
 	tickets: 'TICKETS_MONGO_URI',
 	orders: 'ORDERS_MONGO_URI',
 	payments: 'PAYMENTS_MONGO_URI',
+	notifications: 'NOTIFICATIONS_MONGO_URI',
 };
 
 // ---- helpers -------------------------------------------------------------

@@ -67,14 +67,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            # 5a: receipt email. Local → Mailpit (no auth). Prod → swap these
-            # for a real relay's host/port/creds (e.g. via a mail-secret).
-            - name: MAIL_HOST
-              value: 'mailpit-srv'
-            - name: MAIL_PORT
-              value: '1025'
-            - name: MAIL_FROM
-              value: 'TicketHub <no-reply@tickethub.com>'
           ports:
             - containerPort: 3000
           readinessProbe:

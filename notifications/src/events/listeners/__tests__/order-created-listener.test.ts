@@ -40,6 +40,9 @@ it('seeds the order replica and creates a reservation notification', async () =>
 	expect(order!.userId).toEqual(userId);
 	expect(order!.ticketTitle).toEqual('Akon Concert');
 	expect(order!.status).toEqual(OrderStatus.Created);
+	// Email fields carried for the centralized receipt/expiry emails (#6).
+	expect(order!.userEmail).toEqual('buyer@test.com');
+	expect(order!.price).toEqual(20);
 
 	const notifications = await Notification.find({ userId });
 	expect(notifications.length).toEqual(1);

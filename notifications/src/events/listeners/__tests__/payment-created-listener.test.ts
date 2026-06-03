@@ -1,6 +1,13 @@
 import mongoose from 'mongoose';
 import { JsMsg } from 'nats';
-import { PaymentCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
+
+// Mock just sendMail; keep the rest of common real (events, OrderStatus, …).
+jest.mock('@zeina-tickethub/common', () => ({
+	...jest.requireActual('@zeina-tickethub/common'),
+	sendMail: jest.fn(),
+}));
+
+import { PaymentCreatedEvent, OrderStatus, sendMail } from '@zeina-tickethub/common';
 import { PaymentCreatedListener } from '../payment-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
@@ -12,12 +19,16 @@ const seedOrder = async (userId: string) => {
 		userId,
 		ticketTitle: 'Akon Concert',
 		status: OrderStatus.Created,
+		userEmail: 'buyer@test.com',
+		price: 20,
 	});
 	await order.save();
 	return order;
 };
 
-it('marks the replica paid and creates a payment-confirmed notification', async () => {
+beforeEach(() => (sendMail as jest.Mock).mockClear());
+
+it('marks the replica paid, notifies, and emails a receipt', async () => {
 	const listener = new PaymentCreatedListener(natsWrapper.connection);
 	const userId = new mongoose.Types.ObjectId().toHexString();
 	const order = await seedOrder(userId);
@@ -39,6 +50,11 @@ it('marks the replica paid and creates a payment-confirmed notification', async 
 	expect(notifications.length).toEqual(1);
 	expect(notifications[0].type).toEqual(NotificationType.PaymentSucceeded);
 
+	expect(sendMail).toHaveBeenCalledTimes(1);
+	const mail = (sendMail as jest.Mock).mock.calls[0][0];
+	expect(mail.to).toEqual('buyer@test.com');
+	expect(mail.subject).toContain('receipt');
+
 	expect(msg.ack).toHaveBeenCalled();
 });
 
@@ -54,4 +70,5 @@ it('throws (for retry) when the order replica is not yet present', async () => {
 
 	await expect(listener.onMessage(data, msg)).rejects.toThrow('Order not found');
 	expect(msg.ack).not.toHaveBeenCalled();
+	expect(sendMail).not.toHaveBeenCalled();
 });
