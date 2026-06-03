@@ -3,7 +3,13 @@ kind: Deployment
 metadata:
   name: client-depl
 spec:
-  replicas: 2
+  # next dev must run as a SINGLE instance: it keeps per-process build state, an
+  # in-memory on-demand-compiled module map, and a per-process HMR socket. Behind
+  # the round-robin ingress, two replicas split the browser's chunk/HMR/route
+  # requests across two dev servers, which makes client-side route transitions
+  # abort and revert. (The production image — next start, immutable build — can
+  # scale to N replicas safely.)
+  replicas: 1
   selector:
     matchLabels:
       app: client

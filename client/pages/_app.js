@@ -63,9 +63,19 @@ const AppComponent = ({ Component, pageProps, currentUser }) => {
 
 AppComponent.getInitialProps = async (appContext) => {
 	const client = buildClient(appContext.ctx);
-	const { data } = await client.get('api/users/currentuser').catch((err) => {
-		console.log(err.message);
-	});
+
+	// A failed currentuser lookup must NEVER break rendering or a client-side
+	// route transition. Previously a rejected request left `data` undefined and
+	// the next line threw on `data.currentUser`, which aborted the whole
+	// navigation (you'd click a link and get bounced back to the page you were
+	// on). Fall back to "signed out" instead.
+	let currentUser = null;
+	try {
+		const { data } = await client.get('/api/users/currentuser');
+		currentUser = data?.currentUser ?? null;
+	} catch (err) {
+		console.error('currentuser lookup failed:', err.message);
+	}
 
 	// We need to call the getInitialProps of the individual page component to fetch
 	// any data that it needs. This is important because some pages might have
@@ -76,14 +86,11 @@ AppComponent.getInitialProps = async (appContext) => {
 		pageProps = await appContext.Component.getInitialProps(
 			appContext.ctx,
 			client,
-			data.currentUser,
+			currentUser,
 		);
 	}
 
-	return {
-		pageProps,
-		...data, // Pass the current user data to all pages as a prop
-	};
+	return { pageProps, currentUser };
 };
 
 export default AppComponent;

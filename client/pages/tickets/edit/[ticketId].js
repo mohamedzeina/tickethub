@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import Router from 'next/router';
 import TicketForm from '../../../components/TicketForm';
 import { ArrowLeft } from '../../../components/icons';
 import { serialFromId } from '../../../utils/ticket';
+import redirect from '../../../utils/redirect';
 
 const EditTicket = ({ ticket }) => {
 	// While the getInitialProps guard redirects, there's nothing to render.
@@ -43,19 +43,24 @@ const EditTicket = ({ ticket }) => {
 // PUT /api/tickets/:id rules). Anyone else is redirected to their listings.
 EditTicket.getInitialProps = async (context, client, currentUser) => {
 	const { ticketId } = context.query;
-	const { data: ticket } = await client.get(`/api/tickets/${ticketId}`);
+
+	// Never let a failed fetch (bad id, ticket gone, transient error) throw out of
+	// getInitialProps — that aborts the route transition and bounces you back to
+	// the page you came from. Fall back to a clean redirect to your listings.
+	let ticket;
+	try {
+		const res = await client.get(`/api/tickets/${ticketId}`);
+		ticket = res.data;
+	} catch (err) {
+		redirect(context, '/listings');
+		return {};
+	}
 
 	const allowed =
 		currentUser && ticket.userId === currentUser.id && !ticket.orderId;
 
 	if (!allowed) {
-		const dest = '/listings';
-		if (context.res) {
-			context.res.writeHead(302, { Location: dest });
-			context.res.end();
-		} else {
-			Router.push(dest);
-		}
+		redirect(context, '/listings');
 		return {};
 	}
 

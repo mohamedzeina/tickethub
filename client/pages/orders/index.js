@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { formatPrice, formatDateShort, serialFromId } from '../../utils/ticket';
+import redirect from '../../utils/redirect';
 
 // Map an order status to an admission-stamp style + label.
 const stampFor = (status) => {
@@ -53,7 +54,7 @@ const OrderRow = ({ order }) => {
 					<Link
 						href="/orders/[orderId]"
 						as={`/orders/${order.id}`}
-						className="btn btn--ghost"
+						className="btn btn--line"
 					>
 						View receipt
 					</Link>
@@ -92,10 +93,24 @@ const OrderIndex = ({ orders }) => {
 	);
 };
 
-OrderIndex.getInitialProps = async (context, client) => {
-	const { data } = await client.get('/api/orders');
+OrderIndex.getInitialProps = async (context, client, currentUser) => {
+	// A signed-out (or expired) session used to throw a 401 here, which surfaced
+	// as a 500 error page. Send those visitors to sign in instead; treat any
+	// other fetch failure as an empty list rather than crashing the page.
+	if (!currentUser) {
+		redirect(context, '/auth/signin');
+		return { orders: [] };
+	}
 
-	return { orders: data };
+	try {
+		const { data } = await client.get('/api/orders');
+		return { orders: data };
+	} catch (err) {
+		if (err.response?.status === 401) {
+			redirect(context, '/auth/signin');
+		}
+		return { orders: [] };
+	}
 };
 
 export default OrderIndex;
