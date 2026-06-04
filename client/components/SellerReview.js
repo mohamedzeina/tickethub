@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import axios from 'axios';
 import { Star } from './icons';
 import Stars from './Stars';
@@ -31,6 +32,7 @@ const StarPicker = ({ value, onChange }) => {
 // left a review, then shows the existing review (with edit) or a submission
 // form. Self-contained: all calls are client-side off the order id.
 const SellerReview = ({ orderId, initialState = null }) => {
+	const router = useRouter();
 	// Seed from the SSR-provided state when available so the block is present on
 	// first paint instead of popping in after a client fetch.
 	const [state, setState] = useState(initialState); // { reviewable, sellerId, review }
@@ -89,7 +91,14 @@ const SellerReview = ({ orderId, initialState = null }) => {
 	if (!state || !state.reviewable) return null;
 
 	const review = state.review;
-	const profileHref = state.sellerId ? `/sellers/${state.sellerId}` : null;
+	// Link to the seller page, carrying the current page as its "back" target.
+	// Use the object form (query in href) so the param survives client-side nav.
+	const profileHref = state.sellerId
+		? {
+				pathname: '/sellers/[userId]',
+				query: { userId: state.sellerId, from: router.asPath },
+		  }
+		: null;
 
 	// Existing review, not editing → show it.
 	if (review && !editing) {
@@ -105,7 +114,7 @@ const SellerReview = ({ orderId, initialState = null }) => {
 						Edit review
 					</button>
 					{profileHref && (
-						<Link href="/sellers/[userId]" as={profileHref} className="sreview__link">
+						<Link href={profileHref} className="sreview__link">
 							View seller
 						</Link>
 					)}

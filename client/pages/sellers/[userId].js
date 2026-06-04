@@ -2,6 +2,19 @@ import Link from 'next/link';
 import Stars from '../../components/Stars';
 import { ArrowLeft } from '../../components/icons';
 
+// Where "back" should go: the page we arrived from (passed as ?from=), with a
+// label that fits it. Falls back to the catalog when there's no origin (e.g. a
+// direct visit or refresh).
+const backTarget = (from) => {
+	if (typeof from === 'string' && from.startsWith('/tickets/')) {
+		return { href: from, label: 'Back to ticket' };
+	}
+	if (typeof from === 'string' && from.startsWith('/orders/')) {
+		return { href: from, label: 'Back to order' };
+	}
+	return { href: '/', label: 'Back to tickets' };
+};
+
 // Format a review date like "Jun 4, 2026". This is rendered during SSR, so pin
 // the timezone to UTC — otherwise the server (pod TZ) and the browser could land
 // on different calendar days near midnight and trip a hydration mismatch.
@@ -20,7 +33,8 @@ const formatDate = (value) => {
 // Public seller reputation page (#9). Shows the aggregate rating and the most
 // recent reviews. The seller is shown by their display name when set (#18),
 // otherwise an opaque handle; buyers always appear as opaque handles.
-const SellerProfile = ({ profile, sellerId }) => {
+const SellerProfile = ({ profile, sellerId, from }) => {
+	const back = backTarget(from);
 	if (!profile) {
 		return (
 			<div className="container container--mid">
@@ -43,8 +57,8 @@ const SellerProfile = ({ profile, sellerId }) => {
 
 	return (
 		<div className="container container--mid">
-			<Link href="/" className="backlink">
-				<ArrowLeft /> Back to tickets
+			<Link href={back.href} className="backlink">
+				<ArrowLeft /> {back.label}
 			</Link>
 
 			<div className="seller stocked bordered">
@@ -87,7 +101,8 @@ const SellerProfile = ({ profile, sellerId }) => {
 };
 
 SellerProfile.getInitialProps = async (context, client) => {
-	const { userId } = context.query;
+	const { userId, from } = context.query;
+	const back = from || null;
 	try {
 		const { data } = await client.get(`/api/reviews/seller/${userId}`);
 		// Resolve the seller's display name (#18) alongside the reputation. Best
@@ -99,9 +114,9 @@ SellerProfile.getInitialProps = async (context, client) => {
 		} catch (e) {
 			/* fall back to handle */
 		}
-		return { profile: { ...data, displayName }, sellerId: userId };
+		return { profile: { ...data, displayName }, sellerId: userId, from: back };
 	} catch (err) {
-		return { profile: null, sellerId: userId };
+		return { profile: null, sellerId: userId, from: back };
 	}
 };
 
