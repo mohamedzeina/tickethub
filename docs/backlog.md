@@ -286,6 +286,39 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   uses Stripe Elements, so mostly backend + a confirm step.
 - **Effort:** M
 
+### 18. User display names (seller identity)
+- **Value:** #9 reviews currently show opaque "Seller A1B2" handles, which read
+  as placeholders and undercut the trust the feature exists to build. A human
+  name on the badge + seller profile is the fix.
+- **Approach (decided):** A nullable, public, editable `displayName` — **not** a
+  unique username (deferred), **not** required at signup. Resolved by the
+  **client (BFF) via a public read on auth**, NOT an event/replica: the name is
+  display-only (no service reasons about it) and mutable/shared (a rename must
+  reflect live), so replicating it into reviews would be the wrong pattern and
+  add reviews↔auth coupling. The reviews service and `common` stay **unchanged**.
+  The existing "Seller XXXX" handle remains the fallback when `displayName` is
+  unset (so no backfill / no broken old accounts).
+- **Scope:**
+  - **auth:** add nullable `displayName` to the User model (trim, ~1–40 chars,
+    strip control chars); include it in `currentuser`/signin/signup responses;
+    `PATCH /api/users/me` (requireAuth) to set it; **public** `GET /api/users/:id`
+    → `{id, displayName}` (display fields only — never email/tokens) and a batch
+    `GET /api/users?ids=a,b,c` (cap ≤50) to avoid N+1 on lists. Keep it OUT of the
+    JWT (not an auth decision; avoids re-issue on rename).
+  - **client:** a "set your name" UI (account/settings or navbar dropdown); a
+    small browser-side name resolver (`useDisplayName(id)` / `<SellerName>`),
+    falling back to the handle; wire into `SellerBadge` (ticket detail) and the
+    `/sellers/:id` profile heading; batch-resolve names in the profile's review
+    list. Browser-side fetch keeps it non-blocking + isolated (degrades to handle
+    if auth hiccups).
+  - **seed:** give test/test2 display names so the demo shows real names.
+  - **e2e:** set a name via `PATCH`, assert `GET /api/users/:id` + batch return
+    it; optionally assert it renders where the handle was.
+- **Open sub-decisions (settle at build time):** where the edit UI lives;
+  whether **buyers** also get names or stay handles for privacy (lean: sellers
+  named, buyers stay handles); public-read rate limiting (ties to #13).
+- **Effort:** M
+
 ---
 
 ## Quick wins (small, independent)
