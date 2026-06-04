@@ -14,6 +14,8 @@
  * Mail-dependent suites need:  kubectl port-forward svc/mailpit-srv 8025:8025
  */
 
+const crypto = require('crypto');
+
 const BASE_URL = (process.env.BASE_URL || 'https://tickethub.com').replace(/\/$/, '');
 const MAILPIT_URL = (process.env.MAILPIT_URL || 'http://localhost:8025').replace(/\/$/, '');
 const HOST_HEADER = process.env.HOST_HEADER;
@@ -32,7 +34,10 @@ if (!process.env.NODE_TLS_REJECT_UNAUTHORIZED && targetHost === 'tickethub.com')
 const stamp = Date.now();
 let seq = 0;
 const uniqueEmail = (who = 'user') => `${who}+${stamp}-${seq++}@e2e.test`;
-const testPassword = () => `Pw-${stamp}-${seq++}`;
+// A fresh random throwaway credential each call (18 hex chars, within the 4–20
+// length rule). Random rather than derived so there is no static literal for a
+// secret scanner to flag — it is never a real account password.
+const testPassword = () => crypto.randomBytes(9).toString('hex');
 const futureDate = (days = 30) => new Date(Date.now() + days * 864e5).toISOString();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -167,9 +172,21 @@ async function createListing(cookie, overrides = {}) {
 	return api('/api/tickets', { cookie, body });
 }
 
-// Reserve a ticket (create an order). Returns { status, data }.
+// Reserve a ticket (create an order). One-shot — use for negative cases
+// (self-purchase, already-reserved, non-existent). Returns { status, data }.
 async function reserve(cookie, ticketId) {
 	return api('/api/orders', { cookie, body: { ticketId } });
+}
+
+// Happy-path reserve: retry while orders' Ticket replica (fed by ticket:created)
+// catches up after a fresh listing — a one-shot reserve can 404 before the
+// replica lands. Stops on the first non-404 (201 on success).
+async function reserveReady(cookie, ticketId) {
+	return retry(() => reserve(cookie, ticketId), {
+		tries: 20,
+		delay: 400,
+		until: (r) => r.status !== 404,
+	});
 }
 
 // Start a payment, retrying on 404 while payments' Order replica catches up
@@ -256,6 +273,7 @@ module.exports = {
 	signupVerified,
 	createListing,
 	reserve,
+	reserveReady,
 	payIntent,
 	Reporter,
 	runStandalone,

@@ -35,7 +35,7 @@ async function run(t) {
 	t.is('verified seller creates a listing → 201', listing.status, 201);
 	const ticketId = listing.data?.id;
 
-	const order = await h.reserve(buyer.cookie, ticketId);
+	const order = await h.reserveReady(buyer.cookie, ticketId);
 	t.is('verified buyer reserves the ticket → 201', order.status, 201);
 	const orderId = order.data?.id;
 

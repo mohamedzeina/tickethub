@@ -19,7 +19,7 @@ const h = require('./lib/harness');
 // Reserve `seller`'s freshly-listed ticket as `buyer`; returns the order.
 async function newOrder(seller, buyer) {
 	const listing = await h.createListing(seller.cookie, { title: `Pay Seat ${h.uniqueEmail('x')}` });
-	const order = await h.reserve(buyer.cookie, listing.data?.id);
+	const order = await h.reserveReady(buyer.cookie, listing.data?.id);
 	return order;
 }
 

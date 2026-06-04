@@ -339,7 +339,7 @@ async function run(t) {
 	const freshId = fresh.data?.id;
 	t.is('fresh reservable listing created → 201', fresh.status, 201);
 
-	const order = await h.reserve(other.cookie, freshId);
+	const order = await h.reserveReady(other.cookie, freshId);
 	t.is('buyer reserves the fresh listing → 201', order.status, 201);
 
 	// Reservation flows back via OrderCreated → tickets sets orderId. Poll until

@@ -51,7 +51,7 @@ async function run(t) {
 	const buyer = await h.signupVerified('buyer');
 	t.is('buyer signed up and verified', buyer.verified, true);
 
-	const order = await h.reserve(buyer.cookie, ticketId);
+	const order = await h.reserveReady(buyer.cookie, ticketId);
 	t.is('verified buyer CAN reserve the ticket → 201', order.status, 201);
 	const orderId = order.data?.id;
 	t.check('order returns an id', !!orderId);

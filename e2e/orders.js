@@ -23,7 +23,7 @@ async function run(t) {
 	t.is('seller can create a listing → 201', listed.status, 201);
 	const ticketId = listed.data?.id;
 
-	const order = await h.reserve(buyer.cookie, ticketId);
+	const order = await h.reserveReady(buyer.cookie, ticketId);
 	t.is('verified buyer can reserve the ticket → 201', order.status, 201);
 	const orderId = order.data?.id;
 	t.is('new order starts in created status', order.data?.status, 'created');
@@ -41,7 +41,7 @@ async function run(t) {
 	// A second listing so the "already reserved" check is isolated from SUITE 1's.
 	const listed2 = await h.createListing(seller.cookie, { title: `E2E Reserve2 ${Date.now()}` });
 	const ticket2Id = listed2.data?.id;
-	const firstHold = await h.reserve(buyer.cookie, ticket2Id);
+	const firstHold = await h.reserveReady(buyer.cookie, ticket2Id);
 	t.is('first reservation of ticket2 → 201', firstHold.status, 201);
 
 	// Reserve the same ticket again with a third user — it is already held.

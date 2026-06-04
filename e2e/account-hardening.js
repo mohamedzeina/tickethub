@@ -12,9 +12,9 @@ async function run(t) {
 	const stamp = Date.now();
 	const aliceEmail = `alice+${stamp}@e2e.test`;
 	const bobEmail = `bob+${stamp}@e2e.test`;
-	const PASS = `Pw-${stamp}-a`;
-	const NEW_PASS = `Pw-${stamp}-b`;
-	const BOGUS = `not-a-valid-token-${stamp}`;
+	const PASS = h.testPassword();
+	const NEW_PASS = h.testPassword();
+	const BOGUS = `bogus-token-${stamp}`;
 
 	t.suite('SUITE 1 — Unverified user is blocked (negative paths)');
 	const aliceSignup = await h.api('/api/users/signup', {
@@ -67,7 +67,7 @@ async function run(t) {
 	bobCookie = bobVerify.cookie || bobCookie;
 	t.is('second user verified', bobVerify.data?.emailVerified, true);
 
-	const order = await h.reserve(bobCookie, ticketId);
+	const order = await h.reserveReady(bobCookie, ticketId);
 	t.is('verified buyer CAN create an order → 201', order.status, 201);
 
 	const pay = await h.payIntent(bobCookie, order.data?.id);
