@@ -6,6 +6,9 @@ export const formatPrice = (price) =>
 		currency: 'USD',
 	}).format(Number(price) || 0);
 
+// Event dates are a calendar day, not a wall-clock instant — they must not
+// shift by the viewer's timezone (which would also mismatch SSR vs client and
+// trip a hydration error). Pin to UTC so every viewer sees the same day.
 export const formatDateShort = (value) =>
 	value
 		? new Intl.DateTimeFormat('en-US', {
@@ -13,6 +16,7 @@ export const formatDateShort = (value) =>
 				month: 'short',
 				day: 'numeric',
 				year: 'numeric',
+				timeZone: 'UTC',
 		  }).format(new Date(value))
 		: null;
 
@@ -23,6 +27,7 @@ export const formatDateLong = (value) =>
 				month: 'long',
 				day: 'numeric',
 				year: 'numeric',
+				timeZone: 'UTC',
 		  }).format(new Date(value))
 		: null;
 

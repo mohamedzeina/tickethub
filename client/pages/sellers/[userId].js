@@ -2,7 +2,9 @@ import Link from 'next/link';
 import Stars from '../../components/Stars';
 import { ArrowLeft } from '../../components/icons';
 
-// Format a review date like "Jun 4, 2026".
+// Format a review date like "Jun 4, 2026". This is rendered during SSR, so pin
+// the timezone to UTC — otherwise the server (pod TZ) and the browser could land
+// on different calendar days near midnight and trip a hydration mismatch.
 const formatDate = (value) => {
 	if (!value) return '';
 	const d = new Date(value);
@@ -11,6 +13,7 @@ const formatDate = (value) => {
 		month: 'short',
 		day: 'numeric',
 		year: 'numeric',
+		timeZone: 'UTC',
 	});
 };
 

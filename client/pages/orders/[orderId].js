@@ -164,7 +164,14 @@ const formatPaidAt = (value) => {
 const Receipt = ({ order }) => {
 	const eventDate = formatDateShort(order.ticket.eventDate);
 	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
-	const paidAt = formatPaidAt(order.paidAt);
+	// "Paid on" carries a wall-clock time, which differs between the server (pod
+	// TZ) and the browser (the buyer's TZ) — formatting it during SSR causes a
+	// hydration mismatch. Format it after mount so it shows the buyer's local
+	// time with no server/client clash.
+	const [paidAt, setPaidAt] = useState(null);
+	useEffect(() => {
+		setPaidAt(formatPaidAt(order.paidAt));
+	}, [order.paidAt]);
 
 	return (
 		<div className="container">
