@@ -161,7 +161,7 @@ const formatPaidAt = (value) => {
 
 // C5: a real receipt for a paid order — replaces the checkout gate once the
 // webhook-driven payment:created event has completed the order.
-const Receipt = ({ order }) => {
+const Receipt = ({ order, reviewState }) => {
 	const eventDate = formatDateShort(order.ticket.eventDate);
 	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
 	// "Paid on" carries a wall-clock time, which differs between the server (pod
@@ -213,7 +213,7 @@ const Receipt = ({ order }) => {
 						)}
 					</dl>
 
-					<SellerReview orderId={order.id} />
+					<SellerReview orderId={order.id} initialState={reviewState} />
 
 					<Link
 						href="/orders"
@@ -228,7 +228,7 @@ const Receipt = ({ order }) => {
 	);
 };
 
-const OrderShow = ({ order }) => {
+const OrderShow = ({ order, reviewState }) => {
 	const [timeLeft, setTimeLeft] = useState(0);
 
 	useEffect(() => {
@@ -247,7 +247,7 @@ const OrderShow = ({ order }) => {
 
 	// A paid order shows its receipt, not the checkout gate.
 	if (order.status === 'complete') {
-		return <Receipt order={order} />;
+		return <Receipt order={order} reviewState={reviewState} />;
 	}
 
 	if (timeLeft < 0) {
@@ -315,7 +315,20 @@ OrderShow.getInitialProps = async (context, client) => {
 	const { orderId } = context.query;
 	const { data } = await client.get(`/api/orders/${orderId}`);
 
-	return { order: data };
+	// For a completed order, fetch the seller-review state up front so the review
+	// block is present on first paint instead of popping in after a client-side
+	// fetch. Best-effort: a reviews hiccup just falls back to the client fetch.
+	let reviewState = null;
+	if (data.status === 'complete') {
+		try {
+			const r = await client.get(`/api/reviews/order/${orderId}`);
+			reviewState = r.data;
+		} catch (err) {
+			/* reviews unavailable → SellerReview will fetch client-side */
+		}
+	}
+
+	return { order: data, reviewState };
 };
 
 export default OrderShow;

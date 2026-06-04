@@ -30,11 +30,13 @@ const StarPicker = ({ value, onChange }) => {
 // service whether this order is reviewable and whether the buyer has already
 // left a review, then shows the existing review (with edit) or a submission
 // form. Self-contained: all calls are client-side off the order id.
-const SellerReview = ({ orderId }) => {
-	const [state, setState] = useState(null); // { reviewable, sellerId, review }
+const SellerReview = ({ orderId, initialState = null }) => {
+	// Seed from the SSR-provided state when available so the block is present on
+	// first paint instead of popping in after a client fetch.
+	const [state, setState] = useState(initialState); // { reviewable, sellerId, review }
 	const [editing, setEditing] = useState(false);
-	const [rating, setRating] = useState(0);
-	const [comment, setComment] = useState('');
+	const [rating, setRating] = useState(initialState?.review?.rating || 0);
+	const [comment, setComment] = useState(initialState?.review?.comment || '');
 	const [error, setError] = useState(null);
 	const [saving, setSaving] = useState(false);
 
@@ -51,7 +53,12 @@ const SellerReview = ({ orderId }) => {
 			.catch(() => setState({ reviewable: false }));
 	};
 
-	useEffect(load, [orderId]);
+	// Only fetch on mount if we weren't handed SSR state (we still refresh after
+	// a submit). Keyed on orderId so navigating between orders refetches.
+	useEffect(() => {
+		if (!initialState) load();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [orderId]);
 
 	const submit = async () => {
 		if (!rating) {
