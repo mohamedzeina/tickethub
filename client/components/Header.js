@@ -2,19 +2,20 @@ import Link from 'next/link';
 import { Plus } from './icons';
 import NavSearch from './NavSearch';
 import NotificationsBell from './NotificationsBell';
+import UserMenu from './UserMenu';
 
 // Box-office marquee nav. Link set depends on auth state:
-//  - signed out: Will Call (sign in) + Sign Up
-//  - signed in:  My Tickets + Issue a Ticket (cta) + Sign Out
+//  - signed out: Sign In + Sign Up
+//  - signed in:  My Orders + My Listings + Sell Tickets (cta); account actions
+//                (Account, Sign out) live in the UserMenu dropdown to keep the
+//                bar uncluttered.
 const Header = ({ currentUser }) => {
 	const links = [
 		!currentUser && { label: 'Sign In', href: '/auth/signin', variant: 'ghost' },
 		!currentUser && { label: 'Sign Up', href: '/auth/signup', variant: 'btn-ghost' },
 		currentUser && { label: 'My Orders', href: '/orders', variant: 'ghost' },
 		currentUser && { label: 'My Listings', href: '/listings', variant: 'ghost' },
-		currentUser && { label: 'Account', href: '/account', variant: 'ghost' },
 		currentUser && { label: 'Sell Tickets', href: '/tickets/new', variant: 'cta' },
-		currentUser && { label: 'Sign Out', href: '/auth/signout', variant: 'ghost' },
 	].filter(Boolean);
 
 	return (
@@ -51,6 +52,7 @@ const Header = ({ currentUser }) => {
 							</Link>
 						);
 					})}
+					{currentUser && <UserMenu currentUser={currentUser} />}
 				</div>
 			</nav>
 		</div>

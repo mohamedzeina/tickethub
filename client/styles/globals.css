@@ -1592,6 +1592,100 @@
 }
 .bell__all:hover { background: rgba(196, 41, 27, 0.06); }
 
+/* ---- navbar account dropdown (#18) ---- */
+.usermenu { position: relative; display: flex; align-items: center; }
+.usermenu__btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 10px 5px 5px;
+	border-radius: 999px;
+	background: rgba(239, 230, 208, 0.06);
+	border: 1.5px solid rgba(239, 230, 208, 0.16);
+	color: rgba(239, 230, 208, 0.82);
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.usermenu__btn:hover {
+	color: var(--stock);
+	border-color: rgba(239, 230, 208, 0.32);
+	background: rgba(239, 230, 208, 0.1);
+}
+.usermenu__avatar {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 999px;
+	background: var(--red-2);
+	color: #fff;
+	font-family: var(--f-mono);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+}
+.usermenu__name {
+	max-width: 160px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-family: var(--f-mono);
+	font-size: 12px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.usermenu__panel {
+	position: absolute;
+	top: calc(100% + 10px);
+	right: 0;
+	width: 240px;
+	max-width: calc(100vw - 32px);
+	background: var(--stock);
+	border: 1px solid var(--stock-edge);
+	border-radius: var(--r);
+	box-shadow: var(--shadow);
+	z-index: 60;
+	overflow: hidden;
+}
+.usermenu__head {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 12px 14px;
+	border-bottom: 1px dashed var(--stock-edge);
+}
+.usermenu__hello {
+	font-family: var(--f-mono);
+	font-size: 10px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+}
+.usermenu__email {
+	font-family: var(--f-ui);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.usermenu__item {
+	display: block;
+	padding: 11px 14px;
+	font-family: var(--f-mono);
+	font-size: 12px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--ink);
+	transition: background 0.15s ease;
+}
+.usermenu__item:hover { background: rgba(196, 41, 27, 0.06); }
+.usermenu__item--quiet {
+	color: var(--ink-soft);
+	border-top: 1px dashed var(--stock-edge);
+}
+
 /* ---- /notifications feed ---- */
 .notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .note {
