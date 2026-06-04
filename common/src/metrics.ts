@@ -77,6 +77,15 @@ export const eventRedeliveries = new client.Counter({
 	labelNames: ['subject', 'queue_group'] as const,
 });
 
+// --- Rate limiting (#13) -------------------------------------------------
+// Incremented by the rateLimiter middleware whenever a request is throttled,
+// so abuse spikes show up on the dashboards.
+export const rateLimitRejections = new client.Counter({
+	name: 'rate_limit_rejections_total',
+	help: 'Requests rejected by a rate limiter, by limiter name',
+	labelNames: ['limiter'] as const,
+});
+
 // --- /metrics endpoint ---------------------------------------------------
 
 // Shared scrape endpoint so every service exposes metrics identically.

@@ -5,11 +5,13 @@ import { User } from '../models/user';
 import { setSession } from '../services/session';
 import { issueVerification } from '../services/account-emails';
 import { BadRequestError, validateRequest } from '@zeina-tickethub/common';
+import { signupIpLimiter } from '../middlewares/rate-limiters';
 
 const router = express.Router();
 
 router.post(
 	'/api/users/signup',
+	signupIpLimiter,
 	[
 		body('email').isEmail().withMessage('Email must be valid'),
 		body('password')

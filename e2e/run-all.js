@@ -18,6 +18,7 @@ const { Reporter, BASE_URL, MAILPIT_URL, ensureMailpit } = require('./lib/harnes
 const SUITES = [
 	'auth-core',
 	'account-hardening',
+	'abuse',
 	'tickets',
 	'orders',
 	'payments',

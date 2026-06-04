@@ -11,6 +11,11 @@ jest.mock('../nats-wrapper'); // auth now publishes (#7); mock the wrapper
 
 let mongo: any;
 
+// Route unit tests share one client IP and fire many requests; keep the rate
+// limiter (#13) out of their way. The limiter itself is covered by
+// rate-limit.test.ts (which re-enables it) and the live e2e abuse suite.
+process.env.RATELIMIT_DISABLED = 'true';
+
 beforeAll(async () => {
 	process.env.JWT_KEY = '123456';
 

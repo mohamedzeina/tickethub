@@ -4,6 +4,10 @@ import { body } from 'express-validator';
 import { User } from '../models/user';
 import { issuePasswordReset } from '../services/account-emails';
 import { validateRequest } from '@zeina-tickethub/common';
+import {
+	forgotPasswordIpLimiter,
+	forgotPasswordEmailLimiter,
+} from '../middlewares/rate-limiters';
 
 const router = express.Router();
 
@@ -11,6 +15,8 @@ const router = express.Router();
 // so an attacker can't probe which addresses have accounts (email enumeration).
 router.post(
 	'/api/users/forgot-password',
+	forgotPasswordIpLimiter,
+	forgotPasswordEmailLimiter,
 	[body('email').isEmail().withMessage('A valid email is required')],
 	validateRequest,
 	async (req: Request, res: Response) => {

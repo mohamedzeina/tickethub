@@ -5,11 +5,13 @@ import { User } from '../models/user';
 import { TokenManager } from '../services/tokens';
 import { setSession } from '../services/session';
 import { validateRequest, BadRequestError } from '@zeina-tickethub/common';
+import { verifyEmailIpLimiter } from '../middlewares/rate-limiters';
 
 const router = express.Router();
 
 router.post(
 	'/api/users/verify-email',
+	verifyEmailIpLimiter,
 	[body('token').notEmpty().withMessage('A verification token is required')],
 	validateRequest,
 	async (req: Request, res: Response) => {

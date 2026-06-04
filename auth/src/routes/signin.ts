@@ -5,11 +5,14 @@ import { PasswordManager } from '../services/password';
 import { User } from '../models/user';
 import { setSession } from '../services/session';
 import { validateRequest, BadRequestError } from '@zeina-tickethub/common';
+import { signinIpLimiter, signinEmailLimiter } from '../middlewares/rate-limiters';
 
 const router = express.Router();
 
 router.post(
 	'/api/users/signin',
+	signinIpLimiter,
+	signinEmailLimiter,
 	[
 		body('email').isEmail().withMessage('Invalid email address'),
 		body('password').trim().notEmpty().withMessage('Password is required'),

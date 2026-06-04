@@ -50,6 +50,10 @@ spec:
               value: 'nats://nats-srv:4222'
             - name: NATS_CLUSTER_ID
               value: 'tickethub'
+            # Shared store for abuse-protection rate limits (#13). If this is
+            # unreachable the limiter fails open, so auth still serves.
+            - name: RATELIMIT_REDIS_HOST
+              value: 'ratelimit-redis-srv'
             - name: NATS_CLIENT_ID
               valueFrom:
                 fieldRef:

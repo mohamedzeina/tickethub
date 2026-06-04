@@ -5,11 +5,13 @@ import { User } from '../models/user';
 import { TokenManager } from '../services/tokens';
 import { setSession } from '../services/session';
 import { validateRequest, BadRequestError } from '@zeina-tickethub/common';
+import { resetPasswordIpLimiter } from '../middlewares/rate-limiters';
 
 const router = express.Router();
 
 router.post(
 	'/api/users/reset-password',
+	resetPasswordIpLimiter,
 	[
 		body('token').notEmpty().withMessage('A reset token is required'),
 		body('password')

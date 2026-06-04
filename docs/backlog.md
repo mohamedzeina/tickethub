@@ -49,7 +49,7 @@ tracing, alerting) with health checks. Remaining gaps:
 - No user **profile**, no **roles** (✅ password reset + email verification done).
 - No **email/notification** of any kind (purchase confirmation, expiry warning).
 - No **reviews, ratings, or seller reputation**.
-- No **rate limiting**.
+- ✅ Rate limiting on auth endpoints (per-email/user + per-IP) — done (#13).
 
 ---
 
@@ -59,7 +59,7 @@ tracing, alerting) with health checks. Remaining gaps:
 |------|-------|-------|
 | **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI, ✅ buyer order detail/receipt, ✅ email notifications (purchase + expiry) |
 | **P1 — Mid term** | New capability, moderate scope | Notifications service, ✅ password reset + email verify, ✅ refunds, seller reputation/reviews, ticket quantity |
-| **P2 — Long term** | Platform maturity & scale | ✅ Observability stack, rate limiting, admin dashboard, full-text search engine, ✅ PaymentIntents (provider abstraction still open), wishlists/alerts |
+| **P2 — Long term** | Platform maturity & scale | ✅ Observability stack, ✅ rate limiting, admin dashboard, full-text search engine, ✅ PaymentIntents (provider abstraction still open), wishlists/alerts |
 
 Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
@@ -222,11 +222,18 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   structured logging, `/healthz` + readiness probes in k8s manifests.
 - **Effort:** L
 
-### 13. Rate limiting & abuse protection
-- **Value:** Auth and order endpoints are unprotected against brute force /
-  spam.
-- **Scope:** Redis-backed rate limiter middleware in **common**; per-IP/per-user
-  limits on signin/signup/order creation; CAPTCHA on signup.
+### 13. Rate limiting & abuse protection — ✅ Done (auth)
+- **Status:** Shipped. A reusable `rateLimiter()` middleware in **common**
+  (`rate-limiter-flexible` + `ioredis`, memory backend under test, **fails open**
+  if Redis is down) + a `TooManyRequestsError` (429 + `Retry-After`) and a
+  `rate_limit_rejections_total` metric. Applied to the auth endpoints in two
+  tiers: tight per-email/per-user limits (signin 5/15min·email,
+  forgot-password 3/hr·email, resend-verification 3/hr·user) as the real
+  brute-force/flood protection, plus generous per-IP backstops on
+  signin/signup/forgot/verify/reset. New dedicated `ratelimit-redis` (no
+  persistence — counters are ephemeral). Live e2e: `e2e/abuse.js`.
+- **Deferred:** order-creation throttle; CAPTCHA on signup; verifying the
+  ingress forwards the real client IP (per-IP limits depend on X-Forwarded-For).
 - **Effort:** M
 
 ### 14. Admin dashboard & moderation
@@ -275,17 +282,22 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 
 ## Suggested next slice
 
-The post-purchase loop is now closed: #4 (receipts/history) and #8 (refunds)
-shipped in Phase C, and the platform-maturity work (#12 observability, #17
-PaymentIntents) shipped in Phases A–D. The next coherent increment is **user
-feedback + accounts**:
+The post-purchase loop, platform maturity, comms, and account security are all in:
+#4 (receipts/history) + #8 (refunds) shipped in Phase C; #12 observability + #17
+PaymentIntents in Phases A–D; #5 emails + #6 Notifications service (in-app feed +
+centralized transactional email); and **#7 account hardening** (email
+verification + password reset, with a `requireVerified` gate on buy/sell).
 
-1. **#5 Email confirmation** — ✅ Done (purchase receipt + expiry warning +
-   cancellation). The common mailer is now in place.
-2. **#6 Notifications service** — 🟡 in-app feed shipped (dedicated service +
-   navbar bell + `/notifications` page). Remaining: fold the transactional emails
-   into it and add price-drop alerts.
-3. **#7 Account hardening** — email verification + password reset.
+The next coherent increment is **abuse protection**:
 
-These build on the now-mature platform (events, observability, payments) and turn
-one-off transactions into an engaged, trustworthy experience.
+1. **#13 Rate limiting & abuse protection** — the natural follow-on to #7. We just
+   added password-reset, verify, and resend-verification endpoints; together with
+   signin/signup they're all brute-force / spam targets and currently unthrottled.
+   Redis is already in the cluster, so a shared limiter middleware in **common**
+   is a contained **M**. Recommended next.
+2. **#9 Seller reputation & reviews** (L, new service) — biggest trust win once
+   the platform is hardened.
+3. **#6 tail** — refund email + price-drop alerts (small/medium follow-ups).
+
+These build on the now-mature platform (events, observability, payments, comms,
+verified accounts) and harden it for real-world traffic.

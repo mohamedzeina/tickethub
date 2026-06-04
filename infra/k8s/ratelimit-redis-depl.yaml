@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratelimit-redis-depl
+  labels:
+    app: ratelimit-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratelimit-redis
+  template:
+    metadata:
+      labels:
+        app: ratelimit-redis
+    spec:
+      containers:
+        - name: ratelimit-redis
+          image: redis
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          # No persistence: rate-limit counters are short-lived and rebuild on
+          # their own. Losing them on a restart fails open, which is acceptable.
+          command:
+            ['redis-server', '--save', '', '--appendonly', 'no', '--maxmemory', '64mb', '--maxmemory-policy', 'allkeys-lru']
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratelimit-redis-srv
+spec:
+  selector:
+    app: ratelimit-redis
+  ports:
+    - name: ratelimit-redis-db
+      protocol: TCP
+      port: 6379
+      targetPort: 6379

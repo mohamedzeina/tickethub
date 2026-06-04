@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import { User } from '../models/user';
 import { issueVerification } from '../services/account-emails';
 import { currentUser, requireAuth } from '@zeina-tickethub/common';
+import { resendVerificationLimiter } from '../middlewares/rate-limiters';
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ router.post(
 	'/api/users/resend-verification',
 	currentUser,
 	requireAuth,
+	resendVerificationLimiter,
 	async (req: Request, res: Response) => {
 		const user = await User.findById(req.currentUser!.id);
 

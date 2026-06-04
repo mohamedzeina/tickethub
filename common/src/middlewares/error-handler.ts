@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { CustomError } from '../errors/custom-error';
+import { TooManyRequestsError } from '../errors/too-many-requests-error';
 import { logger } from '../logger';
 
 export const errorHandler = (
@@ -9,6 +10,10 @@ export const errorHandler = (
 	next: NextFunction,
 ) => {
 	if (err instanceof CustomError) {
+		// Advertise when to retry on a throttle so clients can back off politely.
+		if (err instanceof TooManyRequestsError && err.retryAfter) {
+			res.set('Retry-After', String(err.retryAfter));
+		}
 		return res.status(err.statusCode).send({ errors: err.serializeErrors() });
 	}
 
