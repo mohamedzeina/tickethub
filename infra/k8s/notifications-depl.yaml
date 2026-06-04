@@ -62,6 +62,9 @@ spec:
               value: '1025'
             - name: MAIL_FROM
               value: 'TicketHub <no-reply@tickethub.com>'
+            # #7: base URL used to build verify-email / reset-password links.
+            - name: CLIENT_URL
+              value: 'https://tickethub.com'
           ports:
             - containerPort: 3000
           readinessProbe:

@@ -3,11 +3,14 @@ export * from './metrics';
 export * from './mailer';
 export * from './emails/receipt';
 export * from './emails/expiry';
+export * from './emails/verify';
+export * from './emails/reset';
 
 export * from './errors/bad-request-error';
 export * from './errors/custom-error';
 export * from './errors/database-connection-error';
 export * from './errors/not-authorized-error';
+export * from './errors/forbidden-error';
 export * from './errors/not-found-error';
 export * from './errors/request-validation-error';
 
@@ -15,6 +18,7 @@ export * from './middlewares/current-user';
 export * from './middlewares/error-handler';
 export * from './middlewares/health-router';
 export * from './middlewares/require-auth';
+export * from './middlewares/require-verified';
 export * from './middlewares/validate-request';
 
 export * from './events/base-listener';
@@ -34,3 +38,5 @@ export * from './events/expiration/expiration-warning';
 export * from './events/payments/payment-initiated';
 export * from './events/payments/payment-created';
 export * from './events/payments/payment-refunded';
+export * from './events/user/verification-requested';
+export * from './events/user/password-reset-requested';

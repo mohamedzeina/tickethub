@@ -1,9 +1,33 @@
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { app } from '../../app';
 import mongoose from 'mongoose';
 import { Order, OrderStatus } from '../../models/order';
 import { Ticket } from '../../models/ticket';
 import { natsWrapper } from '../../nats-wrapper';
+
+// A signed-in but email-unverified user (#7). global.signin is verified.
+const unverifiedCookie = () => {
+	const token = jwt.sign(
+		{
+			id: new mongoose.Types.ObjectId().toHexString(),
+			email: 'unverified@test.com',
+			emailVerified: false,
+		},
+		process.env.JWT_KEY!,
+	);
+	const session = { jwt: token };
+	const base64 = Buffer.from(JSON.stringify(session)).toString('base64');
+	return [`session=${base64}`];
+};
+
+it('returns 403 when the signed-in user has not verified their email', async () => {
+	await request(app)
+		.post('/api/orders')
+		.set('Cookie', unverifiedCookie())
+		.send({ ticketId: new mongoose.Types.ObjectId().toHexString() })
+		.expect(403);
+});
 
 it('returns an error if the ticket does not exist', async () => {
 	const ticketId = new mongoose.Types.ObjectId();

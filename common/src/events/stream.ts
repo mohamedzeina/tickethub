@@ -18,6 +18,8 @@ const STREAM_SUBJECTS: string[] = [
 	Subjects.PaymentInitiated,
 	Subjects.PaymentCreated,
 	Subjects.PaymentRefunded,
+	Subjects.UserVerificationRequested,
+	Subjects.PasswordResetRequested,
 ];
 
 // Create the stream if it doesn't exist. Every service calls this at startup;

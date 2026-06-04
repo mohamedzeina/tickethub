@@ -335,6 +335,42 @@
    NAV — box office window
    ============================================================== */
 .nav-shell { position: sticky; top: 0; z-index: 40; }
+
+/* #7 — email-verification nudge under the nav */
+.verifybar {
+	background: var(--amber);
+	color: #2a1d05;
+	border-bottom: 1.5px solid rgba(0, 0, 0, 0.18);
+}
+.verifybar__in {
+	max-width: 1180px;
+	margin: 0 auto;
+	padding: 9px 22px;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	flex-wrap: wrap;
+	font-family: var(--f-mono);
+	font-size: 12.5px;
+}
+.verifybar__txt { flex: 1; min-width: 220px; }
+.verifybar__mail { font-weight: 600; }
+.verifybar__btn {
+	flex-shrink: 0;
+	font-family: var(--f-mono);
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #2a1d05;
+	background: rgba(255, 255, 255, 0.55);
+	border: 1.5px solid rgba(0, 0, 0, 0.28);
+	border-radius: 7px;
+	padding: 6px 14px;
+	cursor: pointer;
+}
+.verifybar__btn:hover { background: rgba(255, 255, 255, 0.8); }
+.verifybar__done { flex-shrink: 0; font-weight: 600; }
+
 .nav {
 	max-width: 1180px;
 	margin: 0 auto;
@@ -1145,6 +1181,14 @@
 	margin-bottom: 8px;
 }
 .field label .opt { text-transform: none; letter-spacing: 0; }
+.field label .field__aside {
+	float: right;
+	text-transform: none;
+	letter-spacing: 0;
+	color: var(--red);
+	font-size: 11px;
+}
+.field label .field__aside:hover { color: var(--red-press); }
 .field input,
 .field select,
 .field textarea {

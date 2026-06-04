@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import {
 	NotFoundError,
 	requireAuth,
+	requireVerified,
 	validateRequest,
 	BadRequestError,
 	OrderStatus,
@@ -23,6 +24,7 @@ const ordersCreated = new client.Counter({
 router.post(
 	'/api/orders',
 	requireAuth,
+	requireVerified,
 	[body('ticketId').not().isEmpty().withMessage('ticketId must be provided')],
 	validateRequest,
 	async (req: Request, res: Response) => {

@@ -1,7 +1,32 @@
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { app } from '../../app';
 import { Ticket } from '../../models/ticket';
 import { natsWrapper } from '../../nats-wrapper';
+
+// A signed-in but email-unverified user (#7). global.signin is verified.
+const unverifiedCookie = () => {
+	const token = jwt.sign(
+		{
+			id: new mongoose.Types.ObjectId().toHexString(),
+			email: 'unverified@test.com',
+			emailVerified: false,
+		},
+		process.env.JWT_KEY!,
+	);
+	const session = { jwt: token };
+	const base64 = Buffer.from(JSON.stringify(session)).toString('base64');
+	return [`session=${base64}`];
+};
+
+it('returns 403 when the signed-in user has not verified their email', async () => {
+	await request(app)
+		.post('/api/tickets')
+		.set('Cookie', unverifiedCookie())
+		.send({ title: 'Concert', price: 20 })
+		.expect(403);
+});
 
 it('has a route handler listening to /api/tickets for post request', async () => {
 	const response = await request(app).post('/api/tickets').send({});

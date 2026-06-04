@@ -8,6 +8,8 @@ import { PaymentCreatedListener } from './events/listeners/payment-created-liste
 import { PaymentRefundedListener } from './events/listeners/payment-refunded-listener';
 import { ExpirationWarningListener } from './events/listeners/expiration-warning-listener';
 import { ExpirationCompleteListener } from './events/listeners/expiration-complete-listener';
+import { UserVerificationRequestedListener } from './events/listeners/user-verification-requested-listener';
+import { PasswordResetRequestedListener } from './events/listeners/password-reset-requested-listener';
 
 const startNotificationsService = async () => {
 	let isShuttingDown = false;
@@ -45,6 +47,8 @@ const startNotificationsService = async () => {
 		await new PaymentRefundedListener(natsWrapper.connection).listen();
 		await new ExpirationWarningListener(natsWrapper.connection).listen();
 		await new ExpirationCompleteListener(natsWrapper.connection).listen();
+		await new UserVerificationRequestedListener(natsWrapper.connection).listen();
+		await new PasswordResetRequestedListener(natsWrapper.connection).listen();
 
 		await mongoose.connect(process.env.MONGO_URI);
 		logger.info('connected to MongoDB');

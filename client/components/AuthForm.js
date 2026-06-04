@@ -6,7 +6,7 @@ import useRequest from '../hooks/useRequest';
 // Shared "Will Call" window for Sign In / Sign Up. Both screens collect the
 // same email + password, so the layout, validation, and submit handling live
 // here and each page just passes its copy and endpoint.
-const AuthForm = ({ title, subtitle, url, submitLabel, footer }) => {
+const AuthForm = ({ title, subtitle, url, submitLabel, footer, forgotHref }) => {
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [loading, setLoading] = useState(false);
@@ -57,7 +57,14 @@ const AuthForm = ({ title, subtitle, url, submitLabel, footer }) => {
 						</div>
 
 						<div className="field">
-							<label htmlFor="password">Password</label>
+							<label htmlFor="password">
+								Password
+								{forgotHref && (
+									<Link href={forgotHref} className="field__aside">
+										Forgot?
+									</Link>
+								)}
+							</label>
 							<input
 								id="password"
 								type="password"

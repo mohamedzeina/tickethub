@@ -39,10 +39,11 @@ afterAll(async () => {
 });
 
 global.signin = () => {
-	// Build a jwt payload. { id, email }
+	// Build a jwt payload. { id, email, emailVerified }
 	const payload = {
 		id: new mongoose.Types.ObjectId().toHexString(),
 		email: 'test@test.com',
+		emailVerified: true, // gating tests build their own unverified cookie
 	};
 
 	// Create the JWT

@@ -1,8 +1,9 @@
 import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
-import jwt from 'jsonwebtoken';
 
 import { User } from '../models/user';
+import { setSession } from '../services/session';
+import { issueVerification } from '../services/account-emails';
 import { BadRequestError, validateRequest } from '@zeina-tickethub/common';
 
 const router = express.Router();
@@ -29,19 +30,12 @@ router.post(
 		const user = User.build({ email, password });
 		await user.save();
 
-		// Generate JWT
-		const userJWT = jwt.sign(
-			{
-				id: user.id,
-				email: user.email,
-			},
-			process.env.JWT_KEY!,
-		);
+		// Send the verification email (mints + stores a hashed token, publishes
+		// the request). New accounts start unverified.
+		await issueVerification(user);
 
-		// Store it on session object
-		req.session = {
-			jwt: userJWT,
-		};
+		// Sign the user in; the JWT records emailVerified: false until they confirm.
+		setSession(req, user);
 
 		res.status(201).send(user);
 	},

@@ -2,6 +2,7 @@ import '../styles/globals.css';
 import { Bevan, Spline_Sans, DM_Mono } from 'next/font/google';
 import buildClient from '../api/build-client';
 import Header from '../components/Header';
+import VerifyBanner from '../components/VerifyBanner';
 
 // Self-hosted + preloaded at build time so there's no flash of unstyled text.
 // Each exposes a CSS variable that globals.css maps to a role token.
@@ -41,6 +42,7 @@ const AppComponent = ({ Component, pageProps, currentUser }) => {
 			<span className="regmark br" aria-hidden="true" />
 
 			<Header currentUser={currentUser} />
+			<VerifyBanner currentUser={currentUser} />
 
 			<main className="page-main">
 				<Component currentUser={currentUser} {...pageProps} />

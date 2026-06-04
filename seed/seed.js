@@ -159,6 +159,27 @@ async function signup(email, password) {
 	return sessionCookie(res.headers.get('set-cookie'));
 }
 
+async function signin(email, password) {
+	const { res } = await api('/api/users/signin', { body: { email, password } });
+	return sessionCookie(res.headers.get('set-cookie'));
+}
+
+// Demo accounts start unverified (#7), which would block listing/buying. Flip
+// them verified straight in the auth DB so the seed can create tickets — the
+// caller re-signs-in afterwards to mint a cookie whose JWT says verified.
+async function markUsersVerified(authUri, emails) {
+	const client = new MongoClient(authUri);
+	try {
+		await client.connect();
+		await client
+			.db()
+			.collection('users')
+			.updateMany({ email: { $in: emails } }, { $set: { emailVerified: true } });
+	} finally {
+		await client.close();
+	}
+}
+
 async function createTicket(cookie, ticket) {
 	const { data } = await api('/api/tickets', { cookie, body: ticket });
 	return data;
@@ -260,12 +281,18 @@ const TICKETS = [
 	await resetDatabases(uris);
 
 	console.log('\nCreating users…');
+	await signup('test@test.com', '123456');
+	await signup('test2@test.com', '123456');
+
+	// Verify both demo accounts, then re-sign-in so their cookies carry
+	// emailVerified: true (the gate for listing/buying reads the JWT).
+	await markUsersVerified(uris.auth, ['test@test.com', 'test2@test.com']);
 	const cookies = {
-		1: await signup('test@test.com', '123456'),
-		2: await signup('test2@test.com', '123456'),
+		1: await signin('test@test.com', '123456'),
+		2: await signin('test2@test.com', '123456'),
 	};
-	console.log('  • test@test.com / 123456');
-	console.log('  • test2@test.com / 123456');
+	console.log('  • test@test.com / 123456 (verified)');
+	console.log('  • test2@test.com / 123456 (verified)');
 
 	console.log('\nCreating tickets…');
 	let ok = 0;

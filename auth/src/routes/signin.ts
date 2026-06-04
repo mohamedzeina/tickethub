@@ -1,9 +1,9 @@
 import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
-import jwt from 'jsonwebtoken';
 
 import { PasswordManager } from '../services/password';
 import { User } from '../models/user';
+import { setSession } from '../services/session';
 import { validateRequest, BadRequestError } from '@zeina-tickethub/common';
 
 const router = express.Router();
@@ -31,19 +31,8 @@ router.post(
 			throw new BadRequestError('Invalid credentials');
 		}
 
-		// Generate JWT
-		const userJWT = jwt.sign(
-			{
-				id: existingUser.id,
-				email: existingUser.email,
-			},
-			process.env.JWT_KEY!,
-		);
-
-		// Store it on session object
-		req.session = {
-			jwt: userJWT,
-		};
+		// Sign the user in; the JWT carries the current emailVerified flag.
+		setSession(req, existingUser);
 
 		res.status(200).send(existingUser);
 	},

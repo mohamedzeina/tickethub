@@ -46,7 +46,7 @@ PaymentIntents + webhooks, and a full observability stack (logs, metrics,
 tracing, alerting) with health checks. Remaining gaps:
 
 - Tickets are still **single-unit** — no quantity / multi-seat listings.
-- No **password reset / email verification**, no user **profile**, no **roles**.
+- No user **profile**, no **roles** (✅ password reset + email verification done).
 - No **email/notification** of any kind (purchase confirmation, expiry warning).
 - No **reviews, ratings, or seller reputation**.
 - No **rate limiting**.
@@ -58,7 +58,7 @@ tracing, alerting) with health checks. Remaining gaps:
 | Tier | Theme | Items |
 |------|-------|-------|
 | **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI, ✅ buyer order detail/receipt, ✅ email notifications (purchase + expiry) |
-| **P1 — Mid term** | New capability, moderate scope | Notifications service, password reset + email verify, ✅ refunds, seller reputation/reviews, ticket quantity |
+| **P1 — Mid term** | New capability, moderate scope | Notifications service, ✅ password reset + email verify, ✅ refunds, seller reputation/reviews, ticket quantity |
 | **P2 — Long term** | Platform maturity & scale | ✅ Observability stack, rate limiting, admin dashboard, full-text search engine, ✅ PaymentIntents (provider abstraction still open), wishlists/alerts |
 
 Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
@@ -157,11 +157,22 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   in-app notification feed via the client.
 - **Effort:** L
 
-### 7. Account hardening: email verification + password reset
+### 7. Account hardening: email verification + password reset — ✅ Done
+- **Status:** Shipped. **auth** now publishes over NATS for the first time:
+  signup mints a hashed, TTL'd verification token and emits
+  `user:verification:requested`; `forgot-password` emits
+  `password:reset:requested` (always 200 — no email enumeration). New endpoints:
+  verify-email, resend-verification, forgot-password, reset-password. Only token
+  *hashes* are stored (raw token rides the event → the email link). The JWT now
+  carries `emailVerified`; auth re-issues the cookie on verify/reset.
+  **notifications** owns the two new emails (verify + reset), building links from
+  `CLIENT_URL` via the centralized mailer. **Gate:** a common `requireVerified`
+  middleware blocks **tickets** create and **orders** create until verified
+  (403); browsing/sign-in stay open. Client: verify / forgot / reset pages, a
+  "Forgot?" link on sign-in, and an unverified banner with one-click resend. Seed
+  backfills the demo accounts as verified.
 - **Value:** Currently anyone can sign up with any email; passwords can't be
   recovered.
-- **Scope:** **auth** — verification tokens, reset tokens (TTL), email sending
-  (via Notifications/mailer); client flows (verify, forgot/reset password).
 - **Effort:** M
 
 ### 8. Refunds & buyer-initiated cancellation — ✅ Done (C4)

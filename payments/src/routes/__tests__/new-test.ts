@@ -1,10 +1,43 @@
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { app } from '../../app';
 import mongoose from 'mongoose';
 import { Order } from '../../models/order';
 import { OrderStatus } from '@zeina-tickethub/common';
 import { stripe } from '../../stripe';
 import { Payment } from '../../models/payment';
+
+// A signed-in but email-unverified user (#7). global.signin is verified.
+const unverifiedCookie = () => {
+	const token = jwt.sign(
+		{
+			id: new mongoose.Types.ObjectId().toHexString(),
+			email: 'unverified@test.com',
+			emailVerified: false,
+		},
+		process.env.JWT_KEY!,
+	);
+	const session = { jwt: token };
+	const base64 = Buffer.from(JSON.stringify(session)).toString('base64');
+	return [`session=${base64}`];
+};
+
+it('returns 403 when an unverified user tries to pay', async () => {
+	const order = Order.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		status: OrderStatus.Created,
+		version: 0,
+		userId: new mongoose.Types.ObjectId().toHexString(),
+		price: 20,
+	});
+	await order.save();
+
+	await request(app)
+		.post('/api/payments')
+		.set('Cookie', unverifiedCookie())
+		.send({ orderId: order.id })
+		.expect(403);
+});
 
 it('throws a 404 error when paying for an order that does not exist', async () => {
 	await request(app)

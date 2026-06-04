@@ -46,6 +46,14 @@ spec:
                 secretKeyRef:
                   name: mongo-secret
                   key: AUTH_MONGO_URI
+            - name: NATS_URL
+              value: 'nats://nats-srv:4222'
+            - name: NATS_CLUSTER_ID
+              value: 'tickethub'
+            - name: NATS_CLIENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           ports:
             - containerPort: 3000
           readinessProbe:

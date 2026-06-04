@@ -8,6 +8,10 @@ import { currentUserRouter } from './routes/current-user';
 import { signInRouter } from './routes/signin';
 import { signOutRouter } from './routes/signout';
 import { signUpRouter } from './routes/signup';
+import { verifyEmailRouter } from './routes/verify-email';
+import { resendVerificationRouter } from './routes/resend-verification';
+import { forgotPasswordRouter } from './routes/forgot-password';
+import { resetPasswordRouter } from './routes/reset-password';
 import {
 	errorHandler,
 	NotFoundError,
@@ -16,12 +20,16 @@ import {
 	metricsRouter,
 	httpMetrics,
 } from '@zeina-tickethub/common';
+import { natsWrapper } from './nats-wrapper';
 
 const app = express();
 app.set('trust proxy', true);
 app.use(
 	healthRouter({
-		checks: { mongo: () => mongoose.connection.readyState === 1 },
+		checks: {
+			mongo: () => mongoose.connection.readyState === 1,
+			nats: () => natsWrapper.isConnected,
+		},
 	}),
 );
 app.use(metricsRouter());
@@ -39,6 +47,10 @@ app.use(currentUserRouter);
 app.use(signInRouter);
 app.use(signOutRouter);
 app.use(signUpRouter);
+app.use(verifyEmailRouter);
+app.use(resendVerificationRouter);
+app.use(forgotPasswordRouter);
+app.use(resetPasswordRouter);
 
 app.all('*', async () => {
 	throw new NotFoundError();

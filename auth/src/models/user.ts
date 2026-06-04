@@ -5,6 +5,7 @@ import { PasswordManager } from '../services/password';
 interface UserAttrs {
 	email: string;
 	password: string;
+	emailVerified?: boolean;
 }
 
 // Interface that describes properties that the User model
@@ -16,15 +17,27 @@ interface UserModel extends mongoose.Model<UserDoc> {
 interface UserDoc extends mongoose.Document {
 	email: string;
 	password: string;
+	emailVerified: boolean;
+	// Account-hardening tokens (#7). We store only a sha256 *hash* of the raw
+	// token (the raw value lives only in the email link) plus an expiry.
+	verificationToken?: string;
+	verificationTokenExpires?: Date;
+	passwordResetToken?: string;
+	passwordResetExpires?: Date;
 }
 
 // Interface for the JSON representation after transformation
 interface UserJson {
 	email: string;
+	emailVerified?: boolean;
 	_id?: mongoose.Types.ObjectId; // Optional for deletion
 	password?: string; // Optional for deletion
 	__v?: number; // Optional for deletion
 	id?: string; // Added during transformation
+	verificationToken?: string | null;
+	verificationTokenExpires?: Date | null;
+	passwordResetToken?: string | null;
+	passwordResetExpires?: Date | null;
 }
 
 const userSchema = new mongoose.Schema(
@@ -37,6 +50,14 @@ const userSchema = new mongoose.Schema(
 			type: String,
 			required: true,
 		},
+		emailVerified: {
+			type: Boolean,
+			default: false,
+		},
+		verificationToken: String,
+		verificationTokenExpires: Date,
+		passwordResetToken: String,
+		passwordResetExpires: Date,
 	},
 	{
 		toJSON: {
@@ -45,6 +66,11 @@ const userSchema = new mongoose.Schema(
 				delete ret._id;
 				delete ret.password;
 				delete ret.__v;
+				// Never leak token material or its expiry to clients.
+				delete ret.verificationToken;
+				delete ret.verificationTokenExpires;
+				delete ret.passwordResetToken;
+				delete ret.passwordResetExpires;
 			},
 		},
 	},
@@ -64,4 +90,4 @@ userSchema.statics.build = (attrs: UserAttrs) => {
 
 const User = mongoose.model<UserDoc, UserModel>('User', userSchema);
 
-export { User };
+export { User, UserDoc };

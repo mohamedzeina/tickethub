@@ -1,6 +1,10 @@
 import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
-import { requireAuth, validateRequest } from '@zeina-tickethub/common';
+import {
+	requireAuth,
+	requireVerified,
+	validateRequest,
+} from '@zeina-tickethub/common';
 import { Ticket, TICKET_CATEGORIES } from '../models/ticket';
 import { TicketCreatedPublisher } from '../events/publishers/ticket-created-publisher';
 import { natsWrapper } from '../nats-wrapper';
@@ -10,6 +14,7 @@ const router = express.Router();
 router.post(
 	'/api/tickets',
 	requireAuth,
+	requireVerified,
 	[
 		body('title').not().isEmpty().withMessage('Title is required'),
 		body('price')

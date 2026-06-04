@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
 import {
 	requireAuth,
+	requireVerified,
 	validateRequest,
 	BadRequestError,
 	NotFoundError,
@@ -23,6 +24,7 @@ const router = express.Router();
 router.post(
 	'/api/payments',
 	requireAuth,
+	requireVerified,
 	[body('orderId').not().isEmpty()],
 	validateRequest,
 	async (req: Request, res: Response) => {
