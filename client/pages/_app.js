@@ -4,25 +4,28 @@ import buildClient from '../api/build-client';
 import Header from '../components/Header';
 import VerifyBanner from '../components/VerifyBanner';
 
-// Self-hosted + preloaded at build time so there's no flash of unstyled text.
-// Each exposes a CSS variable that globals.css maps to a role token.
+// Self-hosted + preloaded at build time. `display: optional` lets the browser
+// use the (preloaded/cached) font when it's ready within a short window and
+// otherwise keep the metric-matched fallback for that load — so a hard refresh
+// no longer flashes the fallback then swaps (FOUT). Each exposes a CSS variable
+// that globals.css maps to a role token.
 const displayFont = Bevan({
 	weight: '400',
 	subsets: ['latin'],
 	variable: '--font-bevan',
-	display: 'swap',
+	display: 'optional',
 });
 const uiFont = Spline_Sans({
 	weight: ['400', '500', '600', '700'],
 	subsets: ['latin'],
 	variable: '--font-spline',
-	display: 'swap',
+	display: 'optional',
 });
 const monoFont = DM_Mono({
 	weight: ['400', '500'],
 	subsets: ['latin'],
 	variable: '--font-dmmono',
-	display: 'swap',
+	display: 'optional',
 });
 
 const fontVars = `fontvars ${displayFont.variable} ${uiFont.variable} ${monoFont.variable}`;
