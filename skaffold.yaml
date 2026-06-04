@@ -69,3 +69,12 @@ build:
         manual:
           - src: 'src/**/*.ts'
             dest: .
+
+    - image: toxiczeina/reviews
+      context: reviews
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: 'src/**/*.ts'
+            dest: .
