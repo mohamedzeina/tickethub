@@ -232,8 +232,19 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   brute-force/flood protection, plus generous per-IP backstops on
   signin/signup/forgot/verify/reset. New dedicated `ratelimit-redis` (no
   persistence — counters are ephemeral). Live e2e: `e2e/abuse.js`.
-- **Deferred:** order-creation throttle; CAPTCHA on signup; verifying the
-  ingress forwards the real client IP (per-IP limits depend on X-Forwarded-For).
+- **Deferred:** order-creation throttle; CAPTCHA on signup.
+- **Follow-up — per-IP client-IP correctness (verify on deploy):** Local probing
+  confirmed per-IP limiting *works* (trips at the cap) and is *not* spoofable via
+  a forged `X-Forwarded-For` (the ingress sanitizes it). What can't be checked
+  locally (single source IP): that **distinct real users land in distinct
+  buckets** vs. all sharing one SNAT'd/internal IP. Depends on prod LB
+  `externalTrafficPolicy` (`Local` preserves client IP; `Cluster` SNATs to the
+  node) + ingress `use-forwarded-headers`. **On deploy:** hit
+  `/api/users/forgot-password` 60+ times from two networks (laptop + phone on
+  cellular) and confirm each gets its own 60 before 429. Worst case is benign
+  (per-email/per-user limits unaffected; per-IP caps are generous). Also harden
+  `app.set('trust proxy', true)` → `trust proxy: 1` (trust one hop) now that the
+  ingress is the only proxy.
 - **Effort:** M
 
 ### 14. Admin dashboard & moderation
