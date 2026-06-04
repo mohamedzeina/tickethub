@@ -23,6 +23,7 @@ const SUITES = [
 	'orders',
 	'payments',
 	'notifications',
+	'reviews',
 	'flows',
 ];
 

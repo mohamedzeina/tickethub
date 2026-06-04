@@ -43,17 +43,18 @@ if (!process.env.NODE_TLS_REJECT_UNAUTHORIZED && targetHost === 'tickethub.com')
 }
 
 // service -> key inside the mongo-secret Kubernetes secret.
-// Note: the notifications db MUST be reset alongside the others. Its
-// idempotency guard keys on (channel, sequence); a fresh NATS stream after a
-// `skaffold` restart reuses low sequence numbers, so stale ProcessedEvent rows
-// would make this run's order:created/payment:created look already-handled and
-// get silently skipped (no replica, no notification, no email).
+// Note: the notifications AND reviews dbs MUST be reset alongside the others.
+// Their idempotency guard keys on (channel, sequence); a fresh NATS stream after
+// a `skaffold` restart reuses low sequence numbers, so stale ProcessedEvent rows
+// would make this run's ticket/order/payment events look already-handled and get
+// silently skipped (no replica, no notification, no review eligibility).
 const MONGO_SECRET_KEYS = {
 	auth: 'AUTH_MONGO_URI',
 	tickets: 'TICKETS_MONGO_URI',
 	orders: 'ORDERS_MONGO_URI',
 	payments: 'PAYMENTS_MONGO_URI',
 	notifications: 'NOTIFICATIONS_MONGO_URI',
+	reviews: 'REVIEWS_MONGO_URI',
 };
 
 // ---- helpers -------------------------------------------------------------

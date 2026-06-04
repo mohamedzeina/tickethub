@@ -87,3 +87,11 @@ export const Bell = (props) => (
 		<path d="M13.7 21a2 2 0 0 1-3.4 0" />
 	</svg>
 );
+
+// Star for seller ratings (#9). `filled` paints the body in currentColor;
+// otherwise it's an outline, so the same glyph renders both states identically.
+export const Star = ({ filled, ...props }) => (
+	<svg {...base} fill={filled ? 'currentColor' : 'none'} {...props}>
+		<path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.58 1.1 6.47L12 17.94 6.2 20.98l1.1-6.47L2.6 9.45l6.5-.95L12 2.6Z" />
+	</svg>
+);

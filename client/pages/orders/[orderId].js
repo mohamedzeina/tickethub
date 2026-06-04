@@ -14,6 +14,7 @@ import {
 	formatDateShort,
 	serialFromId,
 } from '../../utils/ticket';
+import SellerReview from '../../components/SellerReview';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY);
 
@@ -204,6 +205,8 @@ const Receipt = ({ order }) => {
 							</div>
 						)}
 					</dl>
+
+					<SellerReview orderId={order.id} />
 
 					<Link
 						href="/orders"

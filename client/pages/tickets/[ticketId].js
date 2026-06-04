@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Router from 'next/router';
 import useRequest from '../../hooks/useRequest';
 import { ArrowLeft, Bolt, ArrowRight, Check } from '../../components/icons';
+import SellerBadge from '../../components/SellerBadge';
 import {
 	formatPrice,
 	formatDateLong,
@@ -133,6 +134,8 @@ const TicketDetail = ({ ticket, currentUser }) => {
 							<small>per ticket · admit one</small>
 						</div>
 					</div>
+
+					{ticket.userId && <SellerBadge sellerId={ticket.userId} />}
 
 					<div className="qrline">
 						<div className="qr" aria-hidden="true" />
