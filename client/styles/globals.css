@@ -419,6 +419,10 @@
 @media (max-width: 560px) { .brand__sub { display: none; } }
 
 .nav__links { display: flex; align-items: center; gap: 4px; }
+/* Keep every nav item on a single line — the flexible search bar absorbs the
+   width — so labels never stack to two lines when the bar gets tight. */
+.nav__links .nlink,
+.nav__links .btn { white-space: nowrap; }
 .nlink {
 	font-family: var(--f-mono);
 	font-size: 12px;
