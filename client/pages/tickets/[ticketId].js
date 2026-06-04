@@ -11,20 +11,33 @@ import {
 	barcodeNumber,
 } from '../../utils/ticket';
 
-// Shown when the ticket can't be bought by this visitor: it was unlisted (the
-// API returns a 404 to non-owners) or it simply doesn't exist.
-const TicketUnavailable = () => (
+// Shown when the ticket can't be shown: it was unlisted (the API returns a 404
+// to non-owners) / doesn't exist, or a transient outage stopped us loading it.
+// `error` picks the "try again" copy so an outage isn't disguised as unlisted.
+const TicketUnavailable = ({ error = false }) => (
 	<div className="container">
 		<Link href="/" className="backlink">
 			<ArrowLeft /> Back to all tickets
 		</Link>
 
 		<div className="empty stocked bordered">
-			<h3>This ticket isn&apos;t available</h3>
-			<p>
-				It may have been unlisted by the seller or is no longer for sale. Browse
-				the tickets still on the board.
-			</p>
+			{error ? (
+				<>
+					<h3>We couldn&apos;t load this ticket</h3>
+					<p>
+						Something went wrong on our end. Please try again in a moment, or
+						head back to the board.
+					</p>
+				</>
+			) : (
+				<>
+					<h3>This ticket isn&apos;t available</h3>
+					<p>
+						It may have been unlisted by the seller or is no longer for sale.
+						Browse the tickets still on the board.
+					</p>
+				</>
+			)}
 			<Link href="/" className="btn btn--line" style={{ marginTop: 18 }}>
 				Browse tickets
 			</Link>
@@ -203,9 +216,9 @@ const TicketDetail = ({ ticket, currentUser }) => {
 	);
 };
 
-const TicketShow = ({ ticket, currentUser }) => {
+const TicketShow = ({ ticket, currentUser, loadError }) => {
 	if (!ticket) {
-		return <TicketUnavailable />;
+		return <TicketUnavailable error={loadError} />;
 	}
 	return <TicketDetail ticket={ticket} currentUser={currentUser} />;
 };
@@ -216,13 +229,12 @@ TicketShow.getInitialProps = async (context, client) => {
 		const { data } = await client.get(`/api/tickets/${ticketId}`);
 		return { ticket: data };
 	} catch (err) {
-		// Unlisted tickets (to non-owners) and missing tickets both come back 404 —
-		// render the "unavailable" state. Let any other error surface so a transient
-		// 500/outage isn't disguised as an unlisted ticket.
-		if (err.response?.status === 404) {
-			return { ticket: null };
-		}
-		throw err;
+		// Unlisted/missing tickets come back 404 → the plain "unavailable" state.
+		// A transient 500/outage gets the "try again" state instead of being
+		// disguised as unlisted. Either way we return (never throw): a thrown
+		// getInitialProps cancels the client-side route transition and bounces the
+		// user back to the page they came from while the URL already shows this one.
+		return { ticket: null, loadError: err.response?.status !== 404 };
 	}
 };
 

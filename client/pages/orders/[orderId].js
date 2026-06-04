@@ -15,6 +15,7 @@ import {
 	serialFromId,
 } from '../../utils/ticket';
 import SellerReview from '../../components/SellerReview';
+import redirect from '../../utils/redirect';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY);
 
@@ -232,6 +233,7 @@ const OrderShow = ({ order, reviewState }) => {
 	const [timeLeft, setTimeLeft] = useState(0);
 
 	useEffect(() => {
+		if (!order) return;
 		const findTimeLeft = () => {
 			const msLeft = new Date(order.expiresAt) - new Date();
 			setTimeLeft(Math.round(msLeft / 1000));
@@ -244,6 +246,31 @@ const OrderShow = ({ order, reviewState }) => {
 			clearInterval(timerId);
 		};
 	}, [order]);
+
+	// The order couldn't be loaded (missing, not yours, or a transient outage).
+	// Render a calm dead-end instead of throwing — a thrown getInitialProps
+	// would cancel the route transition and bounce the user back.
+	if (!order) {
+		return (
+			<div className="container">
+				<div className="gate stocked bordered">
+					<div className="gate--expired">
+						<span className="stamp stamp--void" style={{ marginBottom: 18 }}>
+							Void
+						</span>
+						<div className="big">Order unavailable</div>
+						<p>
+							We couldn&apos;t pull up this order. It may have been removed, or
+							it isn&apos;t one of yours. Check your orders for the full list.
+						</p>
+						<Link href="/orders" className="btn btn--red" style={{ marginTop: 22 }}>
+							My orders
+						</Link>
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	// A paid order shows its receipt, not the checkout gate.
 	if (order.status === 'complete') {
@@ -311,9 +338,28 @@ const OrderShow = ({ order, reviewState }) => {
 	);
 };
 
-OrderShow.getInitialProps = async (context, client) => {
+OrderShow.getInitialProps = async (context, client, currentUser) => {
 	const { orderId } = context.query;
-	const { data } = await client.get(`/api/orders/${orderId}`);
+
+	// This runs as part of a client-side route transition. If it throws, Next
+	// cancels the transition and bounces you back to the page you came from
+	// (while the URL bar already shows this one). So never throw: an expired
+	// session redirects to sign in, anything else renders the "unavailable"
+	// state below.
+	if (!currentUser) {
+		redirect(context, '/auth/signin');
+		return { order: null };
+	}
+
+	let data;
+	try {
+		({ data } = await client.get(`/api/orders/${orderId}`));
+	} catch (err) {
+		if (err.response?.status === 401) {
+			redirect(context, '/auth/signin');
+		}
+		return { order: null };
+	}
 
 	// For a completed order, fetch the seller-review state up front so the review
 	// block is present on first paint instead of popping in after a client-side
