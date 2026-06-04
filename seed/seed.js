@@ -2,13 +2,20 @@
  * TicketHub seed script.
  *
  * Every run:
- *   1. Drops ALL service databases (auth, tickets, orders, payments, notifications).
+ *   1. Drops ALL service databases (auth, tickets, orders, payments,
+ *      notifications, reviews).
  *   2. Creates two users — test@test.com and test2@test.com (password 123456).
  *   3. Creates a spread of nice demo tickets, owned by both users.
+ *   4. Inserts a few seller reviews so the reputation UI (#9) has data.
  *
  * Tickets are created through the HTTP API (not inserted directly) so the
  * ticket:created events fire and the orders service replica stays in sync —
  * which is what makes the "can't buy your own ticket" rule work end to end.
+ *
+ * Reviews, by contrast, ARE inserted straight into the reviews db: a real
+ * review needs a *completed* order, and completing one requires settling a
+ * Stripe payment (webhook) the seed can't drive. The display only reads the
+ * Review collection, so direct demo rows are enough to show ratings/profiles.
  *
  * Usage:
  *   cd seed && npm install && npm run seed
@@ -22,7 +29,7 @@
  *   PAYMENTS_MONGO_URI/
  */
 
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const { execFileSync } = require('child_process');
 
 const BASE_URL = (process.env.BASE_URL || 'https://tickethub.com').replace(/\/$/, '');
@@ -156,8 +163,8 @@ async function api(path, { method = 'POST', cookie, body } = {}) {
 }
 
 async function signup(email, password) {
-	const { res } = await api('/api/users/signup', { body: { email, password } });
-	return sessionCookie(res.headers.get('set-cookie'));
+	const { res, data } = await api('/api/users/signup', { body: { email, password } });
+	return { cookie: sessionCookie(res.headers.get('set-cookie')), id: data.id };
 }
 
 async function signin(email, password) {
@@ -184,6 +191,40 @@ async function markUsersVerified(authUri, emails) {
 async function createTicket(cookie, ticket) {
 	const { data } = await api('/api/tickets', { cookie, body: ticket });
 	return data;
+}
+
+// Insert demo seller reviews straight into the reviews db. See the file header
+// for why this bypasses the API (no completed order without settling Stripe).
+// `userIds` maps owner index (1|2) -> the seeded user's id.
+async function seedReviews(reviewsUri, userIds) {
+	const client = new MongoClient(reviewsUri);
+	try {
+		await client.connect();
+		const now = Date.now();
+		const docs = REVIEWS.map((r) => {
+			const createdAt = new Date(now - r.daysAgo * 86400000);
+			return {
+				_id: new ObjectId(),
+				// A real review is one-per-order (unique orderId). These demo rows
+				// carry a synthetic order id since there's no settled order behind them.
+				orderId: new ObjectId().toHexString(),
+				sellerId: userIds[r.seller],
+				buyerId: userIds[r.buyer],
+				ticketTitle: r.ticketTitle,
+				rating: r.rating,
+				comment: r.comment,
+				createdAt,
+				updatedAt: createdAt,
+				__v: 0,
+			};
+		});
+		if (docs.length) {
+			await client.db().collection('reviews').insertMany(docs);
+		}
+		return docs.length;
+	} finally {
+		await client.close();
+	}
 }
 
 // ---- demo data -----------------------------------------------------------
@@ -272,6 +313,19 @@ const TICKETS = [
 	},
 ];
 
+// Demo seller reviews (#9). `seller`/`buyer` are owner indexes (1 = test,
+// 2 = test2); `ticketTitle` references one of that seller's listings above.
+const REVIEWS = [
+	// test (1) as the seller, reviewed by test2 (2) → avg 4.7 over 3.
+	{ seller: 1, buyer: 2, ticketTitle: 'Coldplay — Music of the Spheres', rating: 5, daysAgo: 14, comment: 'Smooth handoff — tickets transferred within minutes, exactly as listed.' },
+	{ seller: 1, buyer: 2, ticketTitle: 'Hamilton', rating: 4, daysAgo: 9, comment: 'Great seats and quick to respond. Would buy from again.' },
+	{ seller: 1, buyer: 2, ticketTitle: 'Lakers vs Celtics', rating: 5, daysAgo: 21, comment: 'Legit seller, no issues at the gate.' },
+	// test2 (2) as the seller, reviewed by test (1) → avg 4.0 over 3.
+	{ seller: 2, buyer: 1, ticketTitle: 'Taylor Swift — The Eras Tour', rating: 5, daysAgo: 6, comment: 'Flawless. Instant transfer and a perfect view of the stage.' },
+	{ seller: 2, buyer: 1, ticketTitle: 'Arsenal vs Tottenham', rating: 4, daysAgo: 18, comment: 'Good communication, everything went smoothly on the day.' },
+	{ seller: 2, buyer: 1, ticketTitle: 'Tyler, The Creator', rating: 3, daysAgo: 30, comment: 'Tickets were fine but the transfer took a day to come through.' },
+];
+
 // ---- run -----------------------------------------------------------------
 
 (async () => {
@@ -282,8 +336,9 @@ const TICKETS = [
 	await resetDatabases(uris);
 
 	console.log('\nCreating users…');
-	await signup('test@test.com', '123456');
-	await signup('test2@test.com', '123456');
+	const user1 = await signup('test@test.com', '123456');
+	const user2 = await signup('test2@test.com', '123456');
+	const userIds = { 1: user1.id, 2: user2.id };
 
 	// Verify both demo accounts, then re-sign-in so their cookies carry
 	// emailVerified: true (the gate for listing/buying reads the JWT).
@@ -307,7 +362,18 @@ const TICKETS = [
 		}
 	}
 
-	console.log(`\n✓ Done. Seeded 2 users and ${ok}/${TICKETS.length} tickets.\n`);
+	console.log('\nInserting seller reviews…');
+	let reviewCount = 0;
+	try {
+		reviewCount = await seedReviews(uris.reviews, userIds);
+		console.log(`  • inserted ${reviewCount} reviews across the two sellers`);
+	} catch (err) {
+		console.error(`  ✖ failed to seed reviews — ${err.message}`);
+	}
+
+	console.log(
+		`\n✓ Done. Seeded 2 users, ${ok}/${TICKETS.length} tickets, and ${reviewCount} reviews.\n`,
+	);
 	process.exit(0);
 })().catch((err) => {
 	console.error('\n✖ Seed failed:', err.message, '\n');
