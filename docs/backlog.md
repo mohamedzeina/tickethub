@@ -58,7 +58,7 @@ tracing, alerting) with health checks. Remaining gaps:
 | Tier | Theme | Items |
 |------|-------|-------|
 | **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI, ✅ buyer order detail/receipt, ✅ email notifications (purchase + expiry) |
-| **P1 — Mid term** | New capability, moderate scope | Notifications service, ✅ password reset + email verify, ✅ refunds, seller reputation/reviews, ticket quantity |
+| **P1 — Mid term** | New capability, moderate scope | Notifications service, ✅ password reset + email verify, ✅ refunds, ✅ seller reputation/reviews, ticket quantity |
 | **P2 — Long term** | Platform maturity & scale | ✅ Observability stack, ✅ rate limiting, admin dashboard, full-text search engine, ✅ PaymentIntents (provider abstraction still open), wishlists/alerts |
 
 Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
@@ -186,12 +186,22 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   the ticket; client controls + policy windows.
 - **Effort:** M
 
-### 9. Seller reputation & reviews/ratings
-- **Value:** Trust is the core of a resale marketplace ("Buy & sell with
-  confidence" is already the hero copy).
-- **Scope:** New `reviews` service (or extend auth with a profile); only buyers
-  with a completed order can review; aggregate rating on seller profile + ticket
-  cards.
+### 9. Seller reputation & reviews/ratings — ✅ Done (core)
+- **Status:** Shipped. New `reviews` service (clones the notifications pattern):
+  consumes `ticket:created`/`updated` (ticket→seller map), `order:created` +
+  `payment:created`/`order:cancelled` (order replica + completion gate). REST:
+  `POST /api/reviews` (gated — buyer + Complete order + one-per-order, seller
+  taken from the replica not the client), `PUT /api/reviews/:id` (edit own),
+  `GET /api/reviews/seller/:sellerId` (public aggregate + list), `GET
+  /api/reviews/order/:orderId` (receipt state). Client: `Stars`, seller badge on
+  ticket detail, review form on the completed-order receipt, `/sellers/:userId`
+  profile. Sellers/buyers shown as opaque handles (accounts have no username).
+  Verified: 18 unit tests + live e2e `e2e/reviews.js` (17 checks — replication +
+  all gates). The completed-order→review happy path is unit-tested (e2e can't
+  settle Stripe).
+- **Deferred:** per-card ratings on listings (needs a batch endpoint or
+  denormalizing rating into the tickets service); seller responses to reviews;
+  real usernames (vs. handles); refunded-order review policy.
 - **Effort:** L
 
 ### 10. Ticket quantity / multi-seat listings
