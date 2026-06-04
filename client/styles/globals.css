@@ -1434,6 +1434,31 @@
 .stripe-field.is-focused { border-color: var(--red); box-shadow: 0 0 0 3px rgba(196, 41, 27, 0.13); }
 .card-error { font-family: var(--f-mono); font-size: 12px; color: var(--red); margin-top: 10px; }
 .card-ok { font-family: var(--f-mono); font-size: 12px; color: var(--teal); margin-top: 12px; }
+
+/* Themed form errors — replaces default Tailwind error styling so messages
+   match the ticket aesthetic (mono type, sharp corners, red accent rule). */
+.formerr {
+	margin-top: 14px;
+	padding: 10px 14px;
+	background: rgba(196, 41, 27, 0.06);
+	border: 1px solid rgba(196, 41, 27, 0.22);
+	border-left: 3px solid var(--red);
+	border-radius: var(--r);
+	font-family: var(--f-mono);
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--red);
+}
+.formerr ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.formerr li { position: relative; padding-left: 14px; }
+.formerr li::before { content: "•"; position: absolute; left: 0; }
+.fielderr {
+	margin-top: 6px;
+	font-family: var(--f-mono);
+	font-size: 11px;
+	letter-spacing: 0.03em;
+	color: var(--red);
+}
 .test-note { text-align: center; font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); margin-top: 12px; }
 
 .gate--expired { text-align: center; padding: 44px 30px; }

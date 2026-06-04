@@ -75,9 +75,7 @@ const ResetPassword = () => {
 								placeholder="••••••••"
 							/>
 							{mismatch && (
-								<div className="mt-1 text-sm font-medium text-red-600">
-									Passwords don&apos;t match
-								</div>
+								<div className="fielderr">Passwords don&apos;t match</div>
 							)}
 						</div>
 
