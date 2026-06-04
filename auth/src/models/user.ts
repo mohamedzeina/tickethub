@@ -6,6 +6,7 @@ interface UserAttrs {
 	email: string;
 	password: string;
 	emailVerified?: boolean;
+	displayName?: string;
 }
 
 // Interface that describes properties that the User model
@@ -18,6 +19,10 @@ interface UserDoc extends mongoose.Document {
 	email: string;
 	password: string;
 	emailVerified: boolean;
+	// Public, user-editable display name (#18). Nullable — accounts that never
+	// set one fall back to an opaque handle on the client. Never in the JWT
+	// (it's mutable; would go stale until re-login).
+	displayName?: string;
 	// Account-hardening tokens (#7). We store only a sha256 *hash* of the raw
 	// token (the raw value lives only in the email link) plus an expiry.
 	verificationToken?: string;
@@ -30,6 +35,7 @@ interface UserDoc extends mongoose.Document {
 interface UserJson {
 	email: string;
 	emailVerified?: boolean;
+	displayName?: string | null;
 	_id?: mongoose.Types.ObjectId; // Optional for deletion
 	password?: string; // Optional for deletion
 	__v?: number; // Optional for deletion
@@ -54,6 +60,7 @@ const userSchema = new mongoose.Schema(
 			type: Boolean,
 			default: false,
 		},
+		displayName: String,
 		verificationToken: String,
 		verificationTokenExpires: Date,
 		passwordResetToken: String,

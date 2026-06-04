@@ -286,7 +286,17 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   uses Stripe Elements, so mostly backend + a confirm step.
 - **Effort:** M
 
-### 18. User display names (seller identity)
+### 18. User display names (seller identity) — ✅ Done (2026-06-04)
+- **Shipped:** nullable public `displayName` on auth + `PATCH /api/users/me`,
+  public `GET /api/users/:id` and batch `GET /api/users?ids=` (display fields
+  only, kept out of the JWT); client `useDisplayName(id)` resolver (handle
+  fallback) wired into `SellerBadge` + the `/sellers/:id` heading; an `/account`
+  page with the "set your name" form (+ "Account" nav link); seed gives
+  test/test2 the names "Avery Stone" / "Jordan Reyes". **Decisions settled at
+  build:** edit UI lives on a dedicated `/account` page; **buyers stay opaque
+  handles** (only sellers are named); public reads reuse the existing per-IP
+  ingress limiting (no dedicated limiter). Covered by 13 auth unit tests + a live
+  `e2e/display-names.js` suite (24 checks, green).
 - **Value:** #9 reviews currently show opaque "Seller A1B2" handles, which read
   as placeholders and undercut the trust the feature exists to build. A human
   name on the badge + seller profile is the fix.

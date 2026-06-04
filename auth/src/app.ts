@@ -12,6 +12,7 @@ import { verifyEmailRouter } from './routes/verify-email';
 import { resendVerificationRouter } from './routes/resend-verification';
 import { forgotPasswordRouter } from './routes/forgot-password';
 import { resetPasswordRouter } from './routes/reset-password';
+import { usersRouter } from './routes/users';
 import {
 	errorHandler,
 	NotFoundError,
@@ -51,6 +52,9 @@ app.use(verifyEmailRouter);
 app.use(resendVerificationRouter);
 app.use(forgotPasswordRouter);
 app.use(resetPasswordRouter);
+// Registered last: its GET /api/users/:id must not shadow the specific routes
+// above (e.g. /api/users/currentuser, /api/users/signin).
+app.use(usersRouter);
 
 app.all('*', async () => {
 	throw new NotFoundError();

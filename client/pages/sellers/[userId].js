@@ -15,8 +15,8 @@ const formatDate = (value) => {
 };
 
 // Public seller reputation page (#9). Shows the aggregate rating and the most
-// recent reviews. Sellers + buyers appear as opaque handles (accounts have no
-// public name yet).
+// recent reviews. The seller is shown by their display name when set (#18),
+// otherwise an opaque handle; buyers always appear as opaque handles.
 const SellerProfile = ({ profile, sellerId }) => {
 	if (!profile) {
 		return (
@@ -34,7 +34,9 @@ const SellerProfile = ({ profile, sellerId }) => {
 		);
 	}
 
-	const { handle, summary, reviews } = profile;
+	const { handle, summary, reviews, displayName } = profile;
+	// Prefer the seller's chosen display name (#18); the handle is the fallback.
+	const sellerName = displayName || handle;
 
 	return (
 		<div className="container container--mid">
@@ -45,7 +47,7 @@ const SellerProfile = ({ profile, sellerId }) => {
 			<div className="seller stocked bordered">
 				<div className="seller__head">
 					<div className="lab">TicketHub Seller</div>
-					<div className="seller__handle">{handle}</div>
+					<div className="seller__handle">{sellerName}</div>
 					{summary.count > 0 ? (
 						<div className="seller__score">
 							<span className="seller__avg">{summary.average.toFixed(1)}</span>
@@ -85,7 +87,16 @@ SellerProfile.getInitialProps = async (context, client) => {
 	const { userId } = context.query;
 	try {
 		const { data } = await client.get(`/api/reviews/seller/${userId}`);
-		return { profile: data, sellerId: userId };
+		// Resolve the seller's display name (#18) alongside the reputation. Best
+		// effort: a failure here just leaves the handle as the heading.
+		let displayName = null;
+		try {
+			const user = await client.get(`/api/users/${userId}`);
+			displayName = user.data.displayName || null;
+		} catch (e) {
+			/* fall back to handle */
+		}
+		return { profile: { ...data, displayName }, sellerId: userId };
 	} catch (err) {
 		return { profile: null, sellerId: userId };
 	}

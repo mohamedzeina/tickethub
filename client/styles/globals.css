@@ -1429,6 +1429,7 @@
 }
 .stripe-field.is-focused { border-color: var(--red); box-shadow: 0 0 0 3px rgba(196, 41, 27, 0.13); }
 .card-error { font-family: var(--f-mono); font-size: 12px; color: var(--red); margin-top: 10px; }
+.card-ok { font-family: var(--f-mono); font-size: 12px; color: var(--teal); margin-top: 12px; }
 .test-note { text-align: center; font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); margin-top: 12px; }
 
 .gate--expired { text-align: center; padding: 44px 30px; }

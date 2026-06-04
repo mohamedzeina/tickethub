@@ -12,6 +12,7 @@ const Header = ({ currentUser }) => {
 		!currentUser && { label: 'Sign Up', href: '/auth/signup', variant: 'btn-ghost' },
 		currentUser && { label: 'My Orders', href: '/orders', variant: 'ghost' },
 		currentUser && { label: 'My Listings', href: '/listings', variant: 'ghost' },
+		currentUser && { label: 'Account', href: '/account', variant: 'ghost' },
 		currentUser && { label: 'Sell Tickets', href: '/tickets/new', variant: 'cta' },
 		currentUser && { label: 'Sign Out', href: '/auth/signout', variant: 'ghost' },
 	].filter(Boolean);

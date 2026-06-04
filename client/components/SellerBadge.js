@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import Stars from './Stars';
+import useDisplayName from '../hooks/useDisplayName';
 
 // Seller reputation badge shown on the ticket detail page (#9). Fetches the
 // seller's aggregate client-side (the ticket payload doesn't carry it) and links
@@ -11,6 +12,8 @@ import Stars from './Stars';
 const SellerBadge = ({ sellerId }) => {
 	const [summary, setSummary] = useState(null);
 	const [handle, setHandle] = useState('');
+	// Prefer the seller's chosen display name (#18); fall back to the opaque handle.
+	const name = useDisplayName(sellerId, handle);
 
 	useEffect(() => {
 		let active = true;
@@ -36,7 +39,7 @@ const SellerBadge = ({ sellerId }) => {
 			as={`/sellers/${sellerId}`}
 			className="sellerbadge"
 		>
-			<span className="sellerbadge__who">{handle}</span>
+			<span className="sellerbadge__who">{name}</span>
 			{summary.count > 0 ? (
 				<span className="sellerbadge__rate">
 					<Stars value={summary.average} size={14} />

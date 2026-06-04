@@ -24,6 +24,7 @@ const SUITES = [
 	'payments',
 	'notifications',
 	'reviews',
+	'display-names',
 	'flows',
 ];
 

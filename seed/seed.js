@@ -172,6 +172,12 @@ async function signin(email, password) {
 	return sessionCookie(res.headers.get('set-cookie'));
 }
 
+// Give a demo account a public display name (#18) so sellers show as real names
+// instead of opaque handles.
+async function setDisplayName(cookie, displayName) {
+	await api('/api/users/me', { method: 'PATCH', cookie, body: { displayName } });
+}
+
 // Demo accounts start unverified (#7), which would block listing/buying. Flip
 // them verified straight in the auth DB so the seed can create tickets — the
 // caller re-signs-in afterwards to mint a cookie whose JWT says verified.
@@ -347,8 +353,11 @@ const REVIEWS = [
 		1: await signin('test@test.com', '123456'),
 		2: await signin('test2@test.com', '123456'),
 	};
-	console.log('  • test@test.com / 123456 (verified)');
-	console.log('  • test2@test.com / 123456 (verified)');
+	// Public display names (#18) so sellers show as names, not opaque handles.
+	await setDisplayName(cookies[1], 'Avery Stone');
+	await setDisplayName(cookies[2], 'Jordan Reyes');
+	console.log('  • test@test.com / 123456 (verified) — Avery Stone');
+	console.log('  • test2@test.com / 123456 (verified) — Jordan Reyes');
 
 	console.log('\nCreating tickets…');
 	let ok = 0;
