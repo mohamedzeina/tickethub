@@ -1949,6 +1949,8 @@
 .pass__state { margin-top: 6px; font-size: 14px; font-weight: 600; }
 .pass__state--used { color: #2e7d4f; }
 .pass__state--void { color: #c4291b; }
+.pass__copy { margin-top: 10px; font-size: 12px; padding: 6px 14px; }
+#reader { border-radius: 8px; overflow: hidden; }
 
 /* Gate operator scanner (/gate). */
 .gatepage { max-width: 440px; margin: 40px auto; }

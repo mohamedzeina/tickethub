@@ -23,6 +23,17 @@ import redirect from '../../utils/redirect';
 // payment:created, so it can briefly lag; usePass polls while it's pending.
 const AdmissionPass = ({ orderId }) => {
 	const { pass, status } = usePass(orderId);
+	const [copied, setCopied] = useState(false);
+
+	const copyCode = async () => {
+		try {
+			await navigator.clipboard.writeText(pass.code);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 1500);
+		} catch {
+			/* clipboard blocked — the QR still works */
+		}
+	};
 
 	let body;
 	if (status === 'ready' && pass?.status === 'issued' && pass?.code) {
@@ -38,6 +49,13 @@ const AdmissionPass = ({ orderId }) => {
 					/>
 				</div>
 				<div className="pass__hint">Show this at the gate. Single use.</div>
+				<button
+					type="button"
+					className="btn pass__copy"
+					onClick={copyCode}
+				>
+					{copied ? 'Copied ✓' : 'Copy gate code'}
+				</button>
 			</>
 		);
 	} else if (status === 'ready' && pass?.status === 'redeemed') {
