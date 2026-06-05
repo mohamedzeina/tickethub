@@ -48,10 +48,10 @@ it('fetches the orders for a particular user', async () => {
 		.set('Cookie', userTwo)
 		.expect(200);
 
-	// Make assertions about the responses
+	// Returns only user #2's orders, newest first (orderTwo was placed last).
 	expect(response.body.length).toEqual(2);
-	expect(response.body[0].id).toEqual(orderOne.id);
-	expect(response.body[1].id).toEqual(orderTwo.id);
-	expect(response.body[0].ticket.id).toEqual(ticketTwo.id);
-	expect(response.body[1].ticket.id).toEqual(ticketThree.id);
+	expect(response.body[0].id).toEqual(orderTwo.id);
+	expect(response.body[1].id).toEqual(orderOne.id);
+	expect(response.body[0].ticket.id).toEqual(ticketThree.id);
+	expect(response.body[1].ticket.id).toEqual(ticketTwo.id);
 });
