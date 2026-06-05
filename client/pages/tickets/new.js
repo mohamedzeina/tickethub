@@ -1,4 +1,6 @@
 import TicketForm from '../../components/TicketForm';
+import redirect from '../../utils/redirect';
+import { signInHref } from '../../utils/returnTo';
 
 const NewTicket = () => (
 	<div className="container container--mid">
@@ -13,5 +15,16 @@ const NewTicket = () => (
 		/>
 	</div>
 );
+
+// Selling requires an account. Gate at the page level so a signed-out visitor
+// is sent to sign in (and back here after) before filling out the whole form,
+// instead of hitting a 401 on submit. The nav already hides "Sell" when signed
+// out — this covers a direct visit / stale link.
+NewTicket.getInitialProps = async (context, client, currentUser) => {
+	if (!currentUser) {
+		redirect(context, signInHref('/tickets/new'));
+	}
+	return {};
+};
 
 export default NewTicket;

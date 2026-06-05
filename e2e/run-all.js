@@ -19,6 +19,7 @@ const SUITES = [
 	'auth-core',
 	'account-hardening',
 	'abuse',
+	'auth-gating',
 	'tickets',
 	'orders',
 	'payments',

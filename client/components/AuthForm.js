@@ -1,21 +1,28 @@
 import { useState } from 'react';
 import Link from 'next/link';
-import Router from 'next/router';
+import Router, { useRouter } from 'next/router';
 import useRequest from '../hooks/useRequest';
+import { safeReturnTo, withReturnTo } from '../utils/returnTo';
 
 // Shared "Will Call" window for Sign In / Sign Up. Both screens collect the
 // same email + password, so the layout, validation, and submit handling live
 // here and each page just passes its copy and endpoint.
 const AuthForm = ({ title, subtitle, url, submitLabel, footer, forgotHref }) => {
+	const router = useRouter();
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [loading, setLoading] = useState(false);
+
+	// When the user was sent here to finish a gated action, return them to it
+	// after authenticating; otherwise land on home. (`safeReturnTo` guards
+	// against open-redirects since `returnTo` comes from the URL.)
+	const returnTo = router.query.returnTo;
 
 	const { doRequest, fieldErrors, generalErrors } = useRequest({
 		url,
 		method: 'post',
 		body: { email, password },
-		onSuccess: () => Router.push('/'),
+		onSuccess: () => Router.push(safeReturnTo(returnTo)),
 	});
 
 	const onSubmit = async (e) => {
@@ -88,7 +95,9 @@ const AuthForm = ({ title, subtitle, url, submitLabel, footer, forgotHref }) => 
 					{footer && (
 						<p className="altline">
 							{footer.text}{' '}
-							<Link href={footer.href}>{footer.linkLabel}</Link>
+							<Link href={withReturnTo(footer.href, returnTo)}>
+								{footer.linkLabel}
+							</Link>
 						</p>
 					)}
 				</div>
