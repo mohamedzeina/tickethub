@@ -25,10 +25,12 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 192Mi
+              memory: 512Mi
             limits:
               cpu: '1'
-              memory: 768Mi
+              # next dev compiles pages on demand and spikes well past 768Mi
+              # during a full Fast-Refresh reload, which OOMKilled the pod (→ 502).
+              memory: 1536Mi
           env:
             - name: NEXT_PUBLIC_STRIPE_KEY
               valueFrom:
