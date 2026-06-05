@@ -76,7 +76,14 @@ const AdmissionPass = ({ orderId }) => {
 	} else if (status === 'error') {
 		body = <div className="pass__hint">Couldn’t load your pass.</div>;
 	} else {
-		body = <div className="pass__hint">Generating your pass…</div>;
+		// loading / pending — skeleton of the QR card so the slot doesn't sit
+		// empty while the pass is minted (it can lag the paid order by a moment).
+		body = (
+			<>
+				<div className="pass__qr sk" style={{ width: 172, height: 172 }} />
+				<div className="pass__hint">Generating your pass…</div>
+			</>
+		);
 	}
 
 	return (

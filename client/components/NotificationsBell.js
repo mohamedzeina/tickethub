@@ -26,6 +26,9 @@ const NotificationsBell = () => {
 	const [unread, setUnread] = useState(0);
 	const [open, setOpen] = useState(false);
 	const [toasts, setToasts] = useState([]);
+	// false until the first fetch returns, so the panel shows a skeleton instead
+	// of flashing "all caught up" before we actually know.
+	const [loaded, setLoaded] = useState(false);
 	const wrapRef = useRef(null);
 	// IDs we've already seen, so a refetch only toasts genuinely new arrivals.
 	const seenRef = useRef(new Set());
@@ -64,6 +67,8 @@ const NotificationsBell = () => {
 			setUnread(data.unreadCount || 0);
 		} catch (err) {
 			// Signed out / transient — leave the bell quiet rather than error.
+		} finally {
+			setLoaded(true);
 		}
 	};
 
@@ -176,7 +181,19 @@ const NotificationsBell = () => {
 						)}
 					</div>
 
-					{recent.length === 0 ? (
+					{!loaded ? (
+						<ul className="bell__list" aria-hidden="true">
+							{[0, 1, 2].map((i) => (
+								<li key={i} className="bell__item">
+									<div className="bell__link">
+										<span className="sk" style={{ display: 'block', height: 11, width: '52%', borderRadius: 3 }} />
+										<span className="sk" style={{ display: 'block', height: 10, width: '82%', marginTop: 8, borderRadius: 3 }} />
+										<span className="sk" style={{ display: 'block', height: 8, width: '30%', marginTop: 8, borderRadius: 3 }} />
+									</div>
+								</li>
+							))}
+						</ul>
+					) : recent.length === 0 ? (
 						<div className="bell__empty">You&apos;re all caught up.</div>
 					) : (
 						<ul className="bell__list">
