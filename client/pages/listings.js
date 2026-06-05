@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
+import PayoutNudge from '../components/PayoutNudge';
 import { formatPrice, formatDateShort, serialFromId } from '../utils/ticket';
 
 // status derived from the two flags the tickets service exposes:
@@ -126,6 +127,10 @@ const Listings = ({ listings, currentUser }) => {
 					{items.length} {items.length === 1 ? 'Listing' : 'Listings'}
 				</div>
 			</div>
+
+			{/* Only a seller (someone with listings) sees the payout nudge — the
+			    empty state already drives them to list first. */}
+			{items.length > 0 && <PayoutNudge currentUser={currentUser} />}
 
 			{items.length === 0 ? (
 				<div className="empty stocked bordered">

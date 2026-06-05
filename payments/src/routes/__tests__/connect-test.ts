@@ -92,7 +92,30 @@ describe('GET /api/payments/connect/status', () => {
 		expect(accountsRetrieve).not.toHaveBeenCalled();
 	});
 
-	it('refreshes readiness flags from Stripe and persists them', async () => {
+	it('returns cached flags WITHOUT calling Stripe by default', async () => {
+		const userId = new mongoose.Types.ObjectId().toHexString();
+		await ConnectedAccount.build({
+			userId,
+			stripeAccountId: 'acct_123',
+			payoutsEnabled: true,
+			detailsSubmitted: true,
+		}).save();
+
+		const res = await request(app)
+			.get('/api/payments/connect/status')
+			.set('Cookie', global.signin(userId))
+			.expect(200);
+
+		expect(res.body).toEqual({
+			connected: true,
+			payoutsEnabled: true,
+			detailsSubmitted: true,
+		});
+		// The hot path (payout nudge on selling pages) must not hit Stripe.
+		expect(accountsRetrieve).not.toHaveBeenCalled();
+	});
+
+	it('refreshes readiness flags from Stripe with ?refresh=1 and persists them', async () => {
 		const userId = new mongoose.Types.ObjectId().toHexString();
 		await ConnectedAccount.build({ userId, stripeAccountId: 'acct_123' }).save();
 
@@ -102,7 +125,7 @@ describe('GET /api/payments/connect/status', () => {
 		});
 
 		const res = await request(app)
-			.get('/api/payments/connect/status')
+			.get('/api/payments/connect/status?refresh=1')
 			.set('Cookie', global.signin(userId))
 			.expect(200);
 

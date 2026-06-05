@@ -1,9 +1,13 @@
 import TicketForm from '../../components/TicketForm';
+import PayoutNudge from '../../components/PayoutNudge';
 import redirect from '../../utils/redirect';
 import { signInHref } from '../../utils/returnTo';
 
-const NewTicket = () => (
+// Anyone on this page is, by definition, acting as a seller — so the payout
+// nudge always mounts here (it self-hides once payouts are set up).
+const NewTicket = ({ currentUser }) => (
 	<div className="container container--mid">
+		<PayoutNudge currentUser={currentUser} />
 		<TicketForm
 			eyebrow="Fill out a blank · publish instantly"
 			heading="Issue a Ticket"

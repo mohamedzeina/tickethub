@@ -75,18 +75,21 @@ router.get(
 			});
 		}
 
-		// Pull the live readiness flags from Stripe and mirror them locally. This
-		// is the path that flips payoutsEnabled true once Stripe finishes
-		// verification — called when the seller lands back on the account page.
-		const stripeAccount = await stripe.accounts.retrieve(
-			account.stripeAccountId,
-		);
-
-		account.set({
-			payoutsEnabled: !!stripeAccount.payouts_enabled,
-			detailsSubmitted: !!stripeAccount.details_submitted,
-		});
-		await account.save();
+		// By default return the CACHED flags — a Mongo read, instant. The hosted
+		// onboarding state only changes when the seller finishes the Stripe flow,
+		// so we hit Stripe only when explicitly asked (?refresh=1, used by the
+		// account page when the seller lands back from onboarding). This keeps the
+		// payout nudge on selling pages from waiting on a Stripe round-trip.
+		if (req.query.refresh) {
+			const stripeAccount = await stripe.accounts.retrieve(
+				account.stripeAccountId,
+			);
+			account.set({
+				payoutsEnabled: !!stripeAccount.payouts_enabled,
+				detailsSubmitted: !!stripeAccount.details_submitted,
+			});
+			await account.save();
+		}
 
 		res.send({
 			connected: true,
