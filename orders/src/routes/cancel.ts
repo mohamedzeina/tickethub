@@ -4,6 +4,7 @@ import {
 	NotFoundError,
 	OrderStatus,
 	NotAuthorizedError,
+	BadRequestError,
 } from '@zeina-tickethub/common';
 import { Order } from '../models/order';
 import { OrderCancelledPublisher } from '../events/publishers/order-cancelled-publisher';
@@ -23,6 +24,17 @@ router.delete(
 
 		if (order.userId !== req.currentUser!.id) {
 			throw new NotAuthorizedError();
+		}
+
+		// Cancel is for releasing an UNPAID hold. A paid order must go through the
+		// refund endpoint so the charge is actually returned.
+		if (
+			order.status === OrderStatus.Complete ||
+			order.status === OrderStatus.Refunded
+		) {
+			throw new BadRequestError(
+				'A paid order can’t be cancelled — request a refund instead.',
+			);
 		}
 
 		order.status = OrderStatus.Cancelled;

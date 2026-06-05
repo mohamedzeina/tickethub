@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 import { OrderStatus } from '@zeina-tickethub/common';
 import { TicketDoc } from './ticket';
+import { refundableUntil, isRefundable } from '../services/refund-window';
 
 export { OrderStatus };
 
@@ -24,6 +25,16 @@ interface OrderDoc extends mongoose.Document {
 	// Receipt metadata, set when payment:created completes the order (C5).
 	stripeId?: string;
 	paidAt?: Date;
+	// Refund (#6 tail). refundRequestedAt is set the moment a buyer asks; the
+	// rest are stamped when the Stripe webhook confirms the refund settled and
+	// the status flips to Refunded.
+	refundRequestedAt?: Date;
+	refundedAt?: Date;
+	refundAmount?: number;
+	stripeRefundId?: string;
+	// Set when the admission pass is scanned (ticket:redeemed) — a redeemed order
+	// can no longer be refunded.
+	redeemedAt?: Date;
 }
 
 interface OrderModel extends mongoose.Model<OrderDoc> {
@@ -69,12 +80,31 @@ const orderSchema = new mongoose.Schema(
 		paidAt: {
 			type: mongoose.Schema.Types.Date,
 		},
+		refundRequestedAt: {
+			type: mongoose.Schema.Types.Date,
+		},
+		refundedAt: {
+			type: mongoose.Schema.Types.Date,
+		},
+		refundAmount: {
+			type: Number,
+		},
+		stripeRefundId: {
+			type: String,
+		},
+		redeemedAt: {
+			type: mongoose.Schema.Types.Date,
+		},
 	},
 	{
 		toJSON: {
-			transform(doc: OrderDoc, ret: OrderJSON) {
+			transform(doc: OrderDoc, ret: any) {
 				ret.id = ret._id?.toString();
 				delete ret._id;
+				// Surface the refund policy so the client can show / gate the
+				// "Request refund" button without re-deriving the rules.
+				ret.refundableUntil = refundableUntil(doc);
+				ret.refundable = isRefundable(doc);
 			},
 		},
 	},

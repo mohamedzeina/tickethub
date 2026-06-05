@@ -5,6 +5,7 @@ import {
 	validateRequest,
 	NotFoundError,
 	NotAuthorizedError,
+	BadRequestError,
 } from '@zeina-tickethub/common';
 import { Review } from '../models/review';
 
@@ -32,6 +33,10 @@ router.put(
 		}
 		if (review.buyerId !== req.currentUser!.id) {
 			throw new NotAuthorizedError();
+		}
+		// A refunded order's review is frozen (Option A) — no edits.
+		if (review.hidden) {
+			throw new BadRequestError('This review is no longer editable.');
 		}
 
 		review.set({

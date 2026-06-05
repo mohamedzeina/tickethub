@@ -2,7 +2,9 @@ import express, { Request, Response } from 'express';
 import { client } from '@zeina-tickethub/common';
 import { stripe } from '../stripe';
 import { Payment } from '../models/payment';
+import { Refund } from '../models/refund';
 import { PaymentCreatedPublisher } from '../events/publishers/payment-created-publisher';
+import { PaymentRefundedPublisher } from '../events/publishers/payment-refunded-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
 const router = express.Router();
@@ -82,6 +84,54 @@ router.post(
 			}
 		} else if (event.type === 'payment_intent.payment_failed') {
 			paymentsFailed.inc();
+		} else if (event.type === 'charge.refunded') {
+			// A refund settled. This is the CONFIRMATION (not the optimistic
+			// refunds.create return) — publish payment:refunded exactly once so
+			// orders flips to Refunded, the pass is revoked, and the buyer is emailed.
+			const charge = event.data.object as {
+				payment_intent?: string;
+				amount_refunded?: number;
+			};
+			const pi = charge.payment_intent;
+			const amount = (charge.amount_refunded ?? 0) / 100;
+
+			if (pi) {
+				const payment = await Payment.findOne({ stripeId: pi });
+				if (payment) {
+					// A refund we requested has a pending record; a dashboard refund
+					// won't — record it either way, then publish once.
+					const found = await Refund.findOne({ orderId: payment.orderId });
+					const refund =
+						found ||
+						Refund.build({
+							orderId: payment.orderId,
+							stripeId: pi,
+							amount,
+							status: 'pending',
+						});
+
+					if (refund.status !== 'succeeded') {
+						refund.set({ status: 'succeeded', amount });
+						try {
+							await refund.save();
+						} catch (err) {
+							// Concurrent webhook redelivery already published. Ack.
+							if ((err as { code?: number }).code === 11000) {
+								return res.send({ received: true });
+							}
+							throw err;
+						}
+
+						await new PaymentRefundedPublisher(natsWrapper.js).publish({
+							id: payment.id,
+							orderId: payment.orderId,
+							stripeId: payment.stripeId,
+							amount,
+							refundId: refund.refundId,
+						});
+					}
+				}
+			}
 		}
 
 		res.send({ received: true });

@@ -11,7 +11,9 @@ router.get(
 	async (req: Request, res: Response) => {
 		const { sellerId } = req.params;
 
-		const reviews = await Review.find({ sellerId })
+		// Exclude soft-hidden reviews (refunded orders, Option A) — reputation
+		// reflects only real, kept purchases.
+		const reviews = await Review.find({ sellerId, hidden: { $ne: true } })
 			.sort({ createdAt: -1 })
 			.limit(50);
 

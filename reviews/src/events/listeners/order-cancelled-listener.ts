@@ -10,6 +10,7 @@ import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
 import { ProcessedEvent } from '../../models/processed-event';
 import { OrderRef } from '../../models/order-ref';
+import { Review } from '../../models/review';
 
 export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 	readonly subject = Subjects.OrderCancelled;
@@ -29,6 +30,11 @@ export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 
 			order.set({ status: OrderStatus.Cancelled });
 			await order.save();
+
+			// Option A (#6 tail): a refunded order's review no longer reflects a
+			// real kept purchase, so soft-hide it — it stops counting toward the
+			// seller's reputation and can't be edited. Kept for auditability.
+			await Review.updateOne({ orderId: data.id }, { $set: { hidden: true } });
 		});
 
 		msg.ack();

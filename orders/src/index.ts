@@ -8,6 +8,8 @@ import { TicketUpdatedListener } from './events/listeners/ticket-updated-listene
 import { ExpirationCompleteListener } from './events/listeners/expiration-complete-listener';
 import { PaymentInitiatedListener } from './events/listeners/payment-initiated-listener';
 import { PaymentCreatedListener } from './events/listeners/payment-created-listener';
+import { PaymentRefundedListener } from './events/listeners/payment-refunded-listener';
+import { TicketRedeemedListener } from './events/listeners/ticket-redeemed-listener';
 
 const startOrdersService = async () => {
 	let isShuttingDown = false;
@@ -49,6 +51,8 @@ const startOrdersService = async () => {
 		await new ExpirationCompleteListener(natsWrapper.connection).listen();
 		await new PaymentInitiatedListener(natsWrapper.connection).listen();
 		await new PaymentCreatedListener(natsWrapper.connection).listen();
+		await new PaymentRefundedListener(natsWrapper.connection).listen();
+		await new TicketRedeemedListener(natsWrapper.connection).listen();
 
 		await mongoose.connect(process.env.MONGO_URI);
 		logger.info('connected to MongoDB');

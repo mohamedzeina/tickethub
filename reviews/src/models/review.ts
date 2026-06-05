@@ -21,6 +21,10 @@ interface ReviewDoc extends mongoose.Document {
 	ticketTitle: string;
 	rating: number;
 	comment?: string;
+	// Soft-hidden when the order is refunded (#6 tail, Option A) — a review must
+	// reflect a real, kept purchase, so it stops counting toward the seller's
+	// reputation. Kept (not deleted) for auditability.
+	hidden?: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -37,6 +41,7 @@ const reviewSchema = new mongoose.Schema<ReviewDoc>(
 		ticketTitle: { type: String, required: true },
 		rating: { type: Number, required: true, min: 1, max: 5 },
 		comment: { type: String, required: false },
+		hidden: { type: Boolean, required: false, default: false },
 	},
 	{
 		timestamps: true,
