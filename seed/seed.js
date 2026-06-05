@@ -142,6 +142,80 @@ async function resetDatabases(uris) {
 	}
 }
 
+// Stripe secret key — from env or the stripe-secret k8s secret (same fallback as
+// the Mongo URIs). Returns null if it can't be found.
+function resolveStripeKey() {
+	if (process.env.STRIPE_KEY) return process.env.STRIPE_KEY;
+	try {
+		const out = execFileSync(
+			'kubectl',
+			['get', 'secret', 'stripe-secret', '-o', 'json'],
+			{ stdio: ['ignore', 'pipe', 'pipe'] },
+		).toString();
+		const data = JSON.parse(out).data || {};
+		if (data.STRIPE_KEY) {
+			return Buffer.from(data.STRIPE_KEY, 'base64').toString('utf8');
+		}
+	} catch {
+		/* fall through */
+	}
+	return null;
+}
+
+// Delete the Stripe Connect (seller payout) accounts. Clearing the payments DB
+// only removes our ConnectedAccount rows — the acct_… accounts linger on Stripe
+// (Restricted) and pile up. This deletes them so reseeding is a true clean slate.
+// HARD GUARD: only ever runs against a TEST key, so it can never delete live
+// connected accounts (real sellers). Best-effort — never aborts the reseed.
+async function clearStripeConnectAccounts() {
+	const key = resolveStripeKey();
+	if (!key) {
+		console.log('  • skipping Stripe Connect cleanup (no STRIPE_KEY found)');
+		return;
+	}
+	if (!key.startsWith('sk_test')) {
+		console.log(
+			'  • skipping Stripe Connect cleanup (non-test key — refusing to delete live accounts)',
+		);
+		return;
+	}
+
+	const authHeader = { Authorization: `Bearer ${key}` };
+	let deleted = 0;
+	// Re-fetch the first page each loop: we delete what we list, so the next page
+	// of survivors becomes the new first page until none remain.
+	for (let page = 0; page < 50; page++) {
+		let body;
+		try {
+			const res = await fetch('https://api.stripe.com/v1/accounts?limit=100', {
+				headers: authHeader,
+			});
+			if (!res.ok) {
+				console.warn(`    ⚠ could not list connected accounts: ${res.status}`);
+				break;
+			}
+			body = await res.json();
+		} catch (err) {
+			console.warn(`    ⚠ error listing connected accounts: ${err.message}`);
+			break;
+		}
+		const accounts = body.data || [];
+		if (!accounts.length) break;
+		for (const acct of accounts) {
+			try {
+				const del = await fetch(`https://api.stripe.com/v1/accounts/${acct.id}`, {
+					method: 'DELETE',
+					headers: authHeader,
+				});
+				if (del.ok) deleted += 1;
+			} catch {
+				/* best-effort */
+			}
+		}
+	}
+	console.log(`  • deleted ${deleted} Stripe Connect account(s)`);
+}
+
 function sessionCookie(setCookieHeader) {
 	if (!setCookieHeader) throw new Error('no Set-Cookie header returned by signup');
 	const match = setCookieHeader.match(/session=[^;]+/);
@@ -346,6 +420,9 @@ const REVIEWS = [
 	console.log('Resetting databases…');
 	const uris = resolveMongoUris();
 	await resetDatabases(uris);
+	// Also delete the seller payout (Stripe Connect) accounts so they don't
+	// orphan on Stripe across reseeds.
+	await clearStripeConnectAccounts();
 
 	console.log('\nCreating users…');
 	const user1 = await signup('test@test.com', '123456');
