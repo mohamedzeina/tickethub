@@ -1,9 +1,11 @@
 // Formatting + display helpers shared across the "Admit One" ticket UI.
 
+// EUR — the platform's Stripe account settles in euros (see payments STRIPE_KEY /
+// CURRENCY). en-IE keeps the familiar "€300.00" layout (symbol first, dot decimals).
 export const formatPrice = (price) =>
-	new Intl.NumberFormat('en-US', {
+	new Intl.NumberFormat('en-IE', {
 		style: 'currency',
-		currency: 'USD',
+		currency: 'EUR',
 	}).format(Number(price) || 0);
 
 // Event dates are a calendar day, not a wall-clock instant — they must not

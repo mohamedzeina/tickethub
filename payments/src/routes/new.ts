@@ -10,7 +10,7 @@ import {
 	OrderStatus,
 } from '@zeina-tickethub/common';
 import { Order } from '../models/order';
-import { stripe } from '../stripe';
+import { stripe, CURRENCY } from '../stripe';
 import { PaymentInitiatedPublisher } from '../events/publishers/payment-initiated-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
@@ -49,7 +49,7 @@ router.post(
 		// metadata.orderId lets the webhook map the PaymentIntent back to the order.
 		const paymentIntent = await stripe.paymentIntents.create(
 			{
-				currency: 'usd',
+				currency: CURRENCY,
 				amount: order.price * 100,
 				metadata: { orderId },
 				automatic_payment_methods: { enabled: true, allow_redirects: 'never' },

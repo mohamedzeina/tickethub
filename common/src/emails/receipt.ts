@@ -11,7 +11,7 @@ export interface ReceiptDetails {
 }
 
 const money = (n: number) =>
-	new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+	new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(n);
 
 // "Admit One" styled purchase confirmation. Plain inline styles only — email
 // clients strip <style>/external CSS, so everything is inlined.

@@ -39,6 +39,7 @@ export * from './events/order/order-created';
 export * from './events/order/order-cancelled';
 export * from './events/order/order-refund-requested';
 export * from './events/order/order-payout-due';
+export * from './events/order/payout-processed';
 export * from './events/expiration/expiration-complete';
 export * from './events/expiration/expiration-warning';
 export * from './events/payments/payment-initiated';

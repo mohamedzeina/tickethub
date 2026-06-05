@@ -9,6 +9,11 @@ export enum NotificationType {
 	PaymentRefunded = 'payment_refunded',
 	HoldExpiring = 'hold_expiring',
 	HoldExpired = 'hold_expired',
+	// Seller-side (#11)
+	TicketSold = 'ticket_sold',
+	SaleRefunded = 'sale_refunded',
+	PayoutPaid = 'payout_paid',
+	PayoutHeld = 'payout_held',
 }
 
 interface NotificationAttrs {

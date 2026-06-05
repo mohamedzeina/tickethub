@@ -12,6 +12,10 @@ export interface OrderCreatedEvent {
 		// expiration warnings) can notify without a separate user lookup. (#5)
 		userEmail: string;
 		expiresAt: string;
+		// The seller (ticket owner), so downstream services can notify the seller
+		// when their ticket sells / is refunded (#11). Optional — replays of
+		// pre-#11 events stay valid.
+		sellerId?: string;
 		ticket: {
 			id: string;
 			price: number;

@@ -35,6 +35,18 @@ export class PaymentRefundedListener extends Listener<PaymentRefundedEvent> {
 			});
 			await notification.save();
 
+			// Tell the SELLER their sale was reversed (#11) — their ticket is
+			// relisted and they won't be paid out for it.
+			if (order.sellerId && order.sellerId !== order.userId) {
+				await Notification.build({
+					userId: order.sellerId,
+					type: NotificationType.SaleRefunded,
+					title: 'A sale was refunded',
+					body: `The buyer of "${order.ticketTitle}" was refunded, so that sale won't be paid out. Your ticket has been relisted.`,
+					orderId: data.orderId,
+				}).save();
+			}
+
 			// Centralized refund confirmation email. Best-effort — sendMail never
 			// throws, and it's the last step so a DB failure above can't leave a
 			// sent email un-recorded. Skip if we never saw the buyer's email.

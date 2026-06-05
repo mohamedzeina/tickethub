@@ -43,7 +43,7 @@ const PayoutNudge = ({ currentUser }) => {
 			<div className="paynudge__body">
 				<b>
 					{waiting
-						? `$${held.toFixed(2)} waiting — set up payouts to collect it`
+						? `€${held.toFixed(2)} waiting — set up payouts to collect it`
 						: started
 							? 'Finish setting up payouts'
 							: 'Set up payouts to get paid'}

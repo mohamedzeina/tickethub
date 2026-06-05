@@ -108,7 +108,6 @@ router.get(
 		// account page when the seller lands back from onboarding). This keeps the
 		// payout nudge on selling pages from waiting on a Stripe round-trip.
 		if (req.query.refresh) {
-			const wasEnabled = account.payoutsEnabled;
 			const stripeAccount = await stripe.accounts.retrieve(
 				account.stripeAccountId,
 			);
@@ -118,10 +117,11 @@ router.get(
 			});
 			await account.save();
 
-			// Just became payable → release anything we were holding for this seller.
-			// Never let a release error fail the status response: the account IS
-			// enabled, and held payouts retry on the next refresh / sweep.
-			if (!wasEnabled && account.payoutsEnabled) {
+			// While enabled, (re)attempt anything held or previously failed for this
+			// seller — this both releases newly-connected accounts and retries a
+			// transfer that errored before. It's a no-op when nothing's outstanding.
+			// Never let a release error fail the status response.
+			if (account.payoutsEnabled) {
 				try {
 					await releaseHeldPayouts(userId);
 				} catch (err) {

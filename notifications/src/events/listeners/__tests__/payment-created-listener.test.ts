@@ -13,7 +13,7 @@ import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
 import { Notification, NotificationType } from '../../../models/notification';
 
-const seedOrder = async (userId: string) => {
+const seedOrder = async (userId: string, sellerId?: string) => {
 	const order = Order.build({
 		id: new mongoose.Types.ObjectId().toHexString(),
 		userId,
@@ -21,6 +21,7 @@ const seedOrder = async (userId: string) => {
 		status: OrderStatus.Created,
 		userEmail: 'buyer@test.com',
 		price: 20,
+		sellerId,
 	});
 	await order.save();
 	return order;
@@ -71,4 +72,23 @@ it('throws (for retry) when the order replica is not yet present', async () => {
 	await expect(listener.onMessage(data, msg)).rejects.toThrow('Order not found');
 	expect(msg.ack).not.toHaveBeenCalled();
 	expect(sendMail).not.toHaveBeenCalled();
+});
+
+it('also notifies the SELLER that their ticket sold (#11)', async () => {
+	const listener = new PaymentCreatedListener(natsWrapper.connection);
+	const buyerId = new mongoose.Types.ObjectId().toHexString();
+	const sellerId = new mongoose.Types.ObjectId().toHexString();
+	const order = await seedOrder(buyerId, sellerId);
+
+	// @ts-ignore
+	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
+	await listener.onMessage(
+		{ id: 'evt', orderId: order.id, stripeId: 'pi_1' } as PaymentCreatedEvent['data'],
+		msg,
+	);
+
+	const sellerNotes = await Notification.find({ userId: sellerId });
+	expect(sellerNotes.length).toEqual(1);
+	expect(sellerNotes[0].type).toEqual(NotificationType.TicketSold);
+	expect(sellerNotes[0].body).toContain('€20.00');
 });

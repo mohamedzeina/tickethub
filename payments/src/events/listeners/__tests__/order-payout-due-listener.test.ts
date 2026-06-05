@@ -7,6 +7,7 @@ jest.mock('../../../stripe', () => ({
 	stripe: {
 		transfers: { create: jest.fn() },
 	},
+	CURRENCY: 'eur',
 }));
 
 import { OrderPayoutDueListener } from '../order-payout-due-listener';
@@ -56,11 +57,11 @@ it('transfers (amount − 10% fee) via source_transaction and marks paid when en
 	expect(transfersCreate).toHaveBeenCalledWith(
 		expect.objectContaining({
 			amount: 9000, // (100 − 10) * 100
-			currency: 'usd',
+			currency: 'eur',
 			destination: 'acct_seller',
 			source_transaction: 'ch_1',
 		}),
-		{ idempotencyKey: `payout_${orderId}` },
+		{ idempotencyKey: `payout_${orderId}_eur` },
 	);
 
 	const payout = await Payout.findOne({ orderId });

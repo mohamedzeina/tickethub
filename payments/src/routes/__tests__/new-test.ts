@@ -120,7 +120,7 @@ it('creates a PaymentIntent and returns its client_secret, but records no Paymen
 	const paymentIntentId = response.body.clientSecret.split('_secret_')[0];
 	const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 	expect(paymentIntent.amount).toEqual(price * 100);
-	expect(paymentIntent.currency).toEqual('usd');
+	expect(paymentIntent.currency).toEqual('eur');
 	expect(paymentIntent.metadata.orderId).toEqual(order.id);
 
 	// The Payment is recorded by the webhook on payment_intent.succeeded, not here.

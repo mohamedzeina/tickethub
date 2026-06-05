@@ -329,13 +329,13 @@ const Account = ({ currentUser }) => {
 										<div>
 											<span className="acct__earnings-lab">Paid out</span>
 											<span className="acct__earnings-val">
-												${earnings.totals.paid.toFixed(2)}
+												€{earnings.totals.paid.toFixed(2)}
 											</span>
 										</div>
 										<div>
 											<span className="acct__earnings-lab">Held</span>
 											<span className="acct__earnings-val acct__earnings-val--held">
-												${earnings.totals.pending.toFixed(2)}
+												€{earnings.totals.pending.toFixed(2)}
 											</span>
 										</div>
 									</div>
@@ -343,17 +343,25 @@ const Account = ({ currentUser }) => {
 										{earnings.payouts.slice(0, 6).map((p) => (
 											<li key={p.id}>
 												<span className="acct__earnings-net">
-													${p.net.toFixed(2)}
+													€{p.net.toFixed(2)}
 												</span>
 												<span className="acct__earnings-meta">
-													on a ${p.amount.toFixed(2)} sale
+													on a €{p.amount.toFixed(2)} sale
 												</span>
 												<span
 													className={`acct__earnings-pill acct__earnings-pill--${
-														p.status === 'paid' ? 'paid' : 'held'
+														p.status === 'paid'
+															? 'paid'
+															: p.status === 'failed'
+																? 'retry'
+																: 'held'
 													}`}
 												>
-													{p.status === 'paid' ? 'Paid' : 'Held'}
+													{p.status === 'paid'
+														? 'Paid'
+														: p.status === 'failed'
+															? 'Retrying'
+															: 'Held'}
 												</span>
 											</li>
 										))}

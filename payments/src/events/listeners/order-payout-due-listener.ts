@@ -10,7 +10,11 @@ import { FailedEvent } from '../../models/failed-event';
 import { ProcessedEvent } from '../../models/processed-event';
 import { Payment } from '../../models/payment';
 import { Payout } from '../../models/payout';
-import { computeFeeCents, attemptTransfer } from '../../services/payouts';
+import {
+	computeFeeCents,
+	attemptTransfer,
+	announcePayout,
+} from '../../services/payouts';
 
 // #11 payouts. An order has cleared its refund window (orders emits this once).
 // Record a Payout (one per order, unique orderId) and attempt the Stripe transfer
@@ -55,6 +59,13 @@ export class OrderPayoutDueListener extends Listener<OrderPayoutDueEvent> {
 
 			// Pay the seller now if their account is ready; otherwise it stays held.
 			await attemptTransfer(payout);
+
+			// Notify the seller of the first terminal state. attemptTransfer already
+			// announced 'paid'; here we announce 'held' for a still-unconnected
+			// seller (a failed transfer stays quiet — it retries on release).
+			if (payout.status === 'pending_account') {
+				await announcePayout(payout, 'held');
+			}
 		});
 
 		msg.ack();

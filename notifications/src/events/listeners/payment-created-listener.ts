@@ -42,6 +42,18 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 			});
 			await notification.save();
 
+			// Tell the SELLER their ticket sold (#11). Skip for pre-#11 orders with
+			// no sellerId, and guard the (impossible) self-buy.
+			if (order.sellerId && order.sellerId !== order.userId) {
+				await Notification.build({
+					userId: order.sellerId,
+					type: NotificationType.TicketSold,
+					title: 'Your ticket sold! 🎟️',
+					body: `"${order.ticketTitle}" just sold for €${(order.price ?? 0).toFixed(2)}. We'll pay out your share after the refund window — track it in Account → Payouts.`,
+					orderId: data.orderId,
+				}).save();
+			}
+
 			// Centralized receipt email (was in payments). Best-effort — sendMail
 			// never throws, and it's the last step so a DB failure above can't
 			// leave a sent email un-recorded. Skip if we never saw the email.

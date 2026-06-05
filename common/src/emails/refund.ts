@@ -13,7 +13,7 @@ export interface RefundDetails {
 }
 
 const money = (n: number) =>
-	new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+	new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(n);
 
 export const refundEmail = (d: RefundDetails): MailMessage => {
 	const refunded = (d.refundedAt ?? new Date()).toLocaleDateString('en-US', {

@@ -15,6 +15,9 @@ export enum Subjects {
 	// per order so payments can transfer the seller's share (sale − platform fee)
 	// to their connected Stripe account, or hold it until they connect.
 	OrderPayoutDue = 'order:payout:due',
+	// A seller's payout reached a terminal state (paid / held). payments emits it
+	// so notifications can tell the seller (#11).
+	PayoutProcessed = 'payout:processed',
 
 	ExpirationComplete = 'expiration:complete',
 	ExpirationWarning = 'expiration:warning',

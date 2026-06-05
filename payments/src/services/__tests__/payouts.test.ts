@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 jest.mock('../../stripe', () => ({
 	stripe: { transfers: { create: jest.fn() } },
+	CURRENCY: 'eur',
 }));
 
 import { computeFeeCents, releaseHeldPayouts } from '../payouts';

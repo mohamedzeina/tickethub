@@ -1,9 +1,20 @@
 import Stripe from 'stripe';
 import { logger } from '@zeina-tickethub/common';
-import { stripe } from '../stripe';
+import { stripe, CURRENCY } from '../stripe';
 import { Payout, PayoutDoc } from '../models/payout';
 import { ConnectedAccount } from '../models/connected-account';
 import { Payment } from '../models/payment';
+import { PayoutProcessedPublisher } from '../events/publishers/payout-processed-publisher';
+import { natsWrapper } from '../nats-wrapper';
+
+// Tell notifications a seller's payout reached a terminal state (paid / held).
+export const announcePayout = (payout: PayoutDoc, status: 'paid' | 'held') =>
+	new PayoutProcessedPublisher(natsWrapper.js).publish({
+		orderId: payout.orderId,
+		sellerId: payout.sellerId,
+		net: Math.round((payout.amount - payout.fee) * 100) / 100,
+		status,
+	});
 
 // Platform fee in basis points (1000 = 10%). The "fee" is simply the slice we
 // DON'T transfer — with separate charge + transfer there's no application_fee.
@@ -40,7 +51,7 @@ export const attemptTransfer = async (payout: PayoutDoc): Promise<PayoutDoc> => 
 
 	const params: Stripe.TransferCreateParams = {
 		amount: transferCents,
-		currency: 'usd',
+		currency: CURRENCY,
 		destination: account.stripeAccountId,
 		metadata: { orderId: payout.orderId },
 	};
@@ -52,7 +63,10 @@ export const attemptTransfer = async (payout: PayoutDoc): Promise<PayoutDoc> => 
 
 	try {
 		const transfer = await stripe.transfers.create(params, {
-			idempotencyKey: `payout_${payout.orderId}`,
+			// Currency-scoped so a one-per-order transfer is still idempotent against
+			// redelivery, but a currency change (e.g. a USD→EUR migration) gets a
+			// fresh key instead of colliding with the old locked params.
+			idempotencyKey: `payout_${payout.orderId}_${CURRENCY}`,
 		});
 		payout.set({
 			status: 'paid',
@@ -60,6 +74,7 @@ export const attemptTransfer = async (payout: PayoutDoc): Promise<PayoutDoc> => 
 			stripeAccountId: account.stripeAccountId,
 		});
 		await payout.save();
+		await announcePayout(payout, 'paid'); // → seller "€X paid out"
 	} catch (err) {
 		// NEVER let a Stripe error crash the listener or 500 the status route, and
 		// never leave the payout silently stuck on 'pending_account'. Mark it

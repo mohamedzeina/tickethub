@@ -21,6 +21,9 @@ interface OrderAttrs {
 	// Optional so a replay of any pre-email order:created still builds.
 	userEmail?: string;
 	price?: number;
+	// Seller (ticket owner), carried from order:created so we can notify them when
+	// their ticket sells / is refunded (#11). Optional for pre-#11 replays.
+	sellerId?: string;
 }
 
 interface OrderDoc extends mongoose.Document {
@@ -29,6 +32,7 @@ interface OrderDoc extends mongoose.Document {
 	status: OrderStatus;
 	userEmail?: string;
 	price?: number;
+	sellerId?: string;
 }
 
 interface OrderModel extends mongoose.Model<OrderDoc> {
@@ -42,6 +46,7 @@ const orderSchema = new mongoose.Schema<OrderDoc>(
 		status: { type: String, required: true },
 		userEmail: { type: String, required: false },
 		price: { type: Number, required: false },
+		sellerId: { type: String, required: false },
 	},
 	{
 		toJSON: {
@@ -62,6 +67,7 @@ orderSchema.statics.build = (attrs: OrderAttrs) => {
 		status: attrs.status,
 		userEmail: attrs.userEmail,
 		price: attrs.price,
+		sellerId: attrs.sellerId,
 	});
 };
 

@@ -79,6 +79,9 @@ router.post(
 			userId: order.userId,
 			userEmail: req.currentUser!.email,
 			expiresAt: order.expiresAt.toISOString(),
+			// The seller (ticket owner) so notifications can tell them their ticket
+			// sold / was refunded (#11).
+			sellerId: ticket.userId,
 			ticket: {
 				id: ticket.id,
 				price: ticket.price,

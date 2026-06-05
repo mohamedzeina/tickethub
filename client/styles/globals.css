@@ -1788,6 +1788,7 @@
 }
 .acct__earnings-pill--paid { color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
 .acct__earnings-pill--held { color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
+.acct__earnings-pill--retry { color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
 
 @keyframes acct-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes acct-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

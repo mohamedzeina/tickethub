@@ -228,7 +228,7 @@ const TicketForm = ({
 					<div className="field">
 						<label htmlFor="price">Price</label>
 						<div className="price-wrap">
-							<span>$</span>
+							<span>€</span>
 							<input
 								id="price"
 								inputMode="decimal"
