@@ -15,6 +15,7 @@ const STREAM_SUBJECTS: string[] = [
 	Subjects.OrderCreated,
 	Subjects.OrderCancelled,
 	Subjects.OrderRefundRequested,
+	Subjects.OrderPayoutDue,
 	Subjects.ExpirationComplete,
 	Subjects.ExpirationWarning,
 	Subjects.PaymentInitiated,

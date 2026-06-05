@@ -11,13 +11,20 @@ import axios from 'axios';
 // moment you list/sell rather than nagging everyone.
 const PayoutNudge = ({ currentUser }) => {
 	const [payouts, setPayouts] = useState(null);
+	const [held, setHeld] = useState(0); // $ we're holding until they connect
 
 	useEffect(() => {
 		if (!currentUser) return;
 		let alive = true;
-		axios
-			.get('/api/payments/connect/status')
-			.then(({ data }) => alive && setPayouts(data))
+		Promise.all([
+			axios.get('/api/payments/connect/status'),
+			axios.get('/api/payments/payouts'),
+		])
+			.then(([status, earnings]) => {
+				if (!alive) return;
+				setPayouts(status.data);
+				setHeld(earnings.data?.totals?.pending || 0);
+			})
 			.catch(() => {});
 		return () => {
 			alive = false;
@@ -27,12 +34,20 @@ const PayoutNudge = ({ currentUser }) => {
 	if (!currentUser || !payouts || payouts.payoutsEnabled) return null;
 
 	const started = payouts.detailsSubmitted;
+	// Once they have real money waiting, lead with it — it's the strongest nudge.
+	const waiting = held > 0;
 
 	return (
 		<div className="paynudge stocked" role="status">
 			<span className="paynudge__mark" aria-hidden="true" />
 			<div className="paynudge__body">
-				<b>{started ? 'Finish setting up payouts' : 'Set up payouts to get paid'}</b>
+				<b>
+					{waiting
+						? `$${held.toFixed(2)} waiting — set up payouts to collect it`
+						: started
+							? 'Finish setting up payouts'
+							: 'Set up payouts to get paid'}
+				</b>
 				<span>
 					You can sell without it — we’ll hold your earnings until you connect
 					your bank.

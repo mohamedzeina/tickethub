@@ -44,6 +44,7 @@ router.post(
 		if (event.type === 'payment_intent.succeeded') {
 			const paymentIntent = event.data.object as {
 				id: string;
+				latest_charge?: string;
 				metadata: { orderId?: string };
 			};
 			const orderId = paymentIntent.metadata.orderId;
@@ -56,6 +57,8 @@ router.post(
 				const payment = Payment.build({
 					orderId,
 					stripeId: paymentIntent.id,
+					// Captured for #11 payouts (source_transaction on the transfer).
+					chargeId: paymentIntent.latest_charge,
 				});
 
 				try {

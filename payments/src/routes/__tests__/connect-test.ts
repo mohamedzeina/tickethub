@@ -71,6 +71,37 @@ describe('POST /api/payments/connect/onboard', () => {
 		const accounts = await ConnectedAccount.find({ userId });
 		expect(accounts.length).toEqual(1);
 	});
+
+	it('recreates the account if the stored one was deleted at Stripe', async () => {
+		const userId = new mongoose.Types.ObjectId().toHexString();
+		// Seller already has a stored account that no longer exists at Stripe.
+		await ConnectedAccount.build({
+			userId,
+			stripeAccountId: 'acct_deleted',
+			payoutsEnabled: true,
+			detailsSubmitted: true,
+		}).save();
+
+		// First link attempt fails (account missing); after we recreate, it works.
+		accountLinksCreate
+			.mockRejectedValueOnce({ code: 'account_invalid' })
+			.mockResolvedValueOnce({ url: 'https://connect.stripe.com/setup/new' });
+		accountsCreate.mockResolvedValue({ id: 'acct_new' });
+
+		const res = await request(app)
+			.post('/api/payments/connect/onboard')
+			.set('Cookie', global.signin(userId))
+			.send({})
+			.expect(200);
+
+		expect(res.body.url).toEqual('https://connect.stripe.com/setup/new');
+		expect(accountsCreate).toHaveBeenCalledTimes(1); // minted a fresh account
+
+		const account = await ConnectedAccount.findOne({ userId });
+		expect(account!.stripeAccountId).toEqual('acct_new');
+		// Stale enabled flags reset for the fresh (un-onboarded) account.
+		expect(account!.payoutsEnabled).toBe(false);
+	});
 });
 
 describe('GET /api/payments/connect/status', () => {

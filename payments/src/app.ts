@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { createChargeRouter } from './routes/new';
 import { paymentWebhookRouter } from './routes/webhook';
 import { connectRouter } from './routes/connect';
+import { payoutsRouter } from './routes/payouts';
 
 import {
 	errorHandler,
@@ -46,6 +47,7 @@ app.use(currentUser);
 
 app.use(createChargeRouter);
 app.use(connectRouter);
+app.use(payoutsRouter);
 
 app.all('*', async () => {
 	throw new NotFoundError();

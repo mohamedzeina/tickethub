@@ -6,6 +6,7 @@ import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
 import { OrderCancelledListener } from './events/listeners/order-cancelled-listener';
 import { OrderRefundRequestedListener } from './events/listeners/order-refund-requested-listener';
+import { OrderPayoutDueListener } from './events/listeners/order-payout-due-listener';
 
 const startTicketsService = async () => {
 	let isShuttingDown = false;
@@ -42,6 +43,7 @@ const startTicketsService = async () => {
 		await new OrderCreatedListener(natsWrapper.connection).listen();
 		await new OrderCancelledListener(natsWrapper.connection).listen();
 		await new OrderRefundRequestedListener(natsWrapper.connection).listen();
+		await new OrderPayoutDueListener(natsWrapper.connection).listen();
 
 		await mongoose.connect(process.env.MONGO_URI);
 		logger.info('connected to MongoDB');

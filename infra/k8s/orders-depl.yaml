@@ -56,6 +56,12 @@ spec:
                   fieldPath: metadata.name
             - name: EXPIRATION_WINDOW_SECONDS
               value: '900'
+            # #11 payouts (dev). Sweep often so a closed window pays out promptly,
+            # and enable the dev-only force-payout trigger used by e2e / demos.
+            - name: PAYOUT_SWEEP_INTERVAL_MS
+              value: '15000'
+            - name: PAYOUTS_TEST_TRIGGER
+              value: 'true'
           ports:
             - containerPort: 3000
           readinessProbe:

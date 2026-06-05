@@ -19,6 +19,7 @@ import { newOrderRouter } from './routes/new';
 import { showOrderRouter } from './routes/show';
 import { cancelOrderRouter } from './routes/cancel';
 import { refundOrderRouter } from './routes/refund';
+import { payoutNowRouter } from './routes/payout-now';
 import { natsWrapper } from './nats-wrapper';
 
 const app = express();
@@ -48,6 +49,7 @@ app.use(indexOrderRouter);
 app.use(showOrderRouter);
 app.use(cancelOrderRouter);
 app.use(refundOrderRouter);
+app.use(payoutNowRouter);
 
 app.all('*', async () => {
 	throw new NotFoundError();

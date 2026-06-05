@@ -11,6 +11,10 @@ export enum Subjects {
 	// Stripe refund; the actual money-moved confirmation comes back as
 	// PaymentRefunded once Stripe's webhook fires.
 	OrderRefundRequested = 'order:refund:requested',
+	// An order has passed its refund window (#11 payouts). Orders emits this once
+	// per order so payments can transfer the seller's share (sale − platform fee)
+	// to their connected Stripe account, or hold it until they connect.
+	OrderPayoutDue = 'order:payout:due',
 
 	ExpirationComplete = 'expiration:complete',
 	ExpirationWarning = 'expiration:warning',

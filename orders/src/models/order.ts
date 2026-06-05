@@ -35,6 +35,10 @@ interface OrderDoc extends mongoose.Document {
 	// Set when the admission pass is scanned (ticket:redeemed) — a redeemed order
 	// can no longer be refunded.
 	redeemedAt?: Date;
+	// #11 payouts. Stamped once the payout sweep has emitted order:payout:due for
+	// this order, so it fires exactly once per order (payments is also idempotent
+	// per orderId as the ultimate guard).
+	payoutDueAt?: Date;
 }
 
 interface OrderModel extends mongoose.Model<OrderDoc> {
@@ -93,6 +97,9 @@ const orderSchema = new mongoose.Schema(
 			type: String,
 		},
 		redeemedAt: {
+			type: mongoose.Schema.Types.Date,
+		},
+		payoutDueAt: {
 			type: mongoose.Schema.Types.Date,
 		},
 	},

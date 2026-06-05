@@ -4,11 +4,16 @@ import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 interface PaymentAttrs {
 	orderId: string;
 	stripeId: string;
+	chargeId?: string;
 }
 
 interface PaymentDoc extends mongoose.Document {
 	orderId: string;
 	stripeId: string;
+	// The Stripe charge (ch_…) behind the PaymentIntent. Captured from the
+	// succeeded webhook so #11 payouts can tie the seller transfer to the original
+	// charge via source_transaction (draws from that charge's funds).
+	chargeId?: string;
 }
 
 // Interface for the JSON representation after transformation
@@ -36,6 +41,9 @@ const paymentSchema = new mongoose.Schema(
 			// concurrent redeliveries (the check-then-insert guard alone races
 			// across pods): the losing insert hits a duplicate-key error. (#5)
 			unique: true,
+		},
+		chargeId: {
+			type: String,
 		},
 	},
 	{

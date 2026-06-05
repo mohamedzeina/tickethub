@@ -17,6 +17,8 @@ const Account = ({ currentUser }) => {
 	// #11 payouts: readiness pulled from payments. `null` = still loading.
 	const [payouts, setPayouts] = useState(null);
 	const [connecting, setConnecting] = useState(false);
+	// Seller earnings (their sales): { totals: { paid, pending }, payouts: [...] }.
+	const [earnings, setEarnings] = useState(null);
 
 	// Which detachable section is showing. Returning from Stripe onboarding lands
 	// on /account?payouts=… so we open the Payouts tab automatically.
@@ -53,6 +55,15 @@ const Account = ({ currentUser }) => {
 			.get(`/api/payments/connect/status${refresh}`)
 			.then(({ data }) => setPayouts(data))
 			.catch(() => setPayouts({ connected: false, payoutsEnabled: false }));
+	}, [currentUser, router.query.payouts]);
+
+	// Seller earnings summary (cheap Mongo read in payments).
+	useEffect(() => {
+		if (!currentUser) return;
+		axios
+			.get('/api/payments/payouts')
+			.then(({ data }) => setEarnings(data))
+			.catch(() => {});
 	}, [currentUser, router.query.payouts]);
 
 	// Open Payouts when arriving back from Stripe.
@@ -307,6 +318,46 @@ const Account = ({ currentUser }) => {
 							{payouts && payouts.payoutsEnabled && (
 								<div className="acct__settled" aria-hidden="true">
 									Settled · paid out via Stripe
+								</div>
+							)}
+
+							{/* Earnings — the seller's own sales. Only shown once they have
+							    any (a pure buyer never sees it). */}
+							{earnings && earnings.payouts.length > 0 && (
+								<div className="acct__earnings">
+									<div className="acct__earnings-tot">
+										<div>
+											<span className="acct__earnings-lab">Paid out</span>
+											<span className="acct__earnings-val">
+												${earnings.totals.paid.toFixed(2)}
+											</span>
+										</div>
+										<div>
+											<span className="acct__earnings-lab">Held</span>
+											<span className="acct__earnings-val acct__earnings-val--held">
+												${earnings.totals.pending.toFixed(2)}
+											</span>
+										</div>
+									</div>
+									<ul className="acct__earnings-list">
+										{earnings.payouts.slice(0, 6).map((p) => (
+											<li key={p.id}>
+												<span className="acct__earnings-net">
+													${p.net.toFixed(2)}
+												</span>
+												<span className="acct__earnings-meta">
+													on a ${p.amount.toFixed(2)} sale
+												</span>
+												<span
+													className={`acct__earnings-pill acct__earnings-pill--${
+														p.status === 'paid' ? 'paid' : 'held'
+													}`}
+												>
+													{p.status === 'paid' ? 'Paid' : 'Held'}
+												</span>
+											</li>
+										))}
+									</ul>
 								</div>
 							)}
 						</section>

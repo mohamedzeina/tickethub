@@ -25,6 +25,7 @@ const SUITES = [
 	'payments',
 	'notifications',
 	'refunds',
+	'payouts',
 	'admission',
 	'reviews',
 	'display-names',

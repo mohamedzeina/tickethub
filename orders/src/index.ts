@@ -10,6 +10,7 @@ import { PaymentInitiatedListener } from './events/listeners/payment-initiated-l
 import { PaymentCreatedListener } from './events/listeners/payment-created-listener';
 import { PaymentRefundedListener } from './events/listeners/payment-refunded-listener';
 import { TicketRedeemedListener } from './events/listeners/ticket-redeemed-listener';
+import { startPayoutSweep } from './services/payout-sweep';
 
 const startOrdersService = async () => {
 	let isShuttingDown = false;
@@ -56,6 +57,10 @@ const startOrdersService = async () => {
 
 		await mongoose.connect(process.env.MONGO_URI);
 		logger.info('connected to MongoDB');
+
+		// #11 payouts — start the recurring sweep that emits order:payout:due for
+		// orders past their refund window.
+		startPayoutSweep();
 	} catch (err) {
 		logger.error({ err }, 'failed to start service');
 	}

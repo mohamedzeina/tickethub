@@ -8,7 +8,11 @@ import { natsWrapper } from '../../nats-wrapper';
 
 // Build a payment_intent.succeeded event and sign it with the test webhook
 // secret, exactly as Stripe would. This is pure local crypto — no network.
-const signedSucceededEvent = (orderId: string, paymentIntentId: string) => {
+const signedSucceededEvent = (
+	orderId: string,
+	paymentIntentId: string,
+	latestCharge = 'ch_test',
+) => {
 	const payload = JSON.stringify({
 		id: 'evt_test',
 		object: 'event',
@@ -17,6 +21,7 @@ const signedSucceededEvent = (orderId: string, paymentIntentId: string) => {
 			object: {
 				id: paymentIntentId,
 				object: 'payment_intent',
+				latest_charge: latestCharge,
 				metadata: { orderId },
 			},
 		},
@@ -80,6 +85,8 @@ it('records a Payment and publishes payment:created on payment_intent.succeeded'
 	const payment = await Payment.findOne({ orderId });
 	expect(payment).not.toEqual(null);
 	expect(payment!.stripeId).toEqual(paymentIntentId);
+	// Charge id captured for #11 payout source_transaction.
+	expect(payment!.chargeId).toEqual('ch_test');
 	expect(natsWrapper.js.publish).toHaveBeenCalledTimes(1);
 });
 
