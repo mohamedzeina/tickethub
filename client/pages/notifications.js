@@ -24,11 +24,16 @@ const NotificationsPage = ({ notifications: initial }) => {
 	const [items, setItems] = useState(initial || []);
 	const unread = items.filter((n) => !n.read).length;
 
+	// Tell the navbar bell to refetch so its unread badge updates immediately —
+	// the bell is a separate component that otherwise only refreshes on a poll.
+	const syncBell = () => window.dispatchEvent(new Event('notifications:changed'));
+
 	const markOne = async (n) => {
 		if (n.read) return;
 		setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
 		try {
 			await axios.post(`/api/notifications/${n.id}/read`);
+			syncBell();
 		} catch (err) {
 			/* best-effort; the badge reconciles on next load */
 		}
@@ -38,6 +43,7 @@ const NotificationsPage = ({ notifications: initial }) => {
 		setItems((prev) => prev.map((n) => ({ ...n, read: true })));
 		try {
 			await axios.post('/api/notifications/read-all');
+			syncBell();
 		} catch (err) {
 			/* best-effort */
 		}
@@ -50,7 +56,7 @@ const NotificationsPage = ({ notifications: initial }) => {
 				<div className="count" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
 					<span>{unread} unread</span>
 					{unread > 0 && (
-						<button type="button" className="btn btn--line" onClick={markAll}>
+						<button type="button" className="btn btn--ghost" onClick={markAll}>
 							Mark all read
 						</button>
 					)}

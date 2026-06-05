@@ -91,6 +91,11 @@ const NotificationsBell = () => {
 		window.addEventListener('focus', onFocus);
 		document.addEventListener('visibilitychange', onVisible);
 
+		// Refetch when another component (the /notifications page) marks items
+		// read, so the badge updates immediately instead of waiting for a poll.
+		const onChanged = () => load();
+		window.addEventListener('notifications:changed', onChanged);
+
 		return () => {
 			clearInterval(id);
 			timeouts.forEach(clearTimeout);
@@ -98,6 +103,7 @@ const NotificationsBell = () => {
 			Router.events.off('routeChangeComplete', onRouteDone);
 			window.removeEventListener('focus', onFocus);
 			document.removeEventListener('visibilitychange', onVisible);
+			window.removeEventListener('notifications:changed', onChanged);
 		};
 	}, []);
 
