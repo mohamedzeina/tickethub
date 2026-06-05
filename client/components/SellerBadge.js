@@ -5,21 +5,28 @@ import axios from 'axios';
 import Stars from './Stars';
 import useDisplayName from '../hooks/useDisplayName';
 
-// Seller reputation badge shown on the ticket detail page (#9). Fetches the
-// seller's aggregate client-side (the ticket payload doesn't carry it) and links
-// to the full profile. Renders nothing until loaded; shows a "new seller" note
-// when there are no reviews yet so the absence of stars isn't mistaken for a bad
+// Seller reputation badge shown on the ticket detail page (#9). The seller's
+// aggregate isn't in the ticket payload, so it's resolved separately. When the
+// page SSRs it (via `initial`) the badge is present on first paint; otherwise it
+// fetches on mount. Renders nothing until loaded; shows a "new seller" note when
+// there are no reviews yet so the absence of stars isn't mistaken for a bad
 // rating.
-const SellerBadge = ({ sellerId }) => {
+const SellerBadge = ({ sellerId, initial = null }) => {
 	const router = useRouter();
-	const [summary, setSummary] = useState(null);
-	const [handle, setHandle] = useState('');
-	// Prefer the seller's chosen display name (#18); fall back to the opaque handle.
-	const name = useDisplayName(sellerId, handle);
+	// Seed from the SSR-provided state when available so the name/rating don't
+	// pop in a second after the page renders.
+	const [summary, setSummary] = useState(initial?.summary ?? null);
+	const [handle, setHandle] = useState(initial?.handle ?? '');
+	// Prefer the seller's chosen display name (#18); fall back to the opaque
+	// handle. Seed with the SSR-resolved name so it doesn't flash handle → name.
+	const name = useDisplayName(sellerId, initial?.displayName || handle);
 
 	useEffect(() => {
 		let active = true;
 		if (!sellerId) return;
+		// Already handed SSR data → skip the mount fetch (keyed on sellerId so
+		// navigating between tickets still refreshes).
+		if (initial) return;
 		axios
 			.get(`/api/reviews/seller/${sellerId}`)
 			.then(({ data }) => {

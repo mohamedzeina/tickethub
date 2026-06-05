@@ -4,6 +4,7 @@ import Router from 'next/router';
 import useRequest from '../../hooks/useRequest';
 import { ArrowLeft, Bolt, ArrowRight, Check } from '../../components/icons';
 import SellerBadge from '../../components/SellerBadge';
+import { signInHref } from '../../utils/returnTo';
 import {
 	formatPrice,
 	formatDateLong,
@@ -45,7 +46,7 @@ const TicketUnavailable = ({ error = false }) => (
 	</div>
 );
 
-const TicketDetail = ({ ticket, currentUser }) => {
+const TicketDetail = ({ ticket, currentUser, seller }) => {
 	const [torn, setTorn] = useState(false);
 	const succeeded = useRef(false);
 	const date = formatDateLong(ticket.eventDate);
@@ -148,7 +149,7 @@ const TicketDetail = ({ ticket, currentUser }) => {
 						</div>
 					</div>
 
-					{ticket.userId && <SellerBadge sellerId={ticket.userId} />}
+					{ticket.userId && <SellerBadge sellerId={ticket.userId} initial={seller} />}
 
 					<div className="qrline">
 						<div className="qr" aria-hidden="true" />
@@ -192,6 +193,17 @@ const TicketDetail = ({ ticket, currentUser }) => {
 								)}
 							</div>
 						)
+					) : !currentUser ? (
+						// Buying requires an account — offer a proactive sign-in CTA
+						// (with return-to this ticket) instead of letting the purchase
+						// post and bounce off a 401.
+						<Link
+							href={signInHref(`/tickets/${ticket.id}`)}
+							className="btn btn--red btn--block"
+						>
+							Sign in to buy
+							<ArrowRight style={{ width: 15, height: 15 }} />
+						</Link>
 					) : (
 						<div className={`tear${torn ? ' torn' : ''}`} id="tear">
 							<button type="button" className="tear__strip" onClick={onTear}>
@@ -216,18 +228,39 @@ const TicketDetail = ({ ticket, currentUser }) => {
 	);
 };
 
-const TicketShow = ({ ticket, currentUser, loadError }) => {
+const TicketShow = ({ ticket, currentUser, loadError, seller }) => {
 	if (!ticket) {
 		return <TicketUnavailable error={loadError} />;
 	}
-	return <TicketDetail ticket={ticket} currentUser={currentUser} />;
+	return <TicketDetail ticket={ticket} currentUser={currentUser} seller={seller} />;
 };
 
 TicketShow.getInitialProps = async (context, client) => {
 	const { ticketId } = context.query;
 	try {
 		const { data } = await client.get(`/api/tickets/${ticketId}`);
-		return { ticket: data };
+
+		// Resolve the seller's reputation (and display name, #18) up front so the
+		// SellerBadge is present on first paint instead of popping in a second
+		// later after a client-side fetch. Best-effort: any hiccup here just lets
+		// the badge fetch client-side, so it never blocks rendering the ticket.
+		let seller = null;
+		if (data.userId) {
+			try {
+				const { data: rep } = await client.get(`/api/reviews/seller/${data.userId}`);
+				seller = { summary: rep.summary, handle: rep.handle, displayName: null };
+				try {
+					const { data: user } = await client.get(`/api/users/${data.userId}`);
+					seller.displayName = user.displayName || null;
+				} catch (e) {
+					/* fall back to handle */
+				}
+			} catch (e) {
+				/* badge will fetch client-side */
+			}
+		}
+
+		return { ticket: data, seller };
 	} catch (err) {
 		// Unlisted/missing tickets come back 404 → the plain "unavailable" state.
 		// A transient 500/outage gets the "try again" state instead of being
