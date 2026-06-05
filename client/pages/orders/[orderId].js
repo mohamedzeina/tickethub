@@ -349,6 +349,33 @@ const OrderShow = ({ order, reviewState }) => {
 		return <Receipt order={order} reviewState={reviewState} />;
 	}
 
+	// A cancelled order — an abandoned hold, or a refunded purchase — is a
+	// dead-end, never the checkout gate. A paidAt means it was a real purchase
+	// that got refunded (the ticket has already been released back to sale).
+	if (order.status === 'cancelled' || order.status === 'refunded') {
+		const wasPaid = !!order.paidAt;
+		return (
+			<div className="container">
+				<div className="gate stocked bordered">
+					<div className="gate--expired">
+						<span className="stamp stamp--void" style={{ marginBottom: 18 }}>
+							Void
+						</span>
+						<div className="big">{wasPaid ? 'Order refunded' : 'Order cancelled'}</div>
+						<p>
+							{wasPaid
+								? 'This order was refunded and the ticket released. Your refund is on its way to your original payment method — it can take 5–10 business days to appear on your statement.'
+								: 'This reservation was cancelled and the ticket released. Head back and pick up another.'}
+						</p>
+						<Link href="/" className="btn btn--red" style={{ marginTop: 22 }}>
+							Browse tickets
+						</Link>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	if (timeLeft < 0) {
 		return (
 			<div className="container">
