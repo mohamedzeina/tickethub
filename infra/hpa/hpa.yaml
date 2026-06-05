@@ -1,4 +1,11 @@
 # CPU-based autoscaling for the stateless HTTP services.
+#
+# OPT-IN: not part of the default deploy. Enable on a cluster with headroom via
+# the skaffold profile —  skaffold dev -p autoscale  — or apply directly:
+#   kubectl apply -f infra/hpa/hpa.yaml      (disable: kubectl delete -f …)
+# Left out by default because on a small single-node cluster the HPAs amplify
+# the cold-start storm (services scale toward maxReplicas under the boot spike).
+#
 # Requires metrics-server in the cluster (k3s ships it by default; on a bare
 # cluster install it separately). expiration is intentionally excluded — it must
 # stay at a single replica to avoid duplicate delayed-job publishing.

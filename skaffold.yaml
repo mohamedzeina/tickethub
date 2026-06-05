@@ -3,6 +3,16 @@ kind: Config
 manifests:
   rawYaml:
     - ./infra/k8s/*
+# HPAs (infra/hpa/) are intentionally NOT in the default manifest set: on a
+# small single-node cluster they amplify the cold-start storm (every heavy
+# service scales toward maxReplicas under the boot CPU spike). Opt in on a
+# cluster with headroom:  skaffold dev -p autoscale
+profiles:
+  - name: autoscale
+    manifests:
+      rawYaml:
+        - ./infra/k8s/*
+        - ./infra/hpa/*
 build:
   local:
     push: false
