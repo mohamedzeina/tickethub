@@ -3,6 +3,8 @@ import {
 	PaymentRefundedEvent,
 	Subjects,
 	processOnce,
+	sendMail,
+	refundEmail,
 } from '@zeina-tickethub/common';
 import { JsMsg } from 'nats';
 import { queueGroupName } from './queue-group-name';
@@ -32,6 +34,21 @@ export class PaymentRefundedListener extends Listener<PaymentRefundedEvent> {
 				orderId: data.orderId,
 			});
 			await notification.save();
+
+			// Centralized refund confirmation email. Best-effort — sendMail never
+			// throws, and it's the last step so a DB failure above can't leave a
+			// sent email un-recorded. Skip if we never saw the buyer's email.
+			if (order.userEmail) {
+				await sendMail(
+					refundEmail({
+						to: order.userEmail,
+						ticketTitle: order.ticketTitle || 'your ticket',
+						orderId: order.id,
+						price: order.price,
+						stripeId: data.stripeId,
+					}),
+				);
+			}
 		});
 
 		msg.ack();

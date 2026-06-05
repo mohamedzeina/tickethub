@@ -5,6 +5,7 @@ export * from './emails/receipt';
 export * from './emails/expiry';
 export * from './emails/verify';
 export * from './emails/reset';
+export * from './emails/refund';
 
 export * from './errors/bad-request-error';
 export * from './errors/custom-error';
