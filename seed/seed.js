@@ -34,6 +34,10 @@ const { execFileSync } = require('child_process');
 
 const BASE_URL = (process.env.BASE_URL || 'https://tickethub.com').replace(/\/$/, '');
 const HOST_HEADER = process.env.HOST_HEADER;
+// Dev-only: skip auth's per-IP rate limiter (matches RATELIMIT_BYPASS_TOKEN in
+// infra/k8s/auth-depl.yaml; inert in prod where the env is unset) so reseeding
+// isn't blocked after a burst of e2e signups. Same mechanism as the e2e harness.
+const RATELIMIT_BYPASS_TOKEN = process.env.RATELIMIT_BYPASS_TOKEN || 'e2e-bypass';
 
 // The local dev ingress (tickethub.com) serves a self-signed cert. Relax TLS
 // verification only for that known dev host; any other target keeps verification
@@ -147,6 +151,7 @@ function sessionCookie(setCookieHeader) {
 
 async function api(path, { method = 'POST', cookie, body } = {}) {
 	const headers = { 'Content-Type': 'application/json' };
+	if (RATELIMIT_BYPASS_TOKEN) headers['x-ratelimit-bypass'] = RATELIMIT_BYPASS_TOKEN;
 	if (cookie) headers.Cookie = cookie;
 	if (HOST_HEADER) headers.Host = HOST_HEADER;
 

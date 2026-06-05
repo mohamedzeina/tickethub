@@ -145,13 +145,19 @@ async function run(t) {
 	);
 	t.is('order status becomes Refunded after the webhook confirms', refunded.data?.status, 'refunded');
 
-	// The refund confirmation email.
+	// The refund confirmation email — and EXACTLY one. Stripe delivers
+	// charge.refunded at-least-once; the payments webhook publishes payment:refunded
+	// idempotently, so a redelivery must not produce a second email. Wait for the
+	// first, then settle briefly and re-count to catch a duplicate.
 	const refunds = await h.retry(() => h.countMail(buyer.email, 'refund'), {
 		tries: 40,
 		delay: 500,
 		until: (n) => n >= 1,
 	});
 	t.check('a refund confirmation email was sent to the buyer', refunds >= 1);
+	await h.sleep(2500);
+	const refundsAfter = await h.countMail(buyer.email, 'refund');
+	t.is('exactly one refund email (no duplicate from webhook redelivery)', refundsAfter, 1);
 
 	// …and the in-app "Refund issued" notification lands too.
 	const refundFeed = await h.retry(

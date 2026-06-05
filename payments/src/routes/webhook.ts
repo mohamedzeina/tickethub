@@ -98,38 +98,40 @@ router.post(
 			if (pi) {
 				const payment = await Payment.findOne({ stripeId: pi });
 				if (payment) {
-					// A refund we requested has a pending record; a dashboard refund
-					// won't — record it either way, then publish once.
-					const found = await Refund.findOne({ orderId: payment.orderId });
-					const refund =
-						found ||
-						Refund.build({
-							orderId: payment.orderId,
-							stripeId: pi,
-							amount,
-							status: 'pending',
-						});
-
-					if (refund.status !== 'succeeded') {
-						refund.set({ status: 'succeeded', amount });
-						try {
-							await refund.save();
-						} catch (err) {
-							// Concurrent webhook redelivery already published. Ack.
-							if ((err as { code?: number }).code === 11000) {
-								return res.send({ received: true });
-							}
-							throw err;
+					// Stripe delivers webhooks at-least-once, and two deliveries can
+					// race (retries, or more than one `stripe listen`). Flip the refund
+					// pending->succeeded ATOMICALLY — a requested refund has a pending
+					// record; a dashboard refund is upserted. Only the delivery that
+					// wins this transition gets a doc back and publishes. A later
+					// delivery finds it already 'succeeded', so its upsert-insert hits
+					// the unique orderId index (11000) and no-ops — the same
+					// at-least-once idempotency the payment_intent.succeeded path has.
+					let refund;
+					try {
+						refund = await Refund.findOneAndUpdate(
+							{ orderId: payment.orderId, status: { $ne: 'succeeded' } },
+							{
+								$set: { status: 'succeeded', amount },
+								$setOnInsert: { orderId: payment.orderId, stripeId: pi },
+							},
+							{ new: true, upsert: true },
+						);
+					} catch (err) {
+						// Unique orderId blocks the insert when another delivery already
+						// flipped this refund to succeeded — that one published, so ack.
+						if ((err as { code?: number }).code === 11000) {
+							return res.send({ received: true });
 						}
-
-						await new PaymentRefundedPublisher(natsWrapper.js).publish({
-							id: payment.id,
-							orderId: payment.orderId,
-							stripeId: payment.stripeId,
-							amount,
-							refundId: refund.refundId,
-						});
+						throw err;
 					}
+
+					await new PaymentRefundedPublisher(natsWrapper.js).publish({
+						id: payment.id,
+						orderId: payment.orderId,
+						stripeId: payment.stripeId,
+						amount,
+						refundId: refund?.refundId,
+					});
 				}
 			}
 		}
