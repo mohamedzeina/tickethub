@@ -170,11 +170,13 @@ const RefundControl = ({ order }) => {
 	if (requested) {
 		return (
 			<div className="refund refund--processing">
+				<div className="refund__spinner" aria-hidden="true" />
 				<div className="refund__head">Refund processing</div>
 				<p className="refund__note">
 					We&apos;re returning {formatPrice(order.ticket.price)} to your
-					original payment method and releasing the ticket. It can take 5–10
-					business days to appear on your statement.
+					original payment method and releasing the ticket. This takes a few
+					seconds to confirm; it can take 5–10 business days to appear on your
+					statement.
 				</p>
 			</div>
 		);
