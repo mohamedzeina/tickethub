@@ -53,6 +53,13 @@ spec:
                 name: reviews-srv
                 port:
                   number: 3000
+          - path: /api/passes/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: admission-srv
+                port:
+                  number: 3000
           - path: /?(.*)
             pathType: ImplementationSpecific
             backend:

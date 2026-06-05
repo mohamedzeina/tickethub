@@ -1,0 +1,77 @@
+import mongoose from 'mongoose';
+import { JsMsg } from 'nats';
+import { PaymentCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
+import { PaymentCreatedListener } from '../payment-created-listener';
+import { natsWrapper } from '../../../nats-wrapper';
+import { OrderRef } from '../../../models/order-ref';
+import { TicketRef } from '../../../models/ticket-ref';
+import { Pass } from '../../../models/pass';
+
+const seed = async () => {
+	const ticketId = new mongoose.Types.ObjectId().toHexString();
+	const buyerId = new mongoose.Types.ObjectId().toHexString();
+	const orderId = new mongoose.Types.ObjectId().toHexString();
+	await OrderRef.build({
+		id: orderId,
+		buyerId,
+		ticketId,
+		ticketTitle: 'Coldplay',
+		status: OrderStatus.Created,
+	}).save();
+	await TicketRef.build({
+		id: ticketId,
+		title: 'Coldplay',
+		venue: 'Wembley',
+		eventDate: new Date(),
+	}).save();
+	return { orderId, buyerId, ticketId };
+};
+
+const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
+
+it('mints an issued pass and completes the order replica', async () => {
+	const { orderId, buyerId } = await seed();
+	const listener = new PaymentCreatedListener(natsWrapper.connection);
+	const data: PaymentCreatedEvent['data'] = {
+		id: new mongoose.Types.ObjectId().toHexString(),
+		orderId,
+		stripeId: 'pi_1',
+	};
+	const m = msg(1);
+
+	await listener.onMessage(data, m);
+
+	const pass = await Pass.findOne({ orderId });
+	expect(pass).not.toBeNull();
+	expect(pass!.status).toBe('issued');
+	expect(pass!.buyerId).toBe(buyerId);
+	expect(pass!.venue).toBe('Wembley');
+
+	const order = await OrderRef.findById(orderId);
+	expect(order!.status).toBe(OrderStatus.Complete);
+	expect(m.ack).toHaveBeenCalled();
+});
+
+it('is idempotent — a redelivery mints no duplicate pass', async () => {
+	const { orderId } = await seed();
+	const listener = new PaymentCreatedListener(natsWrapper.connection);
+	const data: any = { id: 'p', orderId, stripeId: 'pi_1' };
+
+	await listener.onMessage(data, msg(1));
+	await listener.onMessage(data, msg(2)); // distinct seq, same order
+
+	expect(await Pass.countDocuments({ orderId })).toBe(1);
+});
+
+it('throws (for retry) when the order replica is missing', async () => {
+	const listener = new PaymentCreatedListener(natsWrapper.connection);
+	const data: any = {
+		id: 'p',
+		orderId: new mongoose.Types.ObjectId().toHexString(),
+		stripeId: 'pi_1',
+	};
+	const m = msg(1);
+
+	await expect(listener.onMessage(data, m)).rejects.toThrow('OrderRef not found');
+	expect(m.ack).not.toHaveBeenCalled();
+});

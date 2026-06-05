@@ -1940,3 +1940,19 @@
 .srow__date { margin-left: auto; font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); }
 .srow__ticket { margin-top: 6px; font-size: 13px; color: var(--ink-soft); }
 .srow__cmt { margin: 8px 0 0; font-size: 14px; color: var(--ink); line-height: 1.55; }
+
+/* Admission pass (#delivery) — the gate QR on the paid receipt. */
+.pass { margin-top: 18px; padding-top: 16px; border-top: 1px dashed #c9bfa6; text-align: center; }
+.pass__head { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 12px; }
+.pass__qr { display: inline-block; padding: 12px; background: #f3ecd8; border: 1px solid #c9bfa6; border-radius: 8px; line-height: 0; }
+.pass__hint { margin-top: 10px; font-size: 12px; color: var(--ink-soft); font-family: var(--f-mono); letter-spacing: 0.04em; }
+.pass__state { margin-top: 6px; font-size: 14px; font-weight: 600; }
+.pass__state--used { color: #2e7d4f; }
+.pass__state--void { color: #c4291b; }
+
+/* Gate operator scanner (/gate). */
+.gatepage { max-width: 440px; margin: 40px auto; }
+.gatepage__field { width: 100%; margin: 8px 0; padding: 11px 13px; font-family: var(--f-mono); font-size: 14px; border: 1px solid #c9bfa6; border-radius: 6px; background: #f3ecd8; color: var(--ink); }
+.gatepage__result { margin-top: 16px; padding: 16px; border-radius: 8px; font-weight: 600; text-align: center; }
+.gatepage__result--ok { background: #e3f1e8; color: #1f6b3f; border: 1px solid #9cc9ad; }
+.gatepage__result--no { background: #f7e3e1; color: #a8281c; border: 1px solid #d9a39c; }

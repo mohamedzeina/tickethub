@@ -88,3 +88,11 @@ build:
         manual:
           - src: 'src/**/*.ts'
             dest: .
+    - image: toxiczeina/admission
+      context: admission
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: 'src/**/*.ts'
+            dest: .

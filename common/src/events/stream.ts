@@ -11,8 +11,10 @@ export const STREAM_NAME = 'tickethub';
 const STREAM_SUBJECTS: string[] = [
 	Subjects.TicketCreated,
 	Subjects.TicketUpdated,
+	Subjects.TicketRedeemed,
 	Subjects.OrderCreated,
 	Subjects.OrderCancelled,
+	Subjects.OrderRefundRequested,
 	Subjects.ExpirationComplete,
 	Subjects.ExpirationWarning,
 	Subjects.PaymentInitiated,

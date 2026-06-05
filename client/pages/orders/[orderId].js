@@ -9,13 +9,63 @@ import {
 	useElements,
 } from '@stripe/react-stripe-js';
 import Router from 'next/router';
+import { QRCodeSVG } from 'qrcode.react';
 import {
 	formatPrice,
 	formatDateShort,
 	serialFromId,
 } from '../../utils/ticket';
 import SellerReview from '../../components/SellerReview';
+import usePass from '../../hooks/usePass';
 import redirect from '../../utils/redirect';
+
+// The admission pass (#delivery) — the QR a buyer shows at the gate. Minted off
+// payment:created, so it can briefly lag; usePass polls while it's pending.
+const AdmissionPass = ({ orderId }) => {
+	const { pass, status } = usePass(orderId);
+
+	let body;
+	if (status === 'ready' && pass?.status === 'issued' && pass?.code) {
+		body = (
+			<>
+				<div className="pass__qr">
+					<QRCodeSVG
+						value={pass.code}
+						size={172}
+						bgColor="#f3ecd8"
+						fgColor="#211b16"
+						level="M"
+					/>
+				</div>
+				<div className="pass__hint">Show this at the gate. Single use.</div>
+			</>
+		);
+	} else if (status === 'ready' && pass?.status === 'redeemed') {
+		body = (
+			<div className="pass__state pass__state--used">
+				✓ Checked in
+				{pass.redeemedAt ? ` · ${new Date(pass.redeemedAt).toLocaleString()}` : ''}
+			</div>
+		);
+	} else if (status === 'ready' && pass?.status === 'revoked') {
+		body = (
+			<div className="pass__state pass__state--void">
+				Pass revoked — this order was refunded.
+			</div>
+		);
+	} else if (status === 'error') {
+		body = <div className="pass__hint">Couldn’t load your pass.</div>;
+	} else {
+		body = <div className="pass__hint">Generating your pass…</div>;
+	}
+
+	return (
+		<div className="pass">
+			<div className="pass__head">Admission Pass</div>
+			{body}
+		</div>
+	);
+};
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY);
 
@@ -213,6 +263,8 @@ const Receipt = ({ order, reviewState }) => {
 							</div>
 						)}
 					</dl>
+
+					<AdmissionPass orderId={order.id} />
 
 					<SellerReview orderId={order.id} initialState={reviewState} />
 

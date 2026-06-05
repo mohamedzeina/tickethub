@@ -62,6 +62,7 @@ const MONGO_SECRET_KEYS = {
 	payments: 'PAYMENTS_MONGO_URI',
 	notifications: 'NOTIFICATIONS_MONGO_URI',
 	reviews: 'REVIEWS_MONGO_URI',
+	admission: 'ADMISSION_MONGO_URI',
 };
 
 // ---- helpers -------------------------------------------------------------

@@ -1,9 +1,16 @@
 export enum Subjects {
 	TicketCreated = 'ticket:created',
 	TicketUpdated = 'ticket:updated',
+	// A buyer's admission pass was scanned at the gate (admission service). Marks
+	// the order as used → notifications + makes it non-refundable.
+	TicketRedeemed = 'ticket:redeemed',
 
 	OrderCreated = 'order:created',
 	OrderCancelled = 'order:cancelled',
+	// A buyer asked to refund a completed order (#6 tail). Payments attempts the
+	// Stripe refund; the actual money-moved confirmation comes back as
+	// PaymentRefunded once Stripe's webhook fires.
+	OrderRefundRequested = 'order:refund:requested',
 
 	ExpirationComplete = 'expiration:complete',
 	ExpirationWarning = 'expiration:warning',

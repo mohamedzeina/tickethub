@@ -51,8 +51,8 @@ function sessionCookie(setCookie) {
 
 // Returns { status, data, cookie }; never throws on a non-2xx so suites can
 // assert on 4xx. `cookie` is the refreshed session cookie if one was set.
-async function api(path, { method = 'POST', cookie, body } = {}) {
-	const headers = { 'Content-Type': 'application/json' };
+async function api(path, { method = 'POST', cookie, body, headers: extra } = {}) {
+	const headers = { 'Content-Type': 'application/json', ...(extra || {}) };
 	if (cookie) headers.Cookie = cookie;
 	if (HOST_HEADER) headers.Host = HOST_HEADER;
 
