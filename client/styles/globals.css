@@ -1950,11 +1950,95 @@
 .pass__state--used { color: #2e7d4f; }
 .pass__state--void { color: #c4291b; }
 .pass__copy { margin-top: 10px; font-size: 12px; padding: 6px 14px; }
-#reader { border-radius: 8px; overflow: hidden; }
 
-/* Gate operator scanner (/gate). */
-.gatepage { max-width: 440px; margin: 40px auto; }
-.gatepage__field { width: 100%; margin: 8px 0; padding: 11px 13px; font-family: var(--f-mono); font-size: 14px; border: 1px solid #c9bfa6; border-radius: 6px; background: #f3ecd8; color: var(--ink); }
-.gatepage__result { margin-top: 16px; padding: 16px; border-radius: 8px; font-weight: 600; text-align: center; }
-.gatepage__result--ok { background: #e3f1e8; color: #1f6b3f; border: 1px solid #9cc9ad; }
-.gatepage__result--no { background: #f7e3e1; color: #a8281c; border: 1px solid #d9a39c; }
+/* ===== Gate operator scanner (/gate) — admission #delivery ===== */
+.gatescan { padding: 26px 0 64px; }
+.gatescan__card {
+	position: relative;
+	max-width: 460px;
+	margin: 0 auto;
+	padding: 26px 28px 28px;
+	border-radius: 6px;
+	box-shadow: var(--shadow);
+}
+.gatescan__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.gatescan__title { font-size: 32px; color: var(--ink); margin: 6px 0 0; }
+.gatescan__sub { margin: 10px 0 0; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+.gatescan__barcode {
+	flex: none; width: 58px; height: 40px; margin-top: 4px; opacity: 0.8;
+	background-image: repeating-linear-gradient(90deg,
+		var(--ink) 0 1.5px, transparent 1.5px 3px, var(--ink) 3px 4px,
+		transparent 4px 7px, var(--ink) 7px 9px, transparent 9px 11px);
+}
+.gatescan__perf { height: 0; margin: 20px -28px; border-top: 2px dashed rgba(33, 27, 20, 0.22); }
+.gatescan__seclabel {
+	display: block; font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.2em;
+	text-transform: uppercase; color: var(--ink-soft); margin: 0 0 8px;
+}
+
+/* camera viewport — a dark "scanner screen" framed in the ticket stock */
+.gatescan__viewport {
+	position: relative; width: 100%; min-height: 200px; border-radius: 6px; overflow: hidden;
+	background: #161109; box-shadow: 0 0 0 1px rgba(33, 27, 20, 0.5) inset;
+	display: flex; align-items: center; justify-content: center;
+}
+.gatescan__viewport #reader { width: 100%; }
+.gatescan__viewport-idle {
+	display: flex; flex-direction: column; align-items: center; gap: 8px;
+	color: rgba(239, 230, 208, 0.42); font-family: var(--f-mono); font-size: 11px;
+	letter-spacing: 0.16em; text-transform: uppercase;
+}
+.gatescan__reticle {
+	position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+	width: 150px; height: 150px; border: 2px solid rgba(224, 56, 31, 0.5);
+	border-radius: 10px; pointer-events: none;
+}
+.gatescan__viewport.is-live .gatescan__reticle { border-color: rgba(224, 56, 31, 0.85); }
+
+.gatescan__btn { margin-top: 12px; }
+.gatescan__camerr { margin-top: 8px; font-size: 12px; color: var(--red); line-height: 1.45; }
+
+.gatescan__or {
+	display: flex; align-items: center; gap: 12px; margin: 22px 0 16px;
+	font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.2em;
+	text-transform: uppercase; color: var(--ink-soft);
+}
+.gatescan__or::before, .gatescan__or::after { content: ''; flex: 1; height: 1px; background: rgba(33, 27, 20, 0.16); }
+
+.gatescan__input {
+	width: 100%; padding: 13px 14px; font-family: var(--f-mono); font-size: 14px;
+	color: var(--ink); background: rgba(255, 255, 255, 0.32);
+	border: 1px solid var(--stock-edge); border-radius: var(--r);
+	transition: border-color 0.18s, box-shadow 0.18s;
+}
+.gatescan__input::placeholder { color: var(--ink-soft); opacity: 0.7; }
+.gatescan__input:focus { outline: none; }
+.gatescan__input:focus-visible { border-color: var(--red); box-shadow: 0 0 0 2px rgba(196, 41, 27, 0.28); }
+
+/* verdict — a rubber-stamp ADMIT / DENY readout */
+.gatescan__verdict {
+	position: relative; margin-top: 20px; padding: 20px; text-align: center;
+	border: 2px solid currentColor; border-radius: 4px; transform: rotate(-1.2deg);
+}
+.gatescan__verdict::before {
+	content: ''; position: absolute; inset: 3px; border: 1px solid currentColor;
+	border-radius: 3px; opacity: 0.5;
+}
+.gatescan__verdict--ok { color: var(--teal); background: rgba(21, 113, 95, 0.07); }
+.gatescan__verdict--no { color: var(--red); background: rgba(196, 41, 27, 0.06); }
+.gatescan__verdict-big {
+	display: flex; align-items: center; justify-content: center; gap: 9px;
+	font-family: var(--f-mono); font-weight: 600; font-size: 19px;
+	letter-spacing: 0.2em; text-transform: uppercase;
+}
+.gatescan__verdict-sub { margin-top: 6px; font-size: 14px; color: var(--ink-soft); }
+
+.gatescan__hint {
+	margin-left: 8px; font-size: 9px; letter-spacing: 0.12em; color: var(--teal-2);
+	text-transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.gatescan__input, .gatescan__btn { transition: none; }
+	.gatescan__verdict { transform: none; }
+}

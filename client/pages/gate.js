@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import axios from 'axios';
 
 // Pull the signed pass code out of a scanned value — it may be a raw code, or a
@@ -16,10 +17,34 @@ const extractCode = (text) => {
 	return String(text).trim();
 };
 
-// Operator gate scanner (admission #delivery). Admit a guest by (1) scanning
-// their pass QR with the camera, (2) opening their QR deep-link which prefills
-// the code, or (3) pasting the code. The gate key (GATE_API_KEY) authorizes the
-// scan and is remembered per device.
+const IconCamera = (props) => (
+	<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+		<path d="M3 7h3l1.5-2h9L18 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" />
+		<circle cx="12" cy="13" r="3.5" />
+	</svg>
+);
+const IconCheck = (props) => (
+	<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+		<circle cx="12" cy="12" r="9" />
+		<path d="m8.5 12 2.5 2.5 4.5-5" />
+	</svg>
+);
+const IconX = (props) => (
+	<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+		<circle cx="12" cy="12" r="9" />
+		<path d="m9 9 6 6m0-6-6 6" />
+	</svg>
+);
+const IconBack = (props) => (
+	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+		<path d="m15 18-6-6 6-6" />
+	</svg>
+);
+
+// Operator gate scanner (admission #delivery). Admit a guest by scanning their
+// pass QR with the camera, opening their QR deep-link (prefills the code), or
+// pasting the code. The gate key (GATE_API_KEY) authorizes the scan and is
+// remembered per device.
 const GatePage = () => {
 	const [gateKey, setGateKey] = useState('');
 	const [manualCode, setManualCode] = useState('');
@@ -105,7 +130,7 @@ const GatePage = () => {
 			scannerRef.current = scanner;
 			await scanner.start(
 				{ facingMode: 'environment' },
-				{ fps: 10, qrbox: 240 },
+				{ fps: 10, qrbox: 220 },
 				async (decoded) => {
 					await stopCamera();
 					setManualCode(extractCode(decoded));
@@ -123,76 +148,115 @@ const GatePage = () => {
 	};
 
 	return (
-		<div className="container gatepage">
-			<h1>Gate Scanner</h1>
-			<p style={{ color: '#6f6244', fontSize: 14, marginTop: 4 }}>
-				Operator-only. Scan a guest's pass QR, or paste the code, to admit.
-			</p>
+		<div className="container container--narrow gatescan">
+			<Link href="/" className="backlink">
+				<IconBack width="14" height="14" />
+				Back to TicketHub
+			</Link>
 
-			<input
-				className="gatepage__field"
-				placeholder="Gate key"
-				type="password"
-				value={gateKey}
-				onChange={(e) => setKey(e.target.value)}
-			/>
-
-			{!scanning ? (
-				<button
-					className="btn btn--red btn--block"
-					onClick={startCamera}
-					disabled={busy}
-					style={{ marginTop: 8 }}
-				>
-					Scan QR with camera
-				</button>
-			) : (
-				<button className="btn btn--block" onClick={stopCamera} style={{ marginTop: 8 }}>
-					Stop camera
-				</button>
-			)}
-
-			{/* html5-qrcode renders the camera preview into this element. */}
-			<div id="reader" style={{ marginTop: 12, width: '100%' }} />
-			{camError && (
-				<p style={{ color: '#c4291b', fontSize: 13, marginTop: 8 }}>{camError}</p>
-			)}
-
-			<div
-				style={{
-					marginTop: 16,
-					color: '#6f6244',
-					fontSize: 12,
-					fontFamily: 'var(--f-mono)',
-				}}
-			>
-				— or paste the code —
-			</div>
-			<input
-				className="gatepage__field"
-				placeholder="Pass code (from the buyer's QR)"
-				value={manualCode}
-				onChange={(e) => setManualCode(e.target.value)}
-			/>
-			<button
-				className="btn btn--red btn--block"
-				onClick={() => redeem(manualCode)}
-				disabled={busy || !manualCode}
-			>
-				{busy ? 'Checking…' : 'Admit'}
-			</button>
-
-			{result && (
-				<div
-					className={`gatepage__result ${
-						result.valid ? 'gatepage__result--ok' : 'gatepage__result--no'
-					}`}
-				>
-					{result.valid
-						? `✓ ADMIT — ${result.eventTitle || 'valid pass'}`
-						: `✗ DENY — ${result.reason || 'invalid'}`}
+			<div className="gatescan__card stocked bordered">
+				<div className="gatescan__head">
+					<div>
+						<div className="eyebrow">Admit One · Gate</div>
+						<h1 className="gatescan__title display">Gate Scanner</h1>
+					</div>
+					<div className="gatescan__barcode" aria-hidden="true" />
 				</div>
-			)}
+				<p className="gatescan__sub">
+					Operator console — scan a guest&rsquo;s pass to admit them.
+				</p>
+
+				<div className="gatescan__perf" />
+
+				<div className="gatescan__seclabel">Camera</div>
+				<div className={`gatescan__viewport${scanning ? ' is-live' : ''}`}>
+					<div id="reader" />
+					{!scanning && (
+						<div className="gatescan__viewport-idle">
+							<IconCamera width="26" height="26" />
+							<span>Camera off</span>
+						</div>
+					)}
+					<div className="gatescan__reticle" aria-hidden="true" />
+				</div>
+
+				{!scanning ? (
+					<button
+						className="btn btn--red btn--block gatescan__btn"
+						onClick={startCamera}
+						disabled={busy}
+					>
+						<IconCamera />
+						Scan a pass
+					</button>
+				) : (
+					<button className="btn btn--line btn--block gatescan__btn" onClick={stopCamera}>
+						Stop camera
+					</button>
+				)}
+				{camError && (
+					<p className="gatescan__camerr" role="alert">
+						{camError}
+					</p>
+				)}
+
+				<div className="gatescan__or">
+					<span>or enter manually</span>
+				</div>
+
+				<label className="gatescan__seclabel" htmlFor="passCode">
+					Pass code
+				</label>
+				<input
+					id="passCode"
+					className="gatescan__input"
+					placeholder="6a22df…"
+					value={manualCode}
+					onChange={(e) => setManualCode(e.target.value)}
+				/>
+				<button
+					className="btn btn--ink btn--block gatescan__btn"
+					onClick={() => redeem(manualCode)}
+					disabled={busy || !manualCode}
+				>
+					{busy ? 'Checking…' : 'Admit'}
+				</button>
+
+				{result && (
+					<div
+						className={`gatescan__verdict ${
+							result.valid ? 'gatescan__verdict--ok' : 'gatescan__verdict--no'
+						}`}
+						role="status"
+						aria-live="polite"
+					>
+						<div className="gatescan__verdict-big">
+							{result.valid ? <IconCheck /> : <IconX />}
+							{result.valid ? 'Admit' : 'Deny'}
+						</div>
+						<div className="gatescan__verdict-sub">
+							{result.valid ? result.eventTitle || 'valid pass' : result.reason || 'invalid'}
+						</div>
+					</div>
+				)}
+
+				<div className="gatescan__perf" />
+				<div className="gatescan__op">
+					<label className="gatescan__seclabel" htmlFor="gateKey">
+						Operator key
+						<span className="gatescan__hint">remembered on this device</span>
+					</label>
+					<input
+						id="gateKey"
+						className="gatescan__input"
+						type="password"
+						placeholder="venue gate key"
+						value={gateKey}
+						onChange={(e) => setKey(e.target.value)}
+						autoComplete="off"
+					/>
+				</div>
+			</div>
 		</div>
 	);
 };

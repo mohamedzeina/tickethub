@@ -1,4 +1,5 @@
 # Dev image: next dev server for hot reload (used by skaffold dev + file sync)
+# rev: gate scanner redesign (CSS not covered by the .js-only sync rule)
 FROM node:20-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./
