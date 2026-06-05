@@ -1,4 +1,5 @@
 # Dev image: ts-node-dev for hot reload (used by skaffold dev + file sync)
+# cachebust: #11 connect routes (new files — force rebuild, sync can miss them)
 FROM node:20-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./

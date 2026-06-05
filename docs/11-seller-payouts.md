@@ -51,15 +51,15 @@ seller at sale time.
 
 ```
 Seller → "Set up payouts" (account page)
-  → auth: POST /api/users/connect/onboard
-      stripe.accounts.create({ type: 'express', ... })   → acct_…   (store on user)
+  → payments: POST /api/payments/connect/onboard
+      stripe.accounts.create({ type: 'express', ... })   → acct_…   (store on ConnectedAccount)
       stripe.accountLinks.create({ account, type: 'account_onboarding',
                                    return_url, refresh_url })        → one-time URL
   → redirect seller to the Stripe-hosted onboarding page (Stripe does KYC + bank)
-  → seller returns to return_url
-  → auth: GET /api/users/connect/status  (or the account.updated webhook)
-      reads account.charges_enabled / payouts_enabled / details_submitted
-      → flips user.payoutsEnabled, publishes account:payouts-enabled
+  → seller returns to return_url (/account?payouts=connected)
+  → payments: GET /api/payments/connect/status  (or the account.updated webhook, Phase 3)
+      reads account.payouts_enabled / details_submitted
+      → mirrors them onto ConnectedAccount (Phase 2: releases held payouts locally)
 ```
 
 Express dashboard (seller views their own payouts/balance): mint a login link on
@@ -105,27 +105,38 @@ Notes:
 
 ## Data model & ownership
 
-Each service owns its data; payments owns the Stripe money so it must initiate the
-transfer, and it replicates the two facts it needs (seller→acct, release time).
+**Connect lives in `payments`, not `auth`** (decided during Phase 1). payments
+already holds the live `STRIPE_KEY` + the webhook infra, and the Phase 2 seller
+transfer happens here — so keeping the seller→acct mapping local means *no
+cross-service replica* and *no `account:payouts-enabled/-disabled` subjects*: when
+the seller's account becomes enabled, payments flips its own row and releases that
+seller's held payouts in-process. Putting Stripe in `auth` (our most
+security-sensitive service) would expand its blast radius for no benefit. auth is
+untouched by this feature.
 
-- **auth (users):** `stripeAccountId?: string`, `payoutsEnabled: boolean`.
-  Emits **`account:payouts-enabled`** `{ userId, stripeAccountId }` when onboarding
-  completes (and `account:payouts-disabled` if Stripe later disables an account).
+- **payments (Phase 1, shipped):** new **`ConnectedAccount`** model
+  `{ userId (unique), stripeAccountId, payoutsEnabled, detailsSubmitted }`.
+  Routes `POST /api/payments/connect/onboard` (create-or-reuse Express account +
+  hosted onboarding link) and `GET /api/payments/connect/status` (refresh the
+  readiness flags from Stripe). Reuses the `stripe` client it already has. No env,
+  no events, no common change — return_url is derived from the request host.
 - **orders:** owns `refundableUntil` already. Adds a scheduler (reuse the
   expiration-service delayed-job pattern, or a periodic sweep) that emits
   **`order:payout-due`** `{ orderId, sellerId, amount }` when a Complete,
   non-refunded order passes its window. `sellerId` comes from the order's ticket
   (already replicated) — or carry it through.
-- **payments:** new **`Payout`** model `{ orderId (unique), sellerId,
+- **payments (Phase 2):** new **`Payout`** model `{ orderId (unique), sellerId,
   stripeAccountId?, amount, fee, transferId?, status: 'pending_account' |
-  'paid' | 'failed' }`. New listeners: `AccountPayoutsEnabledListener`
-  (seller→acct replica + release held payouts) and `OrderPayoutDueListener`
-  (create the transfer). Reuses the `stripe` client it already has.
+  'paid' | 'failed' }` + an `OrderPayoutDueListener` that creates the transfer (or
+  records `pending_account` if the seller hasn't connected yet). When a seller's
+  `ConnectedAccount` flips enabled, payments releases their held payouts locally —
+  no event needed.
 
 ### New NATS subjects
-`account:payouts-enabled`, `account:payouts-disabled`, `order:payout-due` — must
-be added to `common` `STREAM_SUBJECTS` (the publish-503 gotcha) and the `Subjects`
-enum, then `common` republished + consumers bumped.
+Only **`order:payout-due`** (orders → payments) — must be added to `common`
+`STREAM_SUBJECTS` (the publish-503 gotcha) and the `Subjects` enum, then `common`
+republished + consumers bumped. The earlier `account:*` subjects are no longer
+needed (release is local to payments).
 
 ## Client
 
@@ -171,9 +182,12 @@ enum, then `common` republished + consumers bumped.
 
 ## Phasing
 
-1. **Onboarding only** (no money moves): auth account-create/link/status +
-   `account.updated` webhook + `payoutsEnabled`; client "Set up payouts" + status.
-   Sellers can connect; nothing pays out yet. Shippable + demoable on its own.
+1. **Onboarding only** (no money moves) — ✅ SHIPPED: payments
+   `ConnectedAccount` model + `connect/onboard` + `connect/status`; client
+   "Set up payouts" button + status banner on the account page. Sellers can
+   connect; nothing pays out yet. (`account.updated` webhook deferred to Phase 3 —
+   the status endpoint refreshes readiness on return for now.) Unit-tested
+   (6 route tests). Shippable + demoable on its own.
 2. **Payout release:** orders `order:payout-due` scheduler; payments `Payout` model
    + `OrderPayoutDueListener` transfer + `pending_account` hold/release; client
    earnings summary. The actual money movement.

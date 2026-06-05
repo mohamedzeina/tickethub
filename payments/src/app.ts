@@ -5,6 +5,7 @@ import cookieSession from 'cookie-session';
 import mongoose from 'mongoose';
 import { createChargeRouter } from './routes/new';
 import { paymentWebhookRouter } from './routes/webhook';
+import { connectRouter } from './routes/connect';
 
 import {
 	errorHandler,
@@ -44,6 +45,7 @@ app.use(
 app.use(currentUser);
 
 app.use(createChargeRouter);
+app.use(connectRouter);
 
 app.all('*', async () => {
 	throw new NotFoundError();
