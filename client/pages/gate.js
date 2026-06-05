@@ -1,12 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 
-// Operator gate scanner (admission #delivery). Two ways to admit a guest:
-//  1. Point the camera at the buyer's QR — it decodes the code and redeems it.
-//  2. Paste the code manually (fallback when there's no camera, e.g. scanning
-//     your own screen locally).
-// The gate key (GATE_API_KEY) authorizes the scan; we remember it in
-// localStorage so an operator types it once per device.
+// Pull the signed pass code out of a scanned value — it may be a raw code, or a
+// `/gate?code=...` deep-link URL (what the receipt QR encodes, so a plain phone
+// camera can just open the gate prefilled with no scanner app).
+const extractCode = (text) => {
+	if (!text) return '';
+	try {
+		const u = new URL(text, window.location.origin);
+		const c = u.searchParams.get('code');
+		if (c) return c;
+	} catch {
+		/* not a URL — fall through to raw */
+	}
+	return String(text).trim();
+};
+
+// Operator gate scanner (admission #delivery). Admit a guest by (1) scanning
+// their pass QR with the camera, (2) opening their QR deep-link which prefills
+// the code, or (3) pasting the code. The gate key (GATE_API_KEY) authorizes the
+// scan and is remembered per device.
 const GatePage = () => {
 	const [gateKey, setGateKey] = useState('');
 	const [manualCode, setManualCode] = useState('');
@@ -15,27 +28,41 @@ const GatePage = () => {
 	const [scanning, setScanning] = useState(false);
 	const [camError, setCamError] = useState('');
 	const scannerRef = useRef(null);
+	const keyRef = useRef(''); // latest key, for the camera callback's stale closure
 
-	// Restore the saved gate key on mount.
+	const setKey = (v) => {
+		setGateKey(v);
+		keyRef.current = v;
+	};
+
+	// Restore the saved gate key + prefill a code from a scanned deep link.
 	useEffect(() => {
 		const saved = window.localStorage.getItem('gateKey');
-		if (saved) setGateKey(saved);
+		if (saved) setKey(saved);
+		const fromUrl = new URLSearchParams(window.location.search).get('code');
+		if (fromUrl) setManualCode(fromUrl);
 	}, []);
 
 	// Stop the camera if we leave the page.
-	useEffect(() => {
-		return () => {
+	useEffect(
+		() => () => {
 			if (scannerRef.current) {
 				scannerRef.current.stop().catch(() => {});
 				scannerRef.current = null;
 			}
-		};
-	}, []);
+		},
+		[],
+	);
 
-	const redeem = async (code) => {
-		const key = gateKey.trim();
+	const redeem = async (raw) => {
+		const code = extractCode(raw);
+		const key = (keyRef.current || '').trim();
 		if (!key) {
 			setResult({ valid: false, reason: 'enter the gate key first' });
+			return;
+		}
+		if (!code) {
+			setResult({ valid: false, reason: 'no code' });
 			return;
 		}
 		window.localStorage.setItem('gateKey', key);
@@ -44,17 +71,14 @@ const GatePage = () => {
 		try {
 			const { data } = await axios.post(
 				'/api/passes/redeem',
-				{ code: (code || '').trim() },
+				{ code },
 				{ headers: { 'x-gate-key': key } },
 			);
 			setResult(data);
 		} catch (err) {
 			setResult({
 				valid: false,
-				reason:
-					err.response?.status === 401
-						? 'unauthorized (bad gate key)'
-						: 'error',
+				reason: err.response?.status === 401 ? 'unauthorized (bad gate key)' : 'error',
 			});
 		} finally {
 			setBusy(false);
@@ -82,17 +106,18 @@ const GatePage = () => {
 			await scanner.start(
 				{ facingMode: 'environment' },
 				{ fps: 10, qrbox: 240 },
-				async (decodedText) => {
+				async (decoded) => {
 					await stopCamera();
-					redeem(decodedText);
+					setManualCode(extractCode(decoded));
+					redeem(decoded);
 				},
 				() => {}, // per-frame decode failures are normal; ignore
 			);
-		} catch (err) {
+		} catch {
 			setScanning(false);
 			scannerRef.current = null;
 			setCamError(
-				"Couldn't open the camera. Allow camera access for this site, or paste the code below.",
+				"Couldn't open the camera (a self-signed cert can block it). Paste the code below instead.",
 			);
 		}
 	};
@@ -109,24 +134,20 @@ const GatePage = () => {
 				placeholder="Gate key"
 				type="password"
 				value={gateKey}
-				onChange={(e) => setGateKey(e.target.value)}
+				onChange={(e) => setKey(e.target.value)}
 			/>
 
 			{!scanning ? (
 				<button
 					className="btn btn--red btn--block"
 					onClick={startCamera}
-					disabled={busy || !gateKey}
+					disabled={busy}
 					style={{ marginTop: 8 }}
 				>
 					Scan QR with camera
 				</button>
 			) : (
-				<button
-					className="btn btn--block"
-					onClick={stopCamera}
-					style={{ marginTop: 8 }}
-				>
+				<button className="btn btn--block" onClick={stopCamera} style={{ marginTop: 8 }}>
 					Stop camera
 				</button>
 			)}
@@ -137,7 +158,14 @@ const GatePage = () => {
 				<p style={{ color: '#c4291b', fontSize: 13, marginTop: 8 }}>{camError}</p>
 			)}
 
-			<div style={{ marginTop: 16, color: '#6f6244', fontSize: 12, fontFamily: 'var(--f-mono)' }}>
+			<div
+				style={{
+					marginTop: 16,
+					color: '#6f6244',
+					fontSize: 12,
+					fontFamily: 'var(--f-mono)',
+				}}
+			>
 				— or paste the code —
 			</div>
 			<input
@@ -149,7 +177,7 @@ const GatePage = () => {
 			<button
 				className="btn btn--red btn--block"
 				onClick={() => redeem(manualCode)}
-				disabled={busy || !manualCode || !gateKey}
+				disabled={busy || !manualCode}
 			>
 				{busy ? 'Checking…' : 'Admit'}
 			</button>

@@ -41,14 +41,16 @@ const AdmissionPass = ({ orderId }) => {
 			<>
 				<div className="pass__qr">
 					<QRCodeSVG
-						value={pass.code}
+						value={`${
+							typeof window !== 'undefined' ? window.location.origin : ''
+						}/gate?code=${encodeURIComponent(pass.code)}`}
 						size={172}
 						bgColor="#f3ecd8"
 						fgColor="#211b16"
 						level="M"
 					/>
 				</div>
-				<div className="pass__hint">Show this at the gate. Single use.</div>
+				<div className="pass__hint">Scan at the gate. Single use.</div>
 				<button
 					type="button"
 					className="btn pass__copy"
