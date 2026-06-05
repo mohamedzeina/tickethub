@@ -10,6 +10,11 @@
  *   BASE_URL     API base.        Default https://tickethub.com
  *   MAILPIT_URL  Mailpit web/API. Default http://localhost:8025
  *   HOST_HEADER  Override Host header (when BASE_URL is an IP).
+ *   RATELIMIT_BYPASS_TOKEN  Sent as the x-ratelimit-bypass header on every
+ *                request so repeated runs don't exhaust the auth per-IP limits.
+ *                Auth honours it only when the same token is set in its (dev-only)
+ *                env, so it's inert in prod. Default 'e2e-bypass'. The abuse suite
+ *                opts out (noBypass) so it still exercises the real limiter.
  *
  * Mail-dependent suites need:  kubectl port-forward svc/mailpit-srv 8025:8025
  */
@@ -19,6 +24,8 @@ const crypto = require('crypto');
 const BASE_URL = (process.env.BASE_URL || 'https://tickethub.com').replace(/\/$/, '');
 const MAILPIT_URL = (process.env.MAILPIT_URL || 'http://localhost:8025').replace(/\/$/, '');
 const HOST_HEADER = process.env.HOST_HEADER;
+// Default matches the token set in infra/k8s/auth-depl.yaml (dev cluster only).
+const RATELIMIT_BYPASS_TOKEN = process.env.RATELIMIT_BYPASS_TOKEN || 'e2e-bypass';
 
 // The local dev ingress serves a self-signed cert; relax TLS for it only.
 let targetHost = '';
@@ -51,8 +58,12 @@ function sessionCookie(setCookie) {
 
 // Returns { status, data, cookie }; never throws on a non-2xx so suites can
 // assert on 4xx. `cookie` is the refreshed session cookie if one was set.
-async function api(path, { method = 'POST', cookie, body, headers: extra } = {}) {
-	const headers = { 'Content-Type': 'application/json', ...(extra || {}) };
+// Pass `noBypass: true` to omit the rate-limit bypass header — used by the abuse
+// suite so it actually trips the limiter.
+async function api(path, { method = 'POST', cookie, body, headers: extra, noBypass } = {}) {
+	const headers = { 'Content-Type': 'application/json' };
+	if (!noBypass) headers['x-ratelimit-bypass'] = RATELIMIT_BYPASS_TOKEN;
+	Object.assign(headers, extra || {});
 	if (cookie) headers.Cookie = cookie;
 	if (HOST_HEADER) headers.Host = HOST_HEADER;
 

@@ -54,6 +54,13 @@ spec:
             # unreachable the limiter fails open, so auth still serves.
             - name: RATELIMIT_REDIS_HOST
               value: 'ratelimit-redis-srv'
+            # DEV ONLY: lets the live e2e harness skip the limiter by sending a
+            # matching x-ratelimit-bypass header, so repeated runs don't exhaust
+            # the per-IP budgets. NEVER set this in prod — without it the bypass
+            # header is inert. The abuse suite omits the header and still tests
+            # the real limiter.
+            - name: RATELIMIT_BYPASS_TOKEN
+              value: 'e2e-bypass'
             - name: NATS_CLIENT_ID
               valueFrom:
                 fieldRef:

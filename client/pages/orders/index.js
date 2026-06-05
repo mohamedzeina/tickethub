@@ -7,6 +7,8 @@ const stampFor = (status) => {
 	switch (status) {
 		case 'complete':
 			return { cls: 'stamp--paid', label: 'Paid' };
+		case 'refunded':
+			return { cls: 'stamp--muted', label: 'Refunded' };
 		case 'cancelled':
 			return { cls: 'stamp--void', label: 'Void' };
 		default:
@@ -36,6 +38,9 @@ const OrderRow = ({ order }) => {
 				</div>
 				{order.status === 'complete' && order.paidAt && (
 					<div className="ord__paid">Paid {formatDateShort(order.paidAt)}</div>
+				)}
+				{order.status === 'complete' && order.refundRequestedAt && (
+					<div className="ord__refunding">Refund processing</div>
 				)}
 			</div>
 

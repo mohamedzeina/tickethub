@@ -8,16 +8,21 @@
  * suite intentionally exhausts a few keys, but each key is unique-per-run so it
  * never collides with the other suites' accounts.
  *
+ * NOTE: every request here uses `noBypass: true` so it does NOT carry the
+ * x-ratelimit-bypass header the harness adds by default — this is the one suite
+ * that must hit the real limiter rather than skip it.
+ *
  * Part of the suite (`node e2e/run-all.js`) or standalone (`node e2e/abuse.js`).
  */
 
 const h = require('./lib/harness');
 
 // Fire `n` POSTs to `path` with the same body; return the array of statuses.
+// noBypass so the limiter actually engages (the whole point of this suite).
 async function hammer(path, body, n) {
 	const statuses = [];
 	for (let i = 0; i < n; i++) {
-		const r = await h.api(path, { body });
+		const r = await h.api(path, { body, noBypass: true });
 		statuses.push(r.status);
 	}
 	return statuses;
@@ -44,6 +49,7 @@ async function run(t) {
 	t.suite('SUITE 2 — the throttle is per-key (a different email still works)');
 	const other = await h.api('/api/users/signin', {
 		body: { email: `other+${stamp}@e2e.test`, password: 'definitely-wrong' },
+		noBypass: true,
 	});
 	t.is('a different email is unaffected by the exhausted key (→ 400)', other.status, 400);
 
@@ -76,7 +82,7 @@ async function run(t) {
 	t.is('signup returns 201', u.status, 201);
 	const rvStatuses = [];
 	for (let i = 0; i < 5; i++) {
-		const r = await h.api('/api/users/resend-verification', { cookie: u.cookie });
+		const r = await h.api('/api/users/resend-verification', { cookie: u.cookie, noBypass: true });
 		rvStatuses.push(r.status);
 	}
 	const rvFirst3Ok = rvStatuses.slice(0, 3).every((s) => s === 200);

@@ -116,11 +116,11 @@ async function run(t) {
 	const second = await paidOrderWithPass('admrev');
 	const revokedCode = second.passRes.data.code; // capture while still issued
 
-	const cancel = await h.api(`/api/orders/${second.order.data.id}`, {
-		method: 'DELETE',
+	const refund = await h.api(`/api/orders/${second.order.data.id}/refund`, {
+		method: 'POST',
 		cookie: second.buyer.cookie,
 	});
-	t.is('buyer cancels the paid order → 204', cancel.status, 204);
+	t.is('buyer requests a refund on the paid order → 200', refund.status, 200);
 
 	const revoked = await h.retry(
 		() =>

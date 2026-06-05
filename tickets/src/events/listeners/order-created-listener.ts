@@ -43,6 +43,15 @@ export class OrderCreatedListner extends Listener<OrderCreatedEvent> {
 					price: ticket.price,
 					userId: ticket.userId,
 					orderId: ticket.orderId,
+					// Carry the full descriptive fields too: the orders replica
+					// overwrites its copy from this payload, so omitting these wipes
+					// eventDate/venue/etc. on reserve — which silently disabled the
+					// refund window's event-cutoff (it needs eventDate).
+					eventDate: ticket.eventDate?.toISOString(),
+					venue: ticket.venue,
+					description: ticket.description,
+					category: ticket.category,
+					imageUrl: ticket.imageUrl,
 				});
 			},
 		);

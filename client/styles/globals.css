@@ -1375,6 +1375,7 @@
 .ord__meta { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--ink-soft); margin-top: 7px; }
 .ord__price { font-family: var(--f-mono); font-size: 13px; color: var(--red-press); margin-top: 4px; }
 .ord__paid { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--ink-soft); margin-top: 6px; }
+.ord__refunding { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em; color: var(--amber); margin-top: 6px; }
 .ord__right { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 
 /* C5 — paid-order receipt (order detail page) */
@@ -1950,6 +1951,15 @@
 .pass__state--used { color: #2e7d4f; }
 .pass__state--void { color: #c4291b; }
 .pass__copy { margin-top: 10px; font-size: 12px; padding: 6px 14px; }
+
+/* ===== Buyer refund control (#6 tail) — on the paid receipt ===== */
+.refund { margin-top: 18px; padding-top: 16px; border-top: 1px dashed #c9bfa6; text-align: center; }
+.refund__head { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 10px; }
+.refund__note { font-size: 13px; line-height: 1.5; color: var(--ink-soft); margin: 0 0 14px; }
+.refund__actions { display: flex; gap: 10px; }
+.refund__actions .btn { flex: 1; }
+.refund__deadline { margin-top: 10px; font-size: 11px; font-family: var(--f-mono); letter-spacing: 0.04em; color: var(--ink-soft); }
+.refund--processing .refund__head { color: var(--amber); }
 
 /* ===== Gate operator scanner (/gate) — admission #delivery ===== */
 .gatescan { padding: 26px 0 64px; }

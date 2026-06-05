@@ -43,6 +43,14 @@ export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 					price: ticket.price,
 					userId: ticket.userId,
 					orderId: ticket.orderId,
+					// Carry the full descriptive fields too (see order-created-listener):
+					// the orders replica overwrites its copy from this payload, so
+					// omitting these wipes eventDate/venue/etc. on relist.
+					eventDate: ticket.eventDate?.toISOString(),
+					venue: ticket.venue,
+					description: ticket.description,
+					category: ticket.category,
+					imageUrl: ticket.imageUrl,
 				});
 			},
 		);
