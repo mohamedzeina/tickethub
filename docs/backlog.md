@@ -214,8 +214,12 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
 ### 11. Seller payouts (Stripe Connect)
 - **Value:** Money currently goes to the platform, never the seller — not a real
   resale flow.
-- **Scope:** Stripe Connect onboarding in **auth/payments**; split charge /
-  transfer on `payment:created`; payout dashboard.
+- **Scope:** Connect **Express** onboarding in auth (Stripe-hosted KYC); **separate
+  charge + delayed transfer** released by payments once an order passes its refund
+  window (`refundableUntil`) — so refunds need no clawback; earnings held until a
+  seller connects; platform fee. New subjects `account:payouts-enabled`,
+  `order:payout-due`. Phased: onboarding-only → payout release → polish.
+- **Design:** see [`docs/11-seller-payouts.md`](./11-seller-payouts.md).
 - **Effort:** L
 
 ---
