@@ -14,8 +14,14 @@ profiles:
         - ./infra/k8s/*
         - ./infra/hpa/*
 build:
+  # Static :latest tags (instead of the default git-sha) so Docker Hub stays
+  # clean: toxiczeina/<svc>:latest. k8s treats :latest as imagePullPolicy=Always,
+  # so pods re-pull the freshest image on (re)deploy.
+  tagPolicy:
+    customTemplate:
+      template: latest
   local:
-    push: false
+    push: true
   artifacts:
     - image: toxiczeina/auth
       context: auth
