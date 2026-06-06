@@ -1,7 +1,12 @@
 import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
-import { requireAuth, validateRequest } from '@zeina-tickethub/common';
+import {
+	requireAuth,
+	validateRequest,
+	BadRequestError,
+} from '@zeina-tickethub/common';
 import { Wishlist } from '../models/wishlist';
+import { TicketRef } from '../models/ticket-ref';
 
 const router = express.Router();
 
@@ -18,6 +23,16 @@ router.post(
 		const { ticketId } = req.body;
 		const userId = req.currentUser!.id;
 		const userEmail = req.currentUser!.email;
+
+		// You can't wishlist your own listing — it's meaningless (you set its
+		// price) and would only alert you about your own changes. The UI hides the
+		// heart on owned listings; this enforces it for direct API calls. Resolved
+		// from the ticket replica's seller; if the replica hasn't arrived we can't
+		// tell, so we allow it (the UI still prevents it).
+		const ref = await TicketRef.findById(ticketId);
+		if (ref && ref.sellerId === userId) {
+			throw new BadRequestError('You cannot wishlist your own listing.');
+		}
 
 		// Idempotent upsert: saving again is a no-op but refreshes the captured
 		// email (so a price-drop alert reaches the user's current address).

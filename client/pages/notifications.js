@@ -27,6 +27,11 @@ const tagFor = (type) => {
 			return { cls: 'ntag--paid', label: 'Payout' };
 		case 'payout_held':
 			return { cls: 'ntag--warn', label: 'Held' };
+		// Wishlist alerts (#16)
+		case 'price_drop':
+			return { cls: 'ntag--warn', label: 'Price ↓' };
+		case 'wishlist_available':
+			return { cls: 'ntag--paid', label: 'On sale' };
 		default:
 			return { cls: 'ntag--hold', label: 'Hold' };
 	}

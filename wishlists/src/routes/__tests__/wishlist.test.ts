@@ -46,6 +46,28 @@ describe('POST /api/wishlists', () => {
 		expect(rows.length).toBe(1);
 	});
 
+	it('rejects wishlisting your own listing → 400', async () => {
+		const userId = id();
+		const ticketId = await seedTicket({ sellerId: userId });
+		await request(app)
+			.post('/api/wishlists')
+			.set('Cookie', global.signin(userId))
+			.send({ ticketId })
+			.expect(400);
+		expect(await Wishlist.countDocuments({ userId, ticketId })).toBe(0);
+	});
+
+	it('allows wishlisting another seller’s listing → 201', async () => {
+		const userId = id();
+		const ticketId = await seedTicket({ sellerId: id() }); // someone else's
+		await request(app)
+			.post('/api/wishlists')
+			.set('Cookie', global.signin(userId))
+			.send({ ticketId })
+			.expect(201);
+		expect(await Wishlist.countDocuments({ userId, ticketId })).toBe(1);
+	});
+
 	it('is idempotent — saving twice keeps a single row', async () => {
 		const userId = id();
 		const ticketId = id();

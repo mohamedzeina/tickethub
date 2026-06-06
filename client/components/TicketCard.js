@@ -17,6 +17,9 @@ const TicketCard = ({ ticket, rating, sellerName, saved, onToggle, currentUser }
 	const when = [date, ticket.venue].filter(Boolean).join(' · ');
 	const rated = rating && rating.count > 0;
 	const name = sellerName || sellerHandle(ticket.userId);
+	// You can't wishlist your own listing — hide the heart on it (the detail page
+	// already does this). Manage your own tickets from My Listings instead.
+	const isOwn = currentUser && ticket.userId && currentUser.id === ticket.userId;
 
 	// The whole card is already a <Link> to the ticket, so the seller can't be a
 	// nested <a>. Navigate programmatically and stop the click from also opening
@@ -37,7 +40,7 @@ const TicketCard = ({ ticket, rating, sellerName, saved, onToggle, currentUser }
 			className="tk stocked bordered"
 		>
 			<div className="tk__main">
-				{onToggle && (
+				{onToggle && !isOwn && (
 					<div className="tk__save">
 						<SaveButton
 							ticketId={ticket.id}
