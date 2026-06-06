@@ -154,18 +154,6 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 
 					{ticket.userId && <SellerBadge sellerId={ticket.userId} initial={seller} />}
 
-					{!isOwner && (
-						<div className="detail__save">
-							<SaveButton
-								ticketId={ticket.id}
-								saved={isSaved(ticket.id)}
-								onToggle={toggle}
-								currentUser={currentUser}
-								withLabel
-							/>
-						</div>
-					)}
-
 					<div className="qrline">
 						<div className="qr" aria-hidden="true" />
 						<small>
@@ -231,6 +219,16 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 								{succeeded.current ? 'Admitted · reserving…' : 'Reserving…'}
 							</div>
 						</div>
+					)}
+
+					{!isOwner && (
+						<SaveButton
+							ticketId={ticket.id}
+							saved={isSaved(ticket.id)}
+							onToggle={toggle}
+							currentUser={currentUser}
+							withLabel
+						/>
 					)}
 
 					<div className="barcode barcode--sm" aria-hidden="true" />

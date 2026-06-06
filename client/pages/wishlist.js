@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import Link from 'next/link';
+import axios from 'axios';
 import TicketCard from '../components/TicketCard';
 import useSellerRatings from '../hooks/useSellerRatings';
 import useDisplayNames from '../hooks/useDisplayNames';
-import useWishlist from '../hooks/useWishlist';
 
 // #16 — the current user's saved listings. Reuses <TicketCard> (so seller name +
-// rating show, just like the browse grid). The heart here is "saved": clicking
-// it removes the listing and drops the card. Entries whose ticket replica hasn't
-// arrived are skipped.
+// rating show, just like the browse grid). Every card here is saved, and the
+// only action is remove — so we DELETE explicitly rather than going through the
+// generic useWishlist toggle (whose add-vs-remove inference could otherwise
+// re-save the item if its id-set hadn't loaded). Entries whose ticket replica
+// hasn't arrived are skipped.
 const Wishlist = ({ saved, currentUser }) => {
 	const [items, setItems] = useState(
 		(saved || []).filter((s) => s.ticket),
@@ -17,11 +19,16 @@ const Wishlist = ({ saved, currentUser }) => {
 	const sellerIds = items.map((s) => s.ticket.userId);
 	const ratings = useSellerRatings(sellerIds);
 	const names = useDisplayNames(sellerIds);
-	const { toggle } = useWishlist(currentUser);
 
 	const remove = async (ticketId) => {
-		await toggle(ticketId);
+		// Optimistically drop the card; revert if the delete fails.
+		const prevItems = items;
 		setItems((prev) => prev.filter((s) => s.ticketId !== ticketId));
+		try {
+			await axios.delete(`/api/wishlists/${ticketId}`);
+		} catch (err) {
+			setItems(prevItems);
+		}
 	};
 
 	if (!currentUser) {

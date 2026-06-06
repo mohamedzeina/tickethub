@@ -14,6 +14,9 @@ const SaveButton = ({
 	returnTo,
 	size = 18,
 	withLabel = false,
+	// `plain` drops the circular bubble/shadow — for placing the heart inline on
+	// a solid surface (e.g. the detail counterfoil) rather than over an image.
+	plain = false,
 }) => {
 	const router = useRouter();
 
@@ -27,10 +30,19 @@ const SaveButton = ({
 		onToggle(ticketId);
 	};
 
+	const cls = [
+		'savebtn',
+		saved ? 'is-saved' : '',
+		withLabel ? 'savebtn--label' : '',
+		plain ? 'savebtn--plain' : '',
+	]
+		.filter(Boolean)
+		.join(' ');
+
 	return (
 		<button
 			type="button"
-			className={`savebtn${saved ? ' is-saved' : ''}${withLabel ? ' savebtn--label' : ''}`}
+			className={cls}
 			onClick={onClick}
 			aria-pressed={saved}
 			aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}

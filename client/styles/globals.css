@@ -1036,14 +1036,32 @@
 .savebtn:hover { color: var(--red); }
 .savebtn:active { transform: scale(0.92); }
 .savebtn.is-saved { color: var(--red); }
+/* Plain (no bubble) — inline on a solid surface, e.g. the detail counterfoil. */
+.savebtn--plain { background: transparent; box-shadow: none; padding: 4px; }
+.savebtn--plain:active { transform: scale(0.9); }
+
+/* Labeled secondary control — sits BELOW the buy CTA on the detail page. Clearly
+   visible (full-width, labeled, 44px tall) but quiet vs. the red dashed CTA:
+   hairline border + ink text, turning red on hover / when saved. */
 .savebtn--label {
-	padding: 10px 16px; width: 100%; justify-content: center;
-	background: transparent; box-shadow: none; border: 1px solid var(--line, #c9bfa6);
-	font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink);
+	width: 100%;
+	min-height: 44px;
+	margin-top: 12px;
+	padding: 11px 16px;
+	justify-content: center;
+	gap: 9px;
+	background: transparent;
+	box-shadow: none;
+	border: 1px solid var(--line, #c9bfa6);
+	border-radius: 8px;
+	color: var(--ink);
+	font-family: var(--f-mono);
+	font-size: 12px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }
 .savebtn--label:hover { border-color: var(--red); color: var(--red); }
-.savebtn--label.is-saved { border-color: var(--red); color: var(--red); }
-.detail__save { margin-top: 14px; }
+.savebtn--label.is-saved { border-color: var(--red); color: var(--red); background: rgba(192, 57, 43, 0.06); }
 .tk__data { margin-top: 15px; }
 .tk__foot { margin-top: 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .tk__price { font-family: var(--f-display); font-size: 30px; color: var(--ink); line-height: 0.9; }
