@@ -23,11 +23,18 @@ prefix() {
 pids=()
 
 cleanup() {
+	trap '' INT TERM   # ignore further signals while we tear down
 	echo
 	echo "Shutting down dev stack…"
+	# Kill every child this script started. For a pipeline (cmd | prefix), $!
+	# only tracks the tail, so signal all direct children, then their kids.
 	for pid in "${pids[@]}"; do
+		pkill -P "$pid" 2>/dev/null || true
 		kill "$pid" 2>/dev/null || true
 	done
+	pkill -P $$ 2>/dev/null || true
+	# The retry loop respawns kubectl as a grandchild — make sure it's gone.
+	pkill -f "kubectl port-forward svc/mailpit-srv ${MAILPIT_PORT}:${MAILPIT_PORT}" 2>/dev/null || true
 	wait 2>/dev/null || true
 	exit 0
 }
@@ -48,10 +55,21 @@ skaffold dev 2>&1 | prefix "skaffold" "36" &
 pids+=("$!")
 
 # 2) mailpit port-forward — retry so it reconnects if the pod restarts.
+# kubectl's stderr is very noisy while the cluster is unreachable, so we drop it
+# and print one concise status line per retry instead.
 (
+	announced=0
 	while true; do
-		kubectl port-forward "svc/mailpit-srv" "${MAILPIT_PORT}:${MAILPIT_PORT}" 2>&1
-		echo "port-forward dropped, retrying in 2s…"
+		started=$SECONDS
+		kubectl port-forward "svc/mailpit-srv" "${MAILPIT_PORT}:${MAILPIT_PORT}" 2>/dev/null
+		# If it ran for a while it was a real connection that dropped — report it.
+		if [ $((SECONDS - started)) -ge 3 ]; then
+			announced=0
+		fi
+		if [ "$announced" -eq 0 ]; then
+			echo "waiting for cluster / mailpit-srv… (retrying every 2s)"
+			announced=1
+		fi
 		sleep 2
 	done
 ) | prefix "mailpit" "35" &
