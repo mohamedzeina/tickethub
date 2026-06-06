@@ -20,6 +20,7 @@ import { showOrderRouter } from './routes/show';
 import { cancelOrderRouter } from './routes/cancel';
 import { refundOrderRouter } from './routes/refund';
 import { payoutNowRouter } from './routes/payout-now';
+import { sellerEarningsRouter } from './routes/earnings';
 import { natsWrapper } from './nats-wrapper';
 
 const app = express();
@@ -46,6 +47,8 @@ app.use(currentUser);
 
 app.use(newOrderRouter);
 app.use(indexOrderRouter);
+// before showOrderRouter — '/api/orders/earnings' must not match '/:orderId'
+app.use(sellerEarningsRouter);
 app.use(showOrderRouter);
 app.use(cancelOrderRouter);
 app.use(refundOrderRouter);

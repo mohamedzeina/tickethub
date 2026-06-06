@@ -60,7 +60,7 @@ async function buyAndSettle(t, buyer, ticketId, label) {
 }
 
 async function run(t) {
-	t.suite('SUITE 1 — sale → payout held (unconnected seller), fee math, earnings');
+	t.suite('SUITE 1 — sale → clearing → payout held (unconnected seller), fee math, earnings');
 
 	const seller = await h.signupVerified('payout-seller');
 	const buyer = await h.signupVerified('payout-buyer');
@@ -77,9 +77,28 @@ async function run(t) {
 	const orderId = await buyAndSettle(t, buyer, ticketId, 'sale');
 	if (!orderId) return;
 
+	// Before the refund window closes, the sale shows as CLEARING (sold, paid,
+	// but not yet swept into a payout) in the seller's pending earnings.
+	const clearingView = await h.retry(
+		() => h.api('/api/orders/earnings', { method: 'GET', cookie: seller.cookie }),
+		{ tries: 30, delay: 500, until: (r) => (r.data?.sales || []).some((s) => s.orderId === orderId) },
+	);
+	const sale = (clearingView.data?.sales || []).find((s) => s.orderId === orderId);
+	t.check('sale appears as clearing before the window closes', !!sale);
+	t.is('clearing net = sale − 10% fee', sale?.net, net(price));
+	t.is('clearing total reflects the pending sale', clearingView.data?.totals?.clearing, net(price));
+
 	// Force the payout now (bypass the refund-window wait — dev trigger).
 	const force = await h.api(`/api/orders/${orderId}/payout-now`, { cookie: buyer.cookie });
 	t.is('force payout-now → 200', force.status, 200);
+
+	// Once swept, the sale leaves Clearing (it becomes Held/Paid on the payments side).
+	const afterSweep = await h.retry(
+		() => h.api('/api/orders/earnings', { method: 'GET', cookie: seller.cookie }),
+		{ tries: 30, delay: 500, until: (r) => (r.data?.sales || []).every((s) => s.orderId !== orderId) },
+	);
+	t.check('once swept, the sale leaves clearing', (afterSweep.data?.sales || []).every((s) => s.orderId !== orderId));
+	t.is('clearing total back to 0', afterSweep.data?.totals?.clearing, 0);
 
 	// Seller hasn't connected → the payout is HELD (pending), reflected in earnings.
 	const heldView = await h.retry(

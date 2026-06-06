@@ -19,6 +19,9 @@ const Account = ({ currentUser }) => {
 	const [connecting, setConnecting] = useState(false);
 	// Seller earnings (their sales): { totals: { paid, pending }, payouts: [...] }.
 	const [earnings, setEarnings] = useState(null);
+	// Pending earnings — sold but still inside the refund window, so payments
+	// hasn't swept them into a payout yet: { totals: { clearing }, sales: [...] }.
+	const [clearing, setClearing] = useState(null);
 
 	// Which detachable section is showing. Returning from Stripe onboarding lands
 	// on /account?payouts=… so we open the Payouts tab automatically.
@@ -63,6 +66,16 @@ const Account = ({ currentUser }) => {
 		axios
 			.get('/api/payments/payouts')
 			.then(({ data }) => setEarnings(data))
+			.catch(() => {});
+	}, [currentUser, router.query.payouts]);
+
+	// Pending (clearing) earnings — sold-but-still-refundable sales, owned by
+	// orders (payments only learns of a sale once it's swept past the window).
+	useEffect(() => {
+		if (!currentUser) return;
+		axios
+			.get('/api/orders/earnings')
+			.then(({ data }) => setClearing(data))
 			.catch(() => {});
 	}, [currentUser, router.query.payouts]);
 
@@ -122,6 +135,35 @@ const Account = ({ currentUser }) => {
 				? 'pending'
 				: 'action';
 
+	// Short label for the stub's PAYOUTS detail row.
+	const payoutField = {
+		loading: '···',
+		active: 'Active',
+		pending: 'Pending',
+		action: 'Off',
+	}[payoutState];
+
+	// Short "clears Jun 7" date for a pending sale.
+	const fmtClears = (iso) => {
+		if (!iso) return '';
+		try {
+			return new Intl.DateTimeFormat('en-IE', {
+				month: 'short',
+				day: 'numeric',
+			}).format(new Date(iso));
+		} catch {
+			return '';
+		}
+	};
+
+	// Merge the seller's earnings into one Clearing → Held → Paid view.
+	const clearingSales = clearing?.sales || [];
+	const payoutItems = earnings?.payouts || [];
+	const showEarnings = clearingSales.length > 0 || payoutItems.length > 0;
+	const clearingTotal = clearing?.totals.clearing || 0;
+	const heldTotal = earnings?.totals.pending || 0;
+	const paidTotal = earnings?.totals.paid || 0;
+
 	return (
 		<div className="container container--mid">
 			<div className="acct stocked bordered">
@@ -134,20 +176,42 @@ const Account = ({ currentUser }) => {
 						<div className="acct__valid">✦ Member</div>
 					</div>
 
-					<div className="acct__holder">
-						<div className="acct__holder-lab">Account holder</div>
-						<div className="acct__holder-name">
-							{loaded ? (
-								name || 'Member'
-							) : (
-								<span
-									className="sk sk--light"
-									style={{ display: 'block', height: 30, width: '72%', borderRadius: 4 }}
-									aria-hidden="true"
-								/>
-							)}
+					<div className="acct__stub-body">
+						<div className="acct__holder">
+							<div className="acct__holder-lab">Account holder</div>
+							<div className="acct__holder-name">
+								{loaded ? (
+									name || 'Member'
+								) : (
+									<span
+										className="sk sk--light"
+										style={{ display: 'block', height: 30, width: '72%', borderRadius: 4 }}
+										aria-hidden="true"
+									/>
+								)}
+							</div>
+							<div className="acct__holder-email">{currentUser.email}</div>
 						</div>
-						<div className="acct__holder-email">{currentUser.email}</div>
+
+						<div className="acct__rule" aria-hidden="true">
+							<span>✦</span>
+						</div>
+
+						{/* counterfoil detail rows — real account facts in ticket-stub type */}
+						<dl className="acct__fields">
+							<div className="acct__field">
+								<dt>Admits</dt>
+								<dd>One</dd>
+							</div>
+							<div className="acct__field">
+								<dt>Status</dt>
+								<dd>{currentUser.emailVerified ? 'Verified ✓' : 'Unverified'}</dd>
+							</div>
+							<div className="acct__field">
+								<dt>Payouts</dt>
+								<dd>{payoutField}</dd>
+							</div>
+						</dl>
 					</div>
 
 					<div className="acct__stub-foot">
@@ -321,26 +385,49 @@ const Account = ({ currentUser }) => {
 								</div>
 							)}
 
-							{/* Earnings — the seller's own sales. Only shown once they have
-							    any (a pure buyer never sees it). */}
-							{earnings && earnings.payouts.length > 0 && (
+							{/* Earnings — the seller's own sales, across their lifecycle:
+							    Clearing (in refund window) → Held (window passed, not
+							    connected) → Paid. Hidden for a pure buyer (no sales). */}
+							{showEarnings && (
 								<div className="acct__earnings">
 									<div className="acct__earnings-tot">
-										<div>
-											<span className="acct__earnings-lab">Paid out</span>
-											<span className="acct__earnings-val">
-												€{earnings.totals.paid.toFixed(2)}
-											</span>
-										</div>
+										{clearingTotal > 0 && (
+											<div>
+												<span className="acct__earnings-lab">Clearing</span>
+												<span className="acct__earnings-val acct__earnings-val--clearing">
+													€{clearingTotal.toFixed(2)}
+												</span>
+											</div>
+										)}
 										<div>
 											<span className="acct__earnings-lab">Held</span>
 											<span className="acct__earnings-val acct__earnings-val--held">
-												€{earnings.totals.pending.toFixed(2)}
+												€{heldTotal.toFixed(2)}
+											</span>
+										</div>
+										<div>
+											<span className="acct__earnings-lab">Paid out</span>
+											<span className="acct__earnings-val">
+												€{paidTotal.toFixed(2)}
 											</span>
 										</div>
 									</div>
 									<ul className="acct__earnings-list">
-										{earnings.payouts.slice(0, 6).map((p) => (
+										{clearingSales.slice(0, 6).map((s) => (
+											<li key={s.orderId}>
+												<span className="acct__earnings-net">
+													€{s.net.toFixed(2)}
+												</span>
+												<span className="acct__earnings-meta">
+													on a €{s.amount.toFixed(2)} sale
+													{s.clearsAt ? ` · clears ${fmtClears(s.clearsAt)}` : ''}
+												</span>
+												<span className="acct__earnings-pill acct__earnings-pill--clearing">
+													Clearing
+												</span>
+											</li>
+										))}
+										{payoutItems.slice(0, 6).map((p) => (
 											<li key={p.id}>
 												<span className="acct__earnings-net">
 													€{p.net.toFixed(2)}
