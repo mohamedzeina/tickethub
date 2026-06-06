@@ -277,7 +277,7 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   facets & suggestions. (Supersedes the basic part of #2.)
 - **Effort:** L
 
-### 16. Wishlists & price-drop / availability alerts — ✅ Done (price-drop, 2026-06-06)
+### 16. Wishlists & price-drop / availability alerts — ✅ Done (2026-06-06)
 - **Status:** Shipped. New `wishlists` service: `POST/DELETE /api/wishlists`,
   `GET /api/wishlists` (+`/ids`), a ticket replica fed by `ticket:created/updated`
   that **detects a price drop** (version-guarded) and emits
@@ -286,8 +286,11 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   `/wishlist` page, and a UserMenu link. The **"new review" seller notification**
   (`review:created`) shipped in the same `common` bump. Covered by unit tests +
   live `e2e/wishlists.js` (11 checks).
-- **Deferred:** availability/relist alerts (unlisted→listed) — the replica already
-  tracks `unlisted`, so it's a cheap fast-follow.
+- **Availability alerts (added 2026-06-06):** the wishlists `ticket:updated`
+  listener tracks `available = !unlisted && !orderId` and emits `wishlist:available`
+  per watcher on an unavailable→available transition (relist or a freed hold) →
+  notifications sends an in-app + "Back on sale" alert. Covered by unit tests + the
+  relist path in `e2e/wishlists.js`.
 - **Effort:** M
 
 ### 17. Payment provider abstraction + modern Stripe (PaymentIntents) — ✅ PaymentIntents done (C1–C3)
