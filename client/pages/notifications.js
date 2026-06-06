@@ -48,6 +48,10 @@ const ctaFor = (n) => {
 		// empty and the account page won't switch to the Payouts tab.
 		return { href: '/account?payouts=1', as: '/account?payouts=1', label: 'View payouts' };
 	}
+	// Wishlist price-drop (#16) points at the listing.
+	if (n.ticketId) {
+		return { href: '/tickets/[ticketId]', as: `/tickets/${n.ticketId}`, label: 'View listing' };
+	}
 	if (n.orderId) {
 		return { href: '/orders/[orderId]', as: `/orders/${n.orderId}`, label: 'View order' };
 	}

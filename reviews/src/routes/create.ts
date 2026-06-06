@@ -7,9 +7,12 @@ import {
 	NotFoundError,
 	NotAuthorizedError,
 	OrderStatus,
+	logger,
 } from '@zeina-tickethub/common';
 import { OrderRef } from '../models/order-ref';
 import { Review } from '../models/review';
+import { ReviewCreatedPublisher } from '../events/publishers/review-created-publisher';
+import { natsWrapper } from '../nats-wrapper';
 
 const router = express.Router();
 
@@ -60,6 +63,21 @@ router.post(
 			comment: comment?.trim() || undefined,
 		});
 		await review.save();
+
+		// Tell notifications so the seller hears about it (#9, previously parked).
+		// Best-effort: the review is already saved, so a publish hiccup must not
+		// fail the request — the seller just misses this one alert.
+		try {
+			await new ReviewCreatedPublisher(natsWrapper.js).publish({
+				reviewId: review.id,
+				sellerId: review.sellerId,
+				buyerId: review.buyerId,
+				ticketTitle: review.ticketTitle,
+				rating: review.rating,
+			});
+		} catch (err) {
+			logger.error({ err, reviewId: review.id }, 'failed to publish review:created');
+		}
 
 		res.status(201).send(review);
 	},

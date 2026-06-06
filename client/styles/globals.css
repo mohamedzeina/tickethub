@@ -997,7 +997,7 @@
 }
 .tk:hover { transform: translateY(-5px) rotate(-0.3deg); box-shadow: 0 34px 60px -20px rgba(0, 0, 0, 0.75); }
 .tk:hover .tk__cat { background: var(--red); color: var(--stock); }
-.tk__main { padding: 20px 22px; min-width: 0; }
+.tk__main { padding: 20px 22px; min-width: 0; position: relative; }
 .tk__photo {
 	height: 144px;
 	margin: -20px -22px 16px -22px;
@@ -1024,6 +1024,26 @@
 .tk__rate { display: inline-flex; align-items: center; gap: 6px; }
 .tk__rate b { font-family: var(--f-display); font-size: 13px; color: var(--ink); }
 .tk__rate-n { font-family: var(--f-mono); font-size: 10px; color: var(--ink-soft); }
+
+/* Wishlist heart (#16) */
+.tk__save { position: absolute; top: 12px; right: 12px; z-index: 2; }
+.savebtn {
+	display: inline-flex; align-items: center; gap: 8px;
+	border: none; background: rgba(243, 236, 216, 0.92); color: var(--ink-soft);
+	border-radius: 999px; padding: 7px; cursor: pointer; line-height: 0;
+	box-shadow: 0 1px 4px rgba(33, 27, 22, 0.18); transition: color 0.15s, transform 0.1s;
+}
+.savebtn:hover { color: var(--red); }
+.savebtn:active { transform: scale(0.92); }
+.savebtn.is-saved { color: var(--red); }
+.savebtn--label {
+	padding: 10px 16px; width: 100%; justify-content: center;
+	background: transparent; box-shadow: none; border: 1px solid var(--line, #c9bfa6);
+	font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink);
+}
+.savebtn--label:hover { border-color: var(--red); color: var(--red); }
+.savebtn--label.is-saved { border-color: var(--red); color: var(--red); }
+.detail__save { margin-top: 14px; }
 .tk__data { margin-top: 15px; }
 .tk__foot { margin-top: 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .tk__price { font-family: var(--f-display); font-size: 30px; color: var(--ink); line-height: 0.9; }

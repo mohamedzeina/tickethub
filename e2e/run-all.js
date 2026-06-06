@@ -30,6 +30,7 @@ const SUITES = [
 	'reviews',
 	'per-card-ratings',
 	'display-names',
+	'wishlists',
 	'flows',
 ];
 

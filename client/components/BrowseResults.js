@@ -5,6 +5,7 @@ import FilterBar from './FilterBar';
 import TicketCard from './TicketCard';
 import useSellerRatings from '../hooks/useSellerRatings';
 import useDisplayNames from '../hooks/useDisplayNames';
+import useWishlist from '../hooks/useWishlist';
 import { ArrowLeft, ArrowRight } from './icons';
 
 // The shared browse experience used by both the landing page and /search:
@@ -20,6 +21,8 @@ const BrowseResults = ({ basePath, title, currentUser, tickets, meta, filters })
 	const sellerIds = tickets.map((t) => t.userId);
 	const ratings = useSellerRatings(sellerIds);
 	const names = useDisplayNames(sellerIds);
+	// Wishlist heart state for the grid (#16).
+	const { isSaved, toggle } = useWishlist(currentUser);
 
 	// Merge updates into the URL, drop empties, and reset to page 1 whenever a
 	// filter changes (so you never land on an out-of-range page). scroll:false
@@ -121,6 +124,9 @@ const BrowseResults = ({ basePath, title, currentUser, tickets, meta, filters })
 									ticket={ticket}
 									rating={ratings[ticket.userId]}
 									sellerName={names[ticket.userId]}
+									saved={isSaved(ticket.id)}
+									onToggle={toggle}
+									currentUser={currentUser}
 								/>
 						))}
 					</div>

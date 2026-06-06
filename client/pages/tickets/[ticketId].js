@@ -2,8 +2,10 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import Router from 'next/router';
 import useRequest from '../../hooks/useRequest';
+import useWishlist from '../../hooks/useWishlist';
 import { ArrowLeft, Bolt, ArrowRight, Check } from '../../components/icons';
 import SellerBadge from '../../components/SellerBadge';
+import SaveButton from '../../components/SaveButton';
 import { signInHref } from '../../utils/returnTo';
 import {
 	formatPrice,
@@ -52,6 +54,7 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 	const date = formatDateLong(ticket.eventDate);
 	const serial = serialFromId(ticket.id);
 	const isOwner = currentUser && ticket.userId && currentUser.id === ticket.userId;
+	const { isSaved, toggle } = useWishlist(currentUser);
 
 	const { doRequest, generalErrors } = useRequest({
 		url: '/api/orders',
@@ -150,6 +153,18 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 					</div>
 
 					{ticket.userId && <SellerBadge sellerId={ticket.userId} initial={seller} />}
+
+					{!isOwner && (
+						<div className="detail__save">
+							<SaveButton
+								ticketId={ticket.id}
+								saved={isSaved(ticket.id)}
+								onToggle={toggle}
+								currentUser={currentUser}
+								withLabel
+							/>
+						</div>
+					)}
 
 					<div className="qrline">
 						<div className="qr" aria-hidden="true" />

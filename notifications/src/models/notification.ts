@@ -16,6 +16,10 @@ export enum NotificationType {
 	PayoutHeld = 'payout_held',
 	// Buyer: admission pass scanned at the gate
 	PassScanned = 'pass_scanned',
+	// Wishlists (#16): a saved listing dropped in price.
+	PriceDrop = 'price_drop',
+	// Seller: a buyer left them a review (#9 — previously parked).
+	ReviewReceived = 'review_received',
 }
 
 interface NotificationAttrs {
@@ -24,6 +28,7 @@ interface NotificationAttrs {
 	title: string;
 	body: string;
 	orderId?: string;
+	ticketId?: string;
 }
 
 interface NotificationDoc extends mongoose.Document {
@@ -32,6 +37,9 @@ interface NotificationDoc extends mongoose.Document {
 	title: string;
 	body: string;
 	orderId?: string;
+	// Link target for notifications that point at a listing (e.g. price drops)
+	// rather than an order.
+	ticketId?: string;
 	read: boolean;
 	createdAt: string;
 	updatedAt: string;
@@ -48,6 +56,7 @@ const notificationSchema = new mongoose.Schema<NotificationDoc>(
 		title: { type: String, required: true },
 		body: { type: String, required: true },
 		orderId: { type: String, required: false },
+		ticketId: { type: String, required: false },
 		read: { type: Boolean, required: true, default: false },
 	},
 	{

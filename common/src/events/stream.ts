@@ -24,6 +24,8 @@ const STREAM_SUBJECTS: string[] = [
 	Subjects.PaymentRefunded,
 	Subjects.UserVerificationRequested,
 	Subjects.PasswordResetRequested,
+	Subjects.WishlistPriceDropped,
+	Subjects.ReviewCreated,
 ];
 
 // Create the stream if it doesn't exist. Every service calls this at startup;

@@ -102,3 +102,11 @@ build:
         manual:
           - src: 'src/**/*.ts'
             dest: .
+    - image: toxiczeina/wishlists
+      context: wishlists
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: 'src/**/*.ts'
+            dest: .

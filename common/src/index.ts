@@ -6,6 +6,7 @@ export * from './emails/expiry';
 export * from './emails/verify';
 export * from './emails/reset';
 export * from './emails/refund';
+export * from './emails/price-drop';
 
 export * from './errors/bad-request-error';
 export * from './errors/custom-error';
@@ -47,3 +48,5 @@ export * from './events/payments/payment-created';
 export * from './events/payments/payment-refunded';
 export * from './events/user/verification-requested';
 export * from './events/user/password-reset-requested';
+export * from './events/wishlist/price-dropped';
+export * from './events/review/review-created';

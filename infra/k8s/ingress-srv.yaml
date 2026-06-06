@@ -60,6 +60,13 @@ spec:
                 name: admission-srv
                 port:
                   number: 3000
+          - path: /api/wishlists/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: wishlists-srv
+                port:
+                  number: 3000
           - path: /?(.*)
             pathType: ImplementationSpecific
             backend:

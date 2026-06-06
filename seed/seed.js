@@ -67,7 +67,12 @@ const MONGO_SECRET_KEYS = {
 	notifications: 'NOTIFICATIONS_MONGO_URI',
 	reviews: 'REVIEWS_MONGO_URI',
 	admission: 'ADMISSION_MONGO_URI',
+	wishlists: 'WISHLISTS_MONGO_URI',
 };
+
+// Services whose DB is reset only if their secret key is present — lets the seed
+// keep working before a newly-added service's URI is provisioned (#16).
+const OPTIONAL_SVCS = new Set(['wishlists']);
 
 // ---- helpers -------------------------------------------------------------
 
@@ -89,7 +94,7 @@ function resolveMongoUris() {
 	let haveAll = true;
 	for (const [svc, key] of Object.entries(MONGO_SECRET_KEYS)) {
 		if (process.env[key]) fromEnv[svc] = process.env[key];
-		else haveAll = false;
+		else if (!OPTIONAL_SVCS.has(svc)) haveAll = false;
 	}
 	if (haveAll) return fromEnv;
 
@@ -104,6 +109,10 @@ function resolveMongoUris() {
 		const uris = {};
 		for (const [svc, key] of Object.entries(MONGO_SECRET_KEYS)) {
 			if (!data[key]) {
+				if (OPTIONAL_SVCS.has(svc)) {
+					console.warn(`  • skipping ${svc}: mongo-secret has no "${key}" yet`);
+					continue;
+				}
 				throw new Error(`mongo-secret is missing key "${key}"`);
 			}
 			uris[svc] = Buffer.from(data[key], 'base64').toString('utf8');

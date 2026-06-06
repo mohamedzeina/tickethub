@@ -95,3 +95,11 @@ export const Star = ({ filled, ...props }) => (
 		<path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.58 1.1 6.47L12 17.94 6.2 20.98l1.1-6.47L2.6 9.45l6.5-.95L12 2.6Z" />
 	</svg>
 );
+
+// Heart for the wishlist (#16). `filled` paints it solid (saved); otherwise an
+// outline, so the same glyph covers both states.
+export const Heart = ({ filled, ...props }) => (
+	<svg {...base} fill={filled ? 'currentColor' : 'none'} {...props}>
+		<path d="M12 20.5l-1.45-1.32C5.4 14.5 2.5 11.86 2.5 8.5 2.5 6.02 4.42 4 6.9 4c1.4 0 2.74.65 3.6 1.68L12 7.5l1.5-1.82A4.74 4.74 0 0 1 17.1 4C19.58 4 21.5 6.02 21.5 8.5c0 3.36-2.9 6-8.05 10.68L12 20.5Z" />
+	</svg>
+);

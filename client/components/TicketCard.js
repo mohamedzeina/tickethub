@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { ArrowRight } from './icons';
 import Stars from './Stars';
+import SaveButton from './SaveButton';
 import { formatPrice, formatDateShort, serialFromId, sellerHandle } from '../utils/ticket';
 
 // A single listing rendered as an admission ticket: main face + counterfoil stub.
@@ -9,8 +10,8 @@ import { formatPrice, formatDateShort, serialFromId, sellerHandle } from '../uti
 // display name, both batch-resolved by the parent (#9). The seller line makes
 // clear the stars belong to the seller, not the event, and links to their
 // profile. Absent/zero-count rating → name only (a new seller shouldn't read as
-// a bad one).
-const TicketCard = ({ ticket, rating, sellerName }) => {
+// a bad one). `saved`/`onToggle`/`currentUser` drive the wishlist heart (#16).
+const TicketCard = ({ ticket, rating, sellerName, saved, onToggle, currentUser }) => {
 	const router = useRouter();
 	const date = formatDateShort(ticket.eventDate);
 	const when = [date, ticket.venue].filter(Boolean).join(' · ');
@@ -36,6 +37,17 @@ const TicketCard = ({ ticket, rating, sellerName }) => {
 			className="tk stocked bordered"
 		>
 			<div className="tk__main">
+				{onToggle && (
+					<div className="tk__save">
+						<SaveButton
+							ticketId={ticket.id}
+							saved={saved}
+							onToggle={onToggle}
+							currentUser={currentUser}
+							size={17}
+						/>
+					</div>
+				)}
 				{ticket.imageUrl && (
 					<div className="printed tk__photo">
 						<img src={ticket.imageUrl} alt={ticket.title} />

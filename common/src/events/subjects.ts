@@ -30,4 +30,11 @@ export enum Subjects {
 	// email link; auth stores only a hash of it.
 	UserVerificationRequested = 'user:verification:requested',
 	PasswordResetRequested = 'password:reset:requested',
+
+	// A watched listing's price dropped (#16 wishlists). The wishlists service
+	// emits one per watcher so notifications can alert them (in-app + email).
+	WishlistPriceDropped = 'wishlist:price-dropped',
+	// A buyer left a review (#9). reviews emits it so notifications can tell the
+	// seller. (Previously parked — batched in with #16's common bump.)
+	ReviewCreated = 'review:created',
 }

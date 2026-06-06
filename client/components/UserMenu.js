@@ -60,6 +60,9 @@ const UserMenu = ({ currentUser }) => {
 					<Link href="/account" className="usermenu__item" role="menuitem" onClick={() => setOpen(false)}>
 						Account
 					</Link>
+					<Link href="/wishlist" className="usermenu__item" role="menuitem" onClick={() => setOpen(false)}>
+						Wishlist
+					</Link>
 					<Link href="/auth/signout" className="usermenu__item usermenu__item--quiet" role="menuitem" onClick={() => setOpen(false)}>
 						Sign out
 					</Link>
