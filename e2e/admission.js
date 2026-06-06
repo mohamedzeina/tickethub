@@ -112,6 +112,30 @@ async function run(t) {
 	t.is('buyer now sees the pass as redeemed', after.data?.status, 'redeemed');
 	t.check('a redeemed pass no longer exposes a code', !after.data?.code);
 
+	// The scan fires ticket:redeemed → notifications writes the buyer a
+	// "Pass scanned" confirmation (#5).
+	const scanFeed = await h.retry(
+		() => h.api('/api/notifications', { method: 'GET', cookie: buyer.cookie }),
+		{
+			tries: 40,
+			delay: 500,
+			until: (r) =>
+				r.status === 200 &&
+				(r.data?.notifications || []).some(
+					(n) => n.orderId === order.data.id && n.type === 'pass_scanned',
+				),
+		},
+	);
+	const scanNote = (scanFeed.data?.notifications || []).find(
+		(n) => n.orderId === order.data.id && n.type === 'pass_scanned',
+	);
+	t.check('buyer is notified their pass was scanned', !!scanNote);
+	t.is('scan notification names the gate-scan', scanNote?.title, 'Pass scanned ✓');
+	t.check(
+		'scan notification names the event',
+		(scanNote?.body || '').startsWith('Your pass for "Gate Seat'),
+	);
+
 	t.suite('SUITE 5 — A refund revokes an unused pass');
 	const second = await paidOrderWithPass('admrev');
 	const revokedCode = second.passRes.data.code; // capture while still issued

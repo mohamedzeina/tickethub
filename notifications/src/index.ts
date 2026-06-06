@@ -7,6 +7,7 @@ import { OrderCreatedListener } from './events/listeners/order-created-listener'
 import { PaymentCreatedListener } from './events/listeners/payment-created-listener';
 import { PaymentRefundedListener } from './events/listeners/payment-refunded-listener';
 import { PayoutProcessedListener } from './events/listeners/payout-processed-listener';
+import { TicketRedeemedListener } from './events/listeners/ticket-redeemed-listener';
 import { ExpirationWarningListener } from './events/listeners/expiration-warning-listener';
 import { ExpirationCompleteListener } from './events/listeners/expiration-complete-listener';
 import { UserVerificationRequestedListener } from './events/listeners/user-verification-requested-listener';
@@ -47,6 +48,7 @@ const startNotificationsService = async () => {
 		await new PaymentCreatedListener(natsWrapper.connection).listen();
 		await new PaymentRefundedListener(natsWrapper.connection).listen();
 		await new PayoutProcessedListener(natsWrapper.connection).listen();
+		await new TicketRedeemedListener(natsWrapper.connection).listen();
 		await new ExpirationWarningListener(natsWrapper.connection).listen();
 		await new ExpirationCompleteListener(natsWrapper.connection).listen();
 		await new UserVerificationRequestedListener(natsWrapper.connection).listen();

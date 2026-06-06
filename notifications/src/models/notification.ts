@@ -14,6 +14,8 @@ export enum NotificationType {
 	SaleRefunded = 'sale_refunded',
 	PayoutPaid = 'payout_paid',
 	PayoutHeld = 'payout_held',
+	// Buyer: admission pass scanned at the gate
+	PassScanned = 'pass_scanned',
 }
 
 interface NotificationAttrs {
