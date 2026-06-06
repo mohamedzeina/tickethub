@@ -4,28 +4,29 @@ import buildClient from '../api/build-client';
 import Header from '../components/Header';
 import VerifyBanner from '../components/VerifyBanner';
 
-// Self-hosted + preloaded at build time. `display: optional` lets the browser
-// use the (preloaded/cached) font when it's ready within a short window and
-// otherwise keep the metric-matched fallback for that load — so a hard refresh
-// no longer flashes the fallback then swaps (FOUT). Each exposes a CSS variable
-// that globals.css maps to a role token.
+// Self-hosted + preloaded at build time. `display: swap` always applies the web
+// font once it loads — on a cache miss the browser shows a brief metric-matched
+// fallback then swaps to the real face, rather than `optional`'s behaviour of
+// getting stuck on the fallback for the whole page view (which left the heavy
+// slab display headings rendering as Georgia after a redeploy). Each exposes a
+// CSS variable that globals.css maps to a role token.
 const displayFont = Bevan({
 	weight: '400',
 	subsets: ['latin'],
 	variable: '--font-bevan',
-	display: 'optional',
+	display: 'swap',
 });
 const uiFont = Spline_Sans({
 	weight: ['400', '500', '600', '700'],
 	subsets: ['latin'],
 	variable: '--font-spline',
-	display: 'optional',
+	display: 'swap',
 });
 const monoFont = DM_Mono({
 	weight: ['400', '500'],
 	subsets: ['latin'],
 	variable: '--font-dmmono',
-	display: 'optional',
+	display: 'swap',
 });
 
 const fontVars = `fontvars ${displayFont.variable} ${uiFont.variable} ${monoFont.variable}`;
