@@ -13,6 +13,7 @@ import { ExpirationCompleteListener } from './events/listeners/expiration-comple
 import { UserVerificationRequestedListener } from './events/listeners/user-verification-requested-listener';
 import { PasswordResetRequestedListener } from './events/listeners/password-reset-requested-listener';
 import { WishlistPriceDroppedListener } from './events/listeners/wishlist-price-dropped-listener';
+import { WishlistAvailableListener } from './events/listeners/wishlist-available-listener';
 import { ReviewCreatedListener } from './events/listeners/review-created-listener';
 
 const startNotificationsService = async () => {
@@ -56,6 +57,7 @@ const startNotificationsService = async () => {
 		await new UserVerificationRequestedListener(natsWrapper.connection).listen();
 		await new PasswordResetRequestedListener(natsWrapper.connection).listen();
 		await new WishlistPriceDroppedListener(natsWrapper.connection).listen();
+		await new WishlistAvailableListener(natsWrapper.connection).listen();
 		await new ReviewCreatedListener(natsWrapper.connection).listen();
 
 		await mongoose.connect(process.env.MONGO_URI);

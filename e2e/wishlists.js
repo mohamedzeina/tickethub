@@ -92,7 +92,57 @@ async function run(t) {
 	});
 	t.check('buyer receives a price-drop email', emails >= 1);
 
-	t.suite('SUITE 2 — remove from wishlist');
+	t.suite('SUITE 2 — availability: relisting a saved listing alerts the watcher');
+
+	const listing2 = await h.createListing(seller.cookie, {
+		title: `Wishlist Relist ${Date.now()}`,
+		price: 80,
+	});
+	t.is('seller creates a second listing → 201', listing2.status, 201);
+	const ticket2 = listing2.data?.id;
+
+	const save2 = await h.api('/api/wishlists', { cookie: buyer.cookie, body: { ticketId: ticket2 } });
+	t.is('buyer saves the second listing → 201', save2.status, 201);
+
+	// Give the wishlists replica a beat to record ticket2 as available, so the
+	// later relist registers as a genuine unavailable→available transition.
+	await h.retry(
+		() => h.api('/api/wishlists', { method: 'GET', cookie: buyer.cookie }),
+		{ tries: 20, delay: 400, until: (r) => r.status === 200 && (r.data || []).some((s) => s.ticketId === ticket2 && s.ticket) },
+	);
+
+	// Unlist (hide) then relist (back on sale) — the transition under test.
+	const unlist = await h.api(`/api/tickets/${ticket2}`, { method: 'DELETE', cookie: seller.cookie });
+	t.is('seller unlists the listing → 200', unlist.status, 200);
+
+	// Let the replica apply the unlisted=true update before relisting.
+	await h.sleep(1500);
+
+	const relist = await h.api(`/api/tickets/${ticket2}/relist`, { method: 'POST', cookie: seller.cookie });
+	t.is('seller relists it → 200', relist.status, 200);
+
+	const availNote = await h.retry(
+		() => h.api('/api/notifications', { method: 'GET', cookie: buyer.cookie }),
+		{
+			tries: 30,
+			delay: 500,
+			until: (r) =>
+				r.status === 200 &&
+				notifList(r).some((n) => n.type === 'wishlist_available' && n.ticketId === ticket2),
+		},
+	);
+	t.check('buyer receives a back-on-sale notification linked to the ticket',
+		notifList(availNote).some((n) => n.type === 'wishlist_available' && n.ticketId === ticket2),
+		'no matching wishlist_available notification');
+
+	const availEmails = await h.retry(() => h.countMail(buyer.email, 'Back on sale'), {
+		tries: 20,
+		delay: 500,
+		until: (n) => n >= 1,
+	});
+	t.check('buyer receives a back-on-sale email', availEmails >= 1);
+
+	t.suite('SUITE 3 — remove from wishlist');
 
 	const del = await h.api(`/api/wishlists/${ticketId}`, { method: 'DELETE', cookie: buyer.cookie });
 	t.is('buyer removes the listing → 200', del.status, 200);
@@ -102,7 +152,7 @@ async function run(t) {
 		!(idsAfter.data?.ids || []).includes(ticketId),
 		'ticket still present after removal');
 
-	t.suite('SUITE 3 — wishlist requires auth');
+	t.suite('SUITE 4 — wishlist requires auth');
 	const unauth = await h.api('/api/wishlists/ids', { method: 'GET' });
 	t.is('unauthenticated wishlist read → 401', unauth.status, 401);
 }

@@ -17,6 +17,7 @@ interface TicketRefAttrs {
 	version: number;
 	sellerId: string;
 	unlisted?: boolean;
+	available?: boolean;
 	eventDate?: string;
 	venue?: string;
 	imageUrl?: string;
@@ -29,6 +30,9 @@ interface TicketRefDoc extends mongoose.Document {
 	version: number;
 	sellerId: string;
 	unlisted: boolean;
+	// Buyable right now: listed AND not reserved. Tracked so the updated-listener
+	// can detect the unavailable→available transition and alert watchers (#16).
+	available: boolean;
 	eventDate?: string;
 	venue?: string;
 	imageUrl?: string;
@@ -46,6 +50,7 @@ const ticketRefSchema = new mongoose.Schema<TicketRefDoc>(
 		version: { type: Number, required: true, default: 0 },
 		sellerId: { type: String, required: true },
 		unlisted: { type: Boolean, required: true, default: false },
+		available: { type: Boolean, required: true, default: true },
 		eventDate: { type: String, required: false },
 		venue: { type: String, required: false },
 		imageUrl: { type: String, required: false },
@@ -70,6 +75,7 @@ ticketRefSchema.statics.build = (attrs: TicketRefAttrs) => {
 		version: attrs.version,
 		sellerId: attrs.sellerId,
 		unlisted: attrs.unlisted ?? false,
+		available: attrs.available ?? true,
 		eventDate: attrs.eventDate,
 		venue: attrs.venue,
 		imageUrl: attrs.imageUrl,

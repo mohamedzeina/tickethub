@@ -25,6 +25,7 @@ const STREAM_SUBJECTS: string[] = [
 	Subjects.UserVerificationRequested,
 	Subjects.PasswordResetRequested,
 	Subjects.WishlistPriceDropped,
+	Subjects.WishlistAvailable,
 	Subjects.ReviewCreated,
 ];
 

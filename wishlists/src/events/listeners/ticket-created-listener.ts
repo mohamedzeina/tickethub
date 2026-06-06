@@ -30,6 +30,8 @@ export class TicketCreatedListener extends Listener<TicketCreatedEvent> {
 						price: data.price,
 						version: data.version,
 						unlisted: data.unlisted ?? false,
+						// A brand-new listing is buyable unless created unlisted.
+						available: !(data.unlisted ?? false),
 						eventDate: data.eventDate,
 						venue: data.venue,
 						imageUrl: data.imageUrl,

@@ -18,6 +18,8 @@ export enum NotificationType {
 	PassScanned = 'pass_scanned',
 	// Wishlists (#16): a saved listing dropped in price.
 	PriceDrop = 'price_drop',
+	// Wishlists (#16): a saved listing became buyable again (relisted / freed).
+	WishlistAvailable = 'wishlist_available',
 	// Seller: a buyer left them a review (#9 — previously parked).
 	ReviewReceived = 'review_received',
 }

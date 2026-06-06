@@ -123,3 +123,71 @@ it('seeds a baseline (no alert) when the update arrives before any create', asyn
 	const ref = await TicketRef.findById(ticketId);
 	expect(ref!.price).toBe(80);
 });
+
+// ---- availability alerts (#16) -------------------------------------------
+
+it('publishes wishlist:available per watcher when an unlisted listing is relisted', async () => {
+	const ticketId = id();
+	const sellerId = await seed(ticketId, 100, 2);
+	// Start unavailable (unlisted).
+	await TicketRef.updateOne({ _id: ticketId }, { unlisted: true, available: false, version: 1 });
+	const listener = new TicketUpdatedListener(natsWrapper.connection);
+
+	// Relist: unlisted=false, no orderId → available again.
+	await listener.onMessage(evt(ticketId, sellerId, { price: 100, version: 2, unlisted: false }), msg(1));
+
+	const calls = publishMock().mock.calls.filter(
+		(c: any[]) => c[0] === Subjects.WishlistAvailable,
+	);
+	expect(calls.length).toBe(2);
+	const payload = JSON.parse(Buffer.from(calls[0][1]).toString());
+	expect(payload).toMatchObject({ ticketId, price: 100, email: 'watcher0@test.com' });
+	const ref = await TicketRef.findById(ticketId);
+	expect(ref!.available).toBe(true);
+});
+
+it('publishes wishlist:available when a reserved listing is freed (orderId cleared)', async () => {
+	const ticketId = id();
+	const sellerId = await seed(ticketId, 100, 1);
+	// Start reserved (orderId set → unavailable).
+	await TicketRef.updateOne({ _id: ticketId }, { available: false, version: 1 });
+	const listener = new TicketUpdatedListener(natsWrapper.connection);
+
+	// Hold freed: no orderId in the event → available again.
+	await listener.onMessage(evt(ticketId, sellerId, { price: 100, version: 2 }), msg(1));
+
+	const calls = publishMock().mock.calls.filter(
+		(c: any[]) => c[0] === Subjects.WishlistAvailable,
+	);
+	expect(calls.length).toBe(1);
+});
+
+it('does NOT alert available when the listing gets reserved (available → unavailable)', async () => {
+	const ticketId = id();
+	const sellerId = await seed(ticketId, 100, 2); // seeded available
+	const listener = new TicketUpdatedListener(natsWrapper.connection);
+
+	// Reserve: orderId present → unavailable.
+	await listener.onMessage(evt(ticketId, sellerId, { price: 100, version: 1, orderId: id() }), msg(1));
+
+	const calls = publishMock().mock.calls.filter(
+		(c: any[]) => c[0] === Subjects.WishlistAvailable,
+	);
+	expect(calls.length).toBe(0);
+	const ref = await TicketRef.findById(ticketId);
+	expect(ref!.available).toBe(false);
+});
+
+it('does NOT re-alert available when an already-available listing is edited', async () => {
+	const ticketId = id();
+	const sellerId = await seed(ticketId, 100, 2); // available
+	const listener = new TicketUpdatedListener(natsWrapper.connection);
+
+	// A plain edit (still listed, still free) — no availability transition.
+	await listener.onMessage(evt(ticketId, sellerId, { price: 100, version: 1, title: 'Renamed' }), msg(1));
+
+	const calls = publishMock().mock.calls.filter(
+		(c: any[]) => c[0] === Subjects.WishlistAvailable,
+	);
+	expect(calls.length).toBe(0);
+});
