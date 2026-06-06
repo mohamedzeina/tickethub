@@ -30,7 +30,7 @@ export class WishlistPriceDroppedListener extends Listener<WishlistPriceDroppedE
 			await Notification.build({
 				userId: data.userId,
 				type: NotificationType.PriceDrop,
-				title: 'Price drop on your wishlist 🔖',
+				title: 'Price drop on your wishlist',
 				body: `"${data.title}" dropped from ${money(data.oldPrice)} to ${money(
 					data.newPrice,
 				)}. Grab it before it changes again.`,

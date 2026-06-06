@@ -48,7 +48,7 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 				await Notification.build({
 					userId: order.sellerId,
 					type: NotificationType.TicketSold,
-					title: 'Your ticket sold! 🎟️',
+					title: 'Your ticket sold!',
 					body: `"${order.ticketTitle}" just sold for €${(order.price ?? 0).toFixed(2)}. We'll pay out your share after the refund window — track it in Account → Payouts.`,
 					orderId: data.orderId,
 				}).save();

@@ -30,7 +30,7 @@ export class WishlistAvailableListener extends Listener<WishlistAvailableEvent> 
 			await Notification.build({
 				userId: data.userId,
 				type: NotificationType.WishlistAvailable,
-				title: 'Back on sale 🎟️',
+				title: 'Back on sale',
 				body: `"${data.title}" is available again at ${money(
 					data.price,
 				)}. Grab it before it's gone.`,

@@ -24,7 +24,7 @@ export class ReviewCreatedListener extends Listener<ReviewCreatedEvent> {
 			await Notification.build({
 				userId: data.sellerId,
 				type: NotificationType.ReviewReceived,
-				title: 'You got a new review ⭐',
+				title: 'You got a new review',
 				body: `A buyer rated their "${data.ticketTitle}" sale ${stars(
 					data.rating,
 				)} (${data.rating}/5). See it on your seller profile.`,
