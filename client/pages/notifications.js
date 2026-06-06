@@ -15,9 +15,43 @@ const tagFor = (type) => {
 			return { cls: 'ntag--warn', label: 'Expiring' };
 		case 'hold_expired':
 			return { cls: 'ntag--void', label: 'Released' };
+		// Buyer — admission pass scanned at the gate (#5)
+		case 'pass_scanned':
+			return { cls: 'ntag--paid', label: 'Admitted' };
+		// Seller-side (#11)
+		case 'ticket_sold':
+			return { cls: 'ntag--paid', label: 'Sold' };
+		case 'sale_refunded':
+			return { cls: 'ntag--refund', label: 'Refund' };
+		case 'payout_paid':
+			return { cls: 'ntag--paid', label: 'Payout' };
+		case 'payout_held':
+			return { cls: 'ntag--warn', label: 'Held' };
 		default:
 			return { cls: 'ntag--hold', label: 'Hold' };
 	}
+};
+
+// Seller-side notifications carry the *buyer's* orderId (the seller can't open
+// it — they'd 401 and get bounced to sign-in). Point them at their earnings hub
+// instead. Buyer notifications link to their own order as before.
+const SELLER_TYPES = new Set([
+	'ticket_sold',
+	'sale_refunded',
+	'payout_paid',
+	'payout_held',
+]);
+
+const ctaFor = (n) => {
+	if (SELLER_TYPES.has(n.type)) {
+		// Query must live on `href` (not just `as`) or router.query.payouts stays
+		// empty and the account page won't switch to the Payouts tab.
+		return { href: '/account?payouts=1', as: '/account?payouts=1', label: 'View payouts' };
+	}
+	if (n.orderId) {
+		return { href: '/orders/[orderId]', as: `/orders/${n.orderId}`, label: 'View order' };
+	}
+	return null;
 };
 
 const NotificationsPage = ({ notifications: initial }) => {
@@ -75,6 +109,7 @@ const NotificationsPage = ({ notifications: initial }) => {
 				<ul className="notes">
 					{items.map((n) => {
 						const tag = tagFor(n.type);
+						const cta = ctaFor(n);
 						return (
 							<li
 								key={n.id}
@@ -91,14 +126,14 @@ const NotificationsPage = ({ notifications: initial }) => {
 								</div>
 								<div className="note__right">
 									<span className="note__time">{timeAgo(n.createdAt)}</span>
-									{n.orderId && (
+									{cta && (
 										<Link
-											href="/orders/[orderId]"
-											as={`/orders/${n.orderId}`}
+											href={cta.href}
+											as={cta.as}
 											className="note__link"
 											onClick={(e) => e.stopPropagation()}
 										>
-											View order
+											{cta.label}
 										</Link>
 									)}
 								</div>
