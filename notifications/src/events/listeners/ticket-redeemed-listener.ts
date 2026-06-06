@@ -27,7 +27,7 @@ export class TicketRedeemedListener extends Listener<TicketRedeemedEvent> {
 			await Notification.build({
 				userId: data.buyerId,
 				type: NotificationType.PassScanned,
-				title: 'Pass scanned ✓',
+				title: 'Pass scanned',
 				body: `Your pass for "${title}" was scanned at the gate. You're checked in — enjoy the show! If this wasn't you, contact support.`,
 				orderId: data.orderId,
 			}).save();

@@ -29,7 +29,7 @@ export class PayoutProcessedListener extends Listener<PayoutProcessedEvent> {
 				data.status === 'paid'
 					? {
 							type: NotificationType.PayoutPaid,
-							title: 'Payout sent 💶',
+							title: 'Payout sent',
 							body: `${amount} for "${title}" has been paid out to your connected account.`,
 					  }
 					: {
