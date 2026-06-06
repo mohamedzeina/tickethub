@@ -17,6 +17,7 @@ import {
 import { createReviewRouter } from './routes/create';
 import { updateReviewRouter } from './routes/update';
 import { sellerReviewsRouter } from './routes/seller';
+import { sellersReviewsRouter } from './routes/sellers';
 import { orderReviewRouter } from './routes/order';
 import { natsWrapper } from './nats-wrapper';
 
@@ -45,6 +46,7 @@ app.use(currentUser);
 app.use(createReviewRouter);
 app.use(updateReviewRouter);
 app.use(sellerReviewsRouter);
+app.use(sellersReviewsRouter);
 app.use(orderReviewRouter);
 
 app.all('*', async () => {

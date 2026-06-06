@@ -28,6 +28,7 @@ const SUITES = [
 	'payouts',
 	'admission',
 	'reviews',
+	'per-card-ratings',
 	'display-names',
 	'flows',
 ];

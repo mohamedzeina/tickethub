@@ -3,6 +3,8 @@ import { useRef } from 'react';
 import { useRouter } from 'next/router';
 import FilterBar from './FilterBar';
 import TicketCard from './TicketCard';
+import useSellerRatings from '../hooks/useSellerRatings';
+import useDisplayNames from '../hooks/useDisplayNames';
 import { ArrowLeft, ArrowRight } from './icons';
 
 // The shared browse experience used by both the landing page and /search:
@@ -11,6 +13,13 @@ import { ArrowLeft, ArrowRight } from './icons';
 const BrowseResults = ({ basePath, title, currentUser, tickets, meta, filters }) => {
 	const router = useRouter();
 	const resultsRef = useRef(null);
+
+	// Batch-resolve every listed seller's rating + display name in one request
+	// each, so cards can label the seller and show their star badge (#9) without
+	// an N+1 of per-seller calls.
+	const sellerIds = tickets.map((t) => t.userId);
+	const ratings = useSellerRatings(sellerIds);
+	const names = useDisplayNames(sellerIds);
 
 	// Merge updates into the URL, drop empties, and reset to page 1 whenever a
 	// filter changes (so you never land on an out-of-range page). scroll:false
@@ -107,7 +116,12 @@ const BrowseResults = ({ basePath, title, currentUser, tickets, meta, filters })
 				<>
 					<div className="grid">
 						{tickets.map((ticket) => (
-							<TicketCard key={ticket.id} ticket={ticket} />
+							<TicketCard
+									key={ticket.id}
+									ticket={ticket}
+									rating={ratings[ticket.userId]}
+									sellerName={names[ticket.userId]}
+								/>
 						))}
 					</div>
 

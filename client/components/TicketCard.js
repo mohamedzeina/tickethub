@@ -1,11 +1,33 @@
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { ArrowRight } from './icons';
-import { formatPrice, formatDateShort, serialFromId } from '../utils/ticket';
+import Stars from './Stars';
+import { formatPrice, formatDateShort, serialFromId, sellerHandle } from '../utils/ticket';
 
 // A single listing rendered as an admission ticket: main face + counterfoil stub.
-const TicketCard = ({ ticket }) => {
+// `rating` is the SELLER's aggregate ({ average, count }) and `sellerName` their
+// display name, both batch-resolved by the parent (#9). The seller line makes
+// clear the stars belong to the seller, not the event, and links to their
+// profile. Absent/zero-count rating → name only (a new seller shouldn't read as
+// a bad one).
+const TicketCard = ({ ticket, rating, sellerName }) => {
+	const router = useRouter();
 	const date = formatDateShort(ticket.eventDate);
 	const when = [date, ticket.venue].filter(Boolean).join(' · ');
+	const rated = rating && rating.count > 0;
+	const name = sellerName || sellerHandle(ticket.userId);
+
+	// The whole card is already a <Link> to the ticket, so the seller can't be a
+	// nested <a>. Navigate programmatically and stop the click from also opening
+	// the ticket.
+	const goToSeller = (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		router.push({
+			pathname: '/sellers/[userId]',
+			query: { userId: ticket.userId, from: router.asPath },
+		});
+	};
 
 	return (
 		<Link
@@ -23,6 +45,30 @@ const TicketCard = ({ ticket }) => {
 				<span className="tk__cat">{ticket.category || 'Event'}</span>
 				<div className="tk__title">{ticket.title}</div>
 				{when && <div className="tk__when">{when}</div>}
+				<div className="tk__seller">
+					<span className="tk__seller-by">Sold by</span>
+					<span
+						className="tk__seller-name"
+						role="link"
+						tabIndex={0}
+						onClick={goToSeller}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') goToSeller(e);
+						}}
+					>
+						{name}
+					</span>
+					{rated && (
+						<span
+							className="tk__rate"
+							title={`Seller rated ${rating.average} out of 5 from ${rating.count} review${rating.count === 1 ? '' : 's'}`}
+						>
+							<Stars value={rating.average} size={13} />
+							<b>{rating.average.toFixed(1)}</b>
+							<span className="tk__rate-n">({rating.count})</span>
+						</span>
+					)}
+				</div>
 
 				<div className="tk__data">
 					<div className="data">

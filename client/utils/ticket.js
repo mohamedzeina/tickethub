@@ -38,6 +38,13 @@ export const formatDateLong = (value) =>
 export const serialFromId = (id) =>
 	id ? id.slice(-5).toUpperCase() : '00000';
 
+// The opaque seller pseudonym, mirroring the reviews service's `sellerHandle`
+// (a pure function of the id — "Seller A1B2"). Used as the fallback on listing
+// cards when a seller hasn't set a display name (#18), so we can label who's
+// selling without an extra round trip.
+export const sellerHandle = (id) =>
+	`Seller ${(id || '').replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase().padStart(4, '0')}`;
+
 // A longer faux barcode number, also derived from the id for stability.
 export const barcodeNumber = (id) => {
 	const s = (id || '').replace(/[^a-z0-9]/gi, '').toUpperCase();

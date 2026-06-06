@@ -199,9 +199,12 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   Verified: 18 unit tests + live e2e `e2e/reviews.js` (17 checks — replication +
   all gates). The completed-order→review happy path is unit-tested (e2e can't
   settle Stripe).
-- **Deferred:** per-card ratings on listings (needs a batch endpoint or
-  denormalizing rating into the tickets service); seller responses to reviews;
-  real usernames (vs. handles); refunded-order review policy.
+- **Follow-up done (2026-06-06):** per-card ratings on listings — browse/search
+  cards show a seller star badge, batch-resolved via `GET
+  /api/reviews/sellers?ids=…` (client `useSellerRatings` hook, no N+1, reviews +
+  client only). Covered by reviews unit tests + live `e2e/per-card-ratings.js`.
+- **Deferred:** seller responses to reviews; real usernames (vs. handles);
+  refunded-order review policy.
 - **Effort:** L
 
 ### 10. Ticket quantity / multi-seat listings
