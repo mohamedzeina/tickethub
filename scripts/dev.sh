@@ -75,8 +75,10 @@ pids+=("$!")
 ) | prefix "mailpit" "35" &
 pids+=("$!")
 
-# 3) stripe listen
-stripe listen --forward-to "$WEBHOOK_URL" 2>&1 | prefix "stripe" "33" &
+# 3) stripe listen — --skip-verify because the dev ingress serves a self-signed
+# cert for tickethub.com; without it the CLI refuses to POST the webhook (TLS
+# x509 error) and paid orders never complete.
+stripe listen --skip-verify --forward-to "$WEBHOOK_URL" 2>&1 | prefix "stripe" "33" &
 pids+=("$!")
 
 echo "  • skaffold dev"

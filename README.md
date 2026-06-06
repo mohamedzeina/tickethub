@@ -259,7 +259,9 @@ cd seed && npm install && npm run seed
 ### 4. Stripe webhooks in local dev
 Payment completion is driven by Stripe's webhook. In local dev, forward events to the cluster:
 ```bash
-stripe listen --forward-to https://tickethub.com/api/payments/webhook
+stripe listen --skip-verify --forward-to https://tickethub.com/api/payments/webhook
+# --skip-verify: the dev ingress serves a self-signed cert, which the CLI
+# would otherwise reject (TLS x509), so webhooks never reach payments.
 ```
 
 ---
