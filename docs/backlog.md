@@ -45,7 +45,7 @@ window is 15 min. **Phases A–D** then added refunds + receipts/order history,
 PaymentIntents + webhooks, and a full observability stack (logs, metrics,
 tracing, alerting) with health checks. Remaining gaps:
 
-- Tickets are still **single-unit** — no quantity / multi-seat listings.
+- ✅ Multi-seat listings (quantity / "N seats together") — done (#10).
 - No user **profile**, no **roles** (✅ password reset + email verification done).
 - No **email/notification** of any kind (purchase confirmation, expiry warning).
 - No **reviews, ratings, or seller reputation**.
@@ -58,7 +58,7 @@ tracing, alerting) with health checks. Remaining gaps:
 | Tier | Theme | Items |
 |------|-------|-------|
 | **P0 — Near term** | High value, mostly contained to existing services | ✅ Richer ticket model, ✅ search/filter/pagination, ✅ "My listings" + edit/unlist UI, ✅ buyer order detail/receipt, ✅ email notifications (purchase + expiry) |
-| **P1 — Mid term** | New capability, moderate scope | Notifications service, ✅ password reset + email verify, ✅ refunds, ✅ seller reputation/reviews, ticket quantity |
+| **P1 — Mid term** | New capability, moderate scope | Notifications service, ✅ password reset + email verify, ✅ refunds, ✅ seller reputation/reviews, ✅ ticket quantity |
 | **P2 — Long term** | Platform maturity & scale | ✅ Observability stack, ✅ rate limiting, admin dashboard, full-text search engine, ✅ PaymentIntents (provider abstraction still open), wishlists/alerts |
 
 Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
@@ -207,12 +207,30 @@ Effort key: **S** ≈ <1 day · **M** ≈ 1–3 days · **L** ≈ 1 week+
   refunded-order review policy.
 - **Effort:** L
 
-### 10. Ticket quantity / multi-seat listings
-- **Value:** Today a "ticket" is a single unit; real listings are "4 seats
-  together."
-- **Scope:** `quantity` on the ticket model; orders reserve N of M; partial
-  reservation logic + the reservation/expiration flow; UI quantity selector.
-- **Effort:** L (touches the reservation invariant — design carefully)
+### 10. Ticket quantity / multi-seat listings — ✅ Done (2026-06-25)
+- **Status:** Shipped. **Quantity-pool model** — a seller lists `quantity` seats and
+  a buyer reserves any `N ≤ availableQty`, paying `price × N` (free choice, no
+  no-orphan rule). The reservation invariant moved off the single `orderId` lock:
+  **tickets** owns capacity (`quantity` + `availableQty`; marketplace filter is
+  `availableQty > 0`; edit/unlist frozen once `availableQty < quantity`), and
+  **orders** is the atomic oversell guard — a single-document conditional `$inc` on a
+  `reservedSeats` counter (`reservedSeats + N ≤ quantity`), released on
+  cancel/expire/refund (each gated by the active→inactive transition, so a
+  double-cancel can't over-credit). `order:created`/`order:cancelled` carry
+  `quantity`; `ticket:*` carry `quantity` + `availableQty` (common 1.0.57).
+- **Money + fulfilment:** payments charges `price × N`; payout-sweep + earnings use
+  `price × N`; **admission mints one gate pass per seat** (compound-unique
+  `(orderId, seat)`, each redeemed independently; refund revokes all; a
+  `Pass.syncIndexes()` boot migration drops the stale `orderId_1` unique index);
+  notifications receipt + seller emails show seat count + total; wishlists
+  availability flipped to `availableQty > 0`.
+- **Client:** quantity input on the listing form; a seat selector (1…availableQty)
+  with a live ×N total + sold-out state on the ticket page; "N available" on cards;
+  seats + total on orders/receipt/checkout; one QR pass rendered per seat.
+- **Tests:** unit across all touched services (incl. oversell rejection, seat
+  release/idempotency, `price × N`, N passes) + a live `e2e/multi-seat.js` (30 checks);
+  full `run-all.js` green.
+- **Effort:** L (touched the reservation invariant — designed carefully)
 
 ### 11. Seller payouts (Stripe Connect)
 - **Value:** Money currently goes to the platform, never the seller — not a real
