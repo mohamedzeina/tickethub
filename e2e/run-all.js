@@ -27,6 +27,7 @@ const SUITES = [
 	'refunds',
 	'payouts',
 	'admission',
+	'multi-seat',
 	'reviews',
 	'per-card-ratings',
 	'display-names',

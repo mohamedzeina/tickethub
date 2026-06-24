@@ -1,11 +1,14 @@
 import mongoose from 'mongoose';
 import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
-import { Order, OrderStatus } from './order';
 
 interface TicketAttrs {
 	id: string; // Added for event handling
 	title: string;
 	price: number;
+	// Multi-seat (#10): total seats listed. reservedSeats is never set at build
+	// time — it starts at 0 and is mutated only by the atomic reserve/release
+	// helpers below, deliberately outside the ticket:updated version stream.
+	quantity?: number;
 	// Owner of the listing — used to stop a user buying their own ticket.
 	// Optional so tickets replicated before this field stay valid.
 	userId?: string;
@@ -21,6 +24,12 @@ export interface TicketDoc extends mongoose.Document {
 	version: number;
 	title: string;
 	price: number;
+	// Multi-seat (#10): the seat inventory used to guard reservations. `quantity`
+	// is mirrored from the tickets service; `reservedSeats` is owned locally and
+	// moved only by reserveSeats/releaseSeats so it never collides with the OCC
+	// version that tracks ticket:updated.
+	quantity: number;
+	reservedSeats: number;
 	userId?: string;
 	eventDate?: Date;
 	venue?: string;
@@ -30,7 +39,6 @@ export interface TicketDoc extends mongoose.Document {
 	// Mirrored from the tickets service so we can refuse to reserve a hidden
 	// listing.
 	unlisted?: boolean;
-	isReserved(): Promise<boolean>;
 }
 interface TicketModel extends mongoose.Model<TicketDoc> {
 	build(attrs: TicketAttrs): TicketDoc;
@@ -38,6 +46,14 @@ interface TicketModel extends mongoose.Model<TicketDoc> {
 		id: string;
 		version: number;
 	}): Promise<TicketDoc | null>;
+	// Atomically claim `seats` seats iff enough remain (reservedSeats + seats <=
+	// quantity). Returns the updated doc, or null when capacity is insufficient or
+	// the ticket is gone. The condition + increment run in one Mongo op, so
+	// concurrent buyers can't oversell. Bypasses the OCC version on purpose.
+	reserveSeats(ticketId: string, seats: number): Promise<TicketDoc | null>;
+	// Return `seats` to the pool when an order leaves a seat-holding state. Guarded
+	// so a stray double-release can't push reservedSeats below 0.
+	releaseSeats(ticketId: string, seats: number): Promise<TicketDoc | null>;
 }
 
 interface TicketJSON {
@@ -57,6 +73,18 @@ const ticketSchema = new mongoose.Schema(
 			type: Number,
 			required: true,
 			min: 0,
+		},
+		quantity: {
+			type: Number,
+			required: true,
+			min: 1,
+			default: 1,
+		},
+		reservedSeats: {
+			type: Number,
+			required: true,
+			min: 0,
+			default: 0,
 		},
 		userId: {
 			type: String,
@@ -99,6 +127,7 @@ ticketSchema.statics.build = (attrs: TicketAttrs) => {
 		_id: attrs.id,
 		title: attrs.title,
 		price: attrs.price,
+		quantity: attrs.quantity ?? 1,
 		userId: attrs.userId,
 		unlisted: attrs.unlisted,
 		eventDate: attrs.eventDate,
@@ -116,18 +145,28 @@ ticketSchema.statics.findByEvent = (event: { id: string; version: number }) => {
 	});
 };
 
-ticketSchema.methods.isReserved = async function () {
-	const existingOrder = await Order.findOne({
-		ticket: this,
-		status: {
-			$in: [
-				OrderStatus.Created,
-				OrderStatus.AwaitingPayment,
-				OrderStatus.Complete,
-			],
+ticketSchema.statics.reserveSeats = (ticketId: string, seats: number) => {
+	// Single-document conditional update: the seats are claimed only if the listing
+	// still has room, atomically. Returns null when oversold or the ticket is gone.
+	return Ticket.findOneAndUpdate(
+		{
+			_id: ticketId,
+			unlisted: { $ne: true },
+			$expr: { $lte: [{ $add: ['$reservedSeats', seats] }, '$quantity'] },
 		},
-	});
-	return !!existingOrder;
+		{ $inc: { reservedSeats: seats } },
+		{ new: true },
+	);
+};
+
+ticketSchema.statics.releaseSeats = (ticketId: string, seats: number) => {
+	// Only release when at least `seats` are actually held, so a duplicate release
+	// (e.g. cancel racing expiration) can't drive reservedSeats negative.
+	return Ticket.findOneAndUpdate(
+		{ _id: ticketId, reservedSeats: { $gte: seats } },
+		{ $inc: { reservedSeats: -seats } },
+		{ new: true },
+	);
 };
 
 const Ticket = mongoose.model<TicketDoc, TicketModel>('Ticket', ticketSchema);

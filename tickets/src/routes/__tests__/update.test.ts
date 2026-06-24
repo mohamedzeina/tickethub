@@ -200,7 +200,8 @@ it('rejects updates if the ticket is reserved', async () => {
 		.expect(201);
 
 	const ticket = await Ticket.findById(response.body.id);
-	ticket!.set({ orderId: new mongoose.Types.ObjectId().toHexString() });
+	// Simulate a sold-out / reserved listing: availableQty below quantity.
+	ticket!.set({ availableQty: 0 });
 	await ticket!.save();
 
 	const newTitle = 'New title';
@@ -232,10 +233,10 @@ it('returns a 400 (not a 500) if the ticket is reserved concurrently mid-edit', 
 
 	const id = response.body.id;
 
-	// Reproduce the race precisely: the update route loads the ticket (no
-	// orderId, so its guard passes), but before its save runs a buyer reserves
-	// the ticket — setting orderId and advancing the version. We inject that by
-	// stubbing only the *first* findById to return a now-stale document while
+	// Reproduce the race precisely: the update route loads the ticket (fully
+	// available, so its guard passes), but before its save runs a buyer reserves
+	// the ticket — dropping availableQty and advancing the version. We inject that
+	// by stubbing only the *first* findById to return a now-stale document while
 	// concurrently bumping the DB. The route's later save then version-conflicts.
 	const realFindById = (Ticket.findById as any).bind(Ticket);
 	let injected = false;
@@ -249,7 +250,7 @@ it('returns a 400 (not a 500) if the ticket is reserved concurrently mid-edit', 
 		return (async () => {
 			const stale = await realFindById(ticketId);
 			const concurrent = await realFindById(ticketId);
-			concurrent!.set({ orderId: new mongoose.Types.ObjectId().toHexString() });
+			concurrent!.set({ availableQty: 0 });
 			await concurrent!.save(); // advances the DB version
 			return stale; // still holds the pre-reservation version
 		})();
@@ -276,6 +277,6 @@ it('returns a 400 (not a 500) if the ticket is reserved concurrently mid-edit', 
 
 	// The edit was rejected, so the reservation stands and details are unchanged.
 	const latest = await Ticket.findById(id);
-	expect(latest!.orderId).toBeDefined();
+	expect(latest!.availableQty).toBeLessThan(latest!.quantity);
 	expect(latest!.title).toEqual('Test title');
 });

@@ -56,6 +56,16 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 	const isOwner = currentUser && ticket.userId && currentUser.id === ticket.userId;
 	const { isSaved, toggle } = useWishlist(currentUser);
 
+	// Multi-seat (#10): how many seats are still on sale, and how many this buyer
+	// wants. The listing stays fully available (availableQty === quantity) until
+	// the first reservation; that's also when the seller can no longer edit it.
+	const totalSeats = ticket.quantity ?? 1;
+	const avail = ticket.availableQty ?? 1;
+	const soldOut = avail < 1;
+	const fullyAvailable = avail >= totalSeats;
+	const [qty, setQty] = useState(1);
+	const lineTotal = ticket.price * qty;
+
 	const { doRequest, generalErrors } = useRequest({
 		url: '/api/orders',
 		method: 'post',
@@ -77,7 +87,7 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 	const onTear = async () => {
 		if (torn) return;
 		setTorn(true);
-		await doRequest();
+		await doRequest({ quantity: qty });
 		if (!succeeded.current) {
 			setTorn(false);
 		}
@@ -128,7 +138,11 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 						)}
 						<div>
 							<div className="k">Admission</div>
-							<div className="v">One (1) Person</div>
+							<div className="v">
+								{totalSeats > 1
+									? `Up to ${totalSeats} · ${avail} available`
+									: 'One (1) Person'}
+							</div>
 						</div>
 					</div>
 
@@ -137,9 +151,9 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 					)}
 
 					<p className="fineprint">
-						★ This ticket is a revocable license and admits one (1) person only.
-						Not redeemable for cash. Order reserved for 15:00 from checkout.
-						Resale at or below face value. TicketHub © 2026.
+						★ This ticket is a revocable license and admits one (1) person per
+						seat purchased. Not redeemable for cash. Order reserved for 15:00 from
+						checkout. Resale at or below face value. TicketHub © 2026.
 					</p>
 				</div>
 
@@ -148,7 +162,7 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 						<div className="lbl">Counterfoil · Retain</div>
 						<div className="price">
 							{formatPrice(ticket.price)}
-							<small>per ticket · admit one</small>
+							<small>{totalSeats > 1 ? 'per seat' : 'per ticket · admit one'}</small>
 						</div>
 					</div>
 
@@ -184,7 +198,7 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 								<div className="owner-note__tag">Your listing</div>
 								This is your own ticket — you can&apos;t buy it. Share the link
 								with a buyer instead.
-								{!ticket.orderId && (
+								{fullyAvailable && (
 									<Link
 										href="/tickets/edit/[ticketId]"
 										as={`/tickets/edit/${ticket.id}`}
@@ -196,6 +210,12 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 								)}
 							</div>
 						)
+					) : soldOut ? (
+						<div className="owner-note">
+							<div className="owner-note__tag">Sold out</div>
+							Every seat in this listing has been taken. Save it and we&apos;ll
+							alert you if a seat frees up, or browse other tickets.
+						</div>
 					) : !currentUser ? (
 						// Buying requires an account — offer a proactive sign-in CTA
 						// (with return-to this ticket) instead of letting the purchase
@@ -208,17 +228,44 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 							<ArrowRight style={{ width: 15, height: 15 }} />
 						</Link>
 					) : (
-						<div className={`tear${torn ? ' torn' : ''}`} id="tear">
-							<button type="button" className="tear__strip" onClick={onTear}>
-								<Bolt />
-								Tear here to purchase
-								<ArrowRight />
-							</button>
-							<div className="tear__done">
-								<Check />
-								{succeeded.current ? 'Admitted · reserving…' : 'Reserving…'}
+						<>
+							{avail > 1 && (
+								<div className="qtybuy">
+									<label htmlFor="qty">Seats</label>
+									<select
+										id="qty"
+										value={qty}
+										onChange={(e) => setQty(Number(e.target.value))}
+										disabled={torn}
+									>
+										{Array.from({ length: avail }, (_, i) => i + 1).map((n) => (
+											<option key={n} value={n}>
+												{n}
+											</option>
+										))}
+									</select>
+									<div className="qtybuy__total">
+										<span>
+											{qty} × {formatPrice(ticket.price)}
+										</span>
+										<b>{formatPrice(lineTotal)}</b>
+									</div>
+								</div>
+							)}
+							<div className={`tear${torn ? ' torn' : ''}`} id="tear">
+								<button type="button" className="tear__strip" onClick={onTear}>
+									<Bolt />
+									{avail > 1
+										? `Tear here — buy ${qty} seat${qty > 1 ? 's' : ''}`
+										: 'Tear here to purchase'}
+									<ArrowRight />
+								</button>
+								<div className="tear__done">
+									<Check />
+									{succeeded.current ? 'Admitted · reserving…' : 'Reserving…'}
+								</div>
 							</div>
-						</div>
+						</>
 					)}
 
 					{!isOwner && (

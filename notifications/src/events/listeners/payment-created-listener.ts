@@ -42,6 +42,11 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 			});
 			await notification.save();
 
+			// Multi-seat (#10): amounts are per-seat price times seats sold.
+			const qty = order.quantity ?? 1;
+			const total = (order.price ?? 0) * qty;
+			const seatsLabel = qty > 1 ? ` (${qty} seats)` : '';
+
 			// Tell the SELLER their ticket sold (#11). Skip for pre-#11 orders with
 			// no sellerId, and guard the (impossible) self-buy.
 			if (order.sellerId && order.sellerId !== order.userId) {
@@ -49,7 +54,7 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 					userId: order.sellerId,
 					type: NotificationType.TicketSold,
 					title: 'Your ticket sold!',
-					body: `"${order.ticketTitle}" just sold for €${(order.price ?? 0).toFixed(2)}. We'll pay out your share after the refund window — track it in Account → Payouts.`,
+					body: `"${order.ticketTitle}"${seatsLabel} just sold for €${total.toFixed(2)}. We'll pay out your share after the refund window — track it in Account → Payouts.`,
 					orderId: data.orderId,
 				}).save();
 			}
@@ -63,6 +68,7 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 						to: order.userEmail,
 						ticketTitle: order.ticketTitle || 'your ticket',
 						price: order.price ?? 0,
+						quantity: qty,
 						orderId: order.id,
 						stripeId: data.stripeId,
 					}),

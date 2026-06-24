@@ -25,10 +25,18 @@ router.post(
 	'/api/orders',
 	requireAuth,
 	requireVerified,
-	[body('ticketId').not().isEmpty().withMessage('ticketId must be provided')],
+	[
+		body('ticketId').not().isEmpty().withMessage('ticketId must be provided'),
+		body('quantity')
+			.optional()
+			.isInt({ min: 1, max: 20 })
+			.withMessage('Quantity must be a whole number between 1 and 20')
+			.toInt(),
+	],
 	validateRequest,
 	async (req: Request, res: Response) => {
 		const { ticketId } = req.body;
+		const quantity: number = req.body.quantity ?? 1;
 
 		// Find the ticket the user is trying to order in the database
 		const ticket = await Ticket.findById(ticketId);
@@ -46,13 +54,17 @@ router.post(
 			throw new BadRequestError('You cannot buy your own ticket');
 		}
 
-		// Make sure the ticket is not already reserved
-		// Run query to look at all orders. Find an order where the ticket
-		// is the ticket we just found *and* the orders status is *not* cancelled
-		// If we find an order from that means the ticket *is* reserved
-		const isReserved = await ticket.isReserved();
-		if (isReserved) {
-			throw new BadRequestError('Ticket is already reserved');
+		// Multi-seat (#10): atomically claim the requested seats. This single op is
+		// the oversell guard — concurrent buyers can't both take the last seat. A
+		// null result means not enough seats remain (or it was just unlisted).
+		const reserved = await Ticket.reserveSeats(ticketId, quantity);
+		if (!reserved) {
+			const remaining = Math.max(0, ticket.quantity - ticket.reservedSeats);
+			throw new BadRequestError(
+				remaining > 0
+					? `Only ${remaining} seat${remaining === 1 ? '' : 's'} left`
+					: 'Ticket is sold out',
+			);
 		}
 
 		// Calculate an expiration date for this order
@@ -60,15 +72,22 @@ router.post(
 		const expiration = new Date();
 		expiration.setSeconds(expiration.getSeconds() + expirationWindow);
 
-		// Build the order and save it to the database
+		// Build the order and save it to the database. If persisting fails after the
+		// seats were claimed, hand them back so the listing isn't left short.
 		const order = Order.build({
 			userId: req.currentUser!.id,
 			userEmail: req.currentUser!.email,
 			status: OrderStatus.Created,
 			expiresAt: expiration,
 			ticket,
+			quantity,
 		});
-		await order.save();
+		try {
+			await order.save();
+		} catch (err) {
+			await Ticket.releaseSeats(ticketId, quantity);
+			throw err;
+		}
 		ordersCreated.inc();
 
 		// Publish an event saying that an order was created
@@ -82,6 +101,7 @@ router.post(
 			// The seller (ticket owner) so notifications can tell them their ticket
 			// sold / was refunded (#11).
 			sellerId: ticket.userId,
+			quantity: order.quantity,
 			ticket: {
 				id: ticket.id,
 				price: ticket.price,

@@ -10,6 +10,7 @@ import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
 import { ProcessedEvent } from '../../models/processed-event';
 import { Order } from '../../models/order';
+import { Ticket } from '../../models/ticket';
 import { OrderCancelledPublisher } from '../publishers/order-cancelled-publisher';
 
 // The refund settled (Stripe webhook confirmed). Flip the order to Refunded with
@@ -41,10 +42,14 @@ export class PaymentRefundedListener extends Listener<PaymentRefundedEvent> {
 			});
 			await order.save();
 
+			// Return the held seats to the listing's pool.
+			await Ticket.releaseSeats(order.ticket.id, order.quantity);
+
 			// Release the seat + cascade (tickets relist, reviews soft-hide).
 			await new OrderCancelledPublisher(this.js).publish({
 				id: order.id,
 				version: order.version,
+				quantity: order.quantity,
 				ticket: { id: order.ticket.id },
 			});
 		});

@@ -127,3 +127,31 @@ it('creates a PaymentIntent and returns its client_secret, but records no Paymen
 	const payment = await Payment.findOne({ orderId: order.id });
 	expect(payment).toEqual(null);
 });
+
+it('charges the per-seat price for every seat in a multi-seat order (#10)', async () => {
+	const userId = new mongoose.Types.ObjectId().toHexString();
+	const user = global.signin(userId);
+	const price = 50;
+	const quantity = 3;
+
+	const order = Order.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		status: OrderStatus.Created,
+		version: 0,
+		userId,
+		price,
+		quantity,
+	});
+	await order.save();
+
+	const response = await request(app)
+		.post('/api/payments')
+		.set('Cookie', user)
+		.send({ orderId: order.id })
+		.expect(201);
+
+	const paymentIntentId = response.body.clientSecret.split('_secret_')[0];
+	const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+	// 3 seats × $50 = $150 → 15000 cents.
+	expect(paymentIntent.amount).toEqual(price * quantity * 100);
+});

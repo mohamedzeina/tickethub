@@ -23,6 +23,9 @@ const OrderRow = ({ order }) => {
 	const date = formatDateShort(order.ticket.eventDate);
 	const meta = [date, order.ticket.venue].filter(Boolean).join(' · ');
 	const stamp = stampFor(order.status);
+	// Multi-seat (#10): the order total is the per-seat price times the seats.
+	const seats = order.quantity ?? 1;
+	const total = order.ticket.price * seats;
 
 	return (
 		<li className="ord stocked bordered">
@@ -34,7 +37,8 @@ const OrderRow = ({ order }) => {
 				<div className="ord__title">{order.ticket.title}</div>
 				{meta && <div className="ord__meta">{meta.toUpperCase()}</div>}
 				<div className="ord__price">
-					{formatPrice(order.ticket.price)} · No. {serialFromId(order.id)}
+					{formatPrice(total)}
+					{seats > 1 ? ` · ${seats} seats` : ''} · No. {serialFromId(order.id)}
 				</div>
 				{order.status === 'complete' && order.paidAt && (
 					<div className="ord__paid">Paid {formatDateShort(order.paidAt)}</div>

@@ -57,6 +57,40 @@ it('returns unauthorized error if user tries to cancel an order that does not be
 		.expect(401);
 });
 
+it('returns the held seats to the listing and is idempotent on a second cancel', async () => {
+	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		title: 'Akon Concert',
+		price: 50,
+		quantity: 4,
+	});
+	await ticket.save();
+
+	const user = global.signin();
+	const { body: order } = await request(app)
+		.post('/api/orders')
+		.set('Cookie', user)
+		.send({ ticketId: ticket.id, quantity: 3 })
+		.expect(201);
+
+	expect((await Ticket.findById(ticket.id))!.reservedSeats).toEqual(3);
+
+	await request(app)
+		.delete(`/api/orders/${order.id}`)
+		.set('Cookie', user)
+		.expect(204);
+
+	expect((await Ticket.findById(ticket.id))!.reservedSeats).toEqual(0);
+
+	// A duplicate cancel must not over-credit the pool (reservedSeats stays 0).
+	await request(app)
+		.delete(`/api/orders/${order.id}`)
+		.set('Cookie', user)
+		.expect(204);
+
+	expect((await Ticket.findById(ticket.id))!.reservedSeats).toEqual(0);
+});
+
 it('emits an order cancelled event', async () => {
 	const ticket = Ticket.build({
 		id: new mongoose.Types.ObjectId().toHexString(),

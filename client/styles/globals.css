@@ -2413,6 +2413,22 @@
 .pass__state--void { color: #c4291b; }
 .pass__copy { margin-top: 10px; font-size: 12px; padding: 6px 14px; }
 
+/* ===== Multi-seat (#10) — N passes, seat picker, line totals ===== */
+.pass__grid { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.pass__grid--multi { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+.pass__card { display: flex; flex-direction: column; align-items: center; }
+.pass__grid--multi .pass__card { padding: 16px 14px; border: 1px dashed #c9bfa6; border-radius: 10px; width: 212px; }
+.pass__seat { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--red-press); margin-bottom: 10px; }
+
+.qtybuy { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.qtybuy label { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); }
+.qtybuy select { font-family: var(--f-mono); font-size: 15px; padding: 8px 12px; border: 1.5px solid var(--stock-edge); border-radius: 8px; background: #f3ecd8; color: var(--ink); }
+.qtybuy__total { margin-left: auto; text-align: right; }
+.qtybuy__total span { display: block; font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); }
+.qtybuy__total b { font-family: var(--f-display); font-size: 24px; color: var(--ink); line-height: 1; }
+
+.gate__seats { display: block; font-family: var(--f-mono); font-size: 10px; color: var(--ink-soft); margin-top: 3px; letter-spacing: 0.04em; }
+
 /* ===== Buyer refund control (#6 tail) — on the paid receipt ===== */
 .refund { margin-top: 18px; padding-top: 16px; border-top: 1px dashed #c9bfa6; text-align: center; }
 .refund__head { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 10px; }

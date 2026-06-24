@@ -16,8 +16,12 @@ export interface OrderCreatedEvent {
 		// when their ticket sells / is refunded (#11). Optional — replays of
 		// pre-#11 events stay valid.
 		sellerId?: string;
+		// Multi-seat (#10): how many seats this order reserves. The order total is
+		// ticket.price * quantity. Optional so pre-#10 orders replay as 1 seat.
+		quantity?: number;
 		ticket: {
 			id: string;
+			// Per-seat face value. Multiply by `quantity` for the order total.
 			price: number;
 			title: string;
 		};

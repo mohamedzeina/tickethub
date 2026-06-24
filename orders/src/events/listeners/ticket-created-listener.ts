@@ -15,13 +15,14 @@ export class TicketCreatedListener extends Listener<TicketCreatedEvent> {
 	protected deadLetterStore = FailedEvent;
 
 	async onMessage(data: TicketCreatedEvent['data'], msg: JsMsg) {
-		const { id, title, price, userId, unlisted, eventDate, venue, description, category, imageUrl } =
+		const { id, title, price, quantity, userId, unlisted, eventDate, venue, description, category, imageUrl } =
 			data;
 
 		const ticket = Ticket.build({
 			id,
 			title,
 			price,
+			quantity,
 			userId,
 			unlisted,
 			eventDate,

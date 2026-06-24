@@ -32,6 +32,23 @@ it('can fetch a list of tickets', async () => {
 	expect(response.body.totalPages).toEqual(1);
 });
 
+it('hides sold-out listings but keeps partially-available ones (#10)', async () => {
+	const { Ticket } = await import('../../models/ticket');
+
+	const soldOut = await createTicket('Sold Out', 40, { quantity: 2 });
+	const partial = await createTicket('Some Left', 30, { quantity: 4 });
+
+	// Drain all of the first listing's seats, some of the second's.
+	await Ticket.findByIdAndUpdate(soldOut.body.id, { availableQty: 0 });
+	await Ticket.findByIdAndUpdate(partial.body.id, { availableQty: 1 });
+
+	const response = await request(app).get('/api/tickets/').send().expect(200);
+
+	expect(response.body.tickets.length).toEqual(1);
+	expect(response.body.tickets[0].id).toEqual(partial.body.id);
+	expect(response.body.tickets[0].availableQty).toEqual(1);
+});
+
 it('excludes unlisted tickets from the marketplace', async () => {
 	const cookie = global.signin();
 	const a = await request(app)

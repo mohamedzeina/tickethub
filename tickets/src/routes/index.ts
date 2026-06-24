@@ -40,9 +40,10 @@ router.get(
 		const page = (req.query.page as unknown as number) || 1;
 		const limit = (req.query.limit as unknown as number) || 12;
 
-		// Always start from "on sale": unreserved and not unlisted by the seller.
+		// Always start from "on sale": at least one seat still available (#10 —
+		// partially-reserved multi-seat listings stay visible) and not unlisted.
 		const filter: Record<string, any> = {
-			orderId: undefined,
+			availableQty: { $gt: 0 },
 			unlisted: { $ne: true },
 		};
 

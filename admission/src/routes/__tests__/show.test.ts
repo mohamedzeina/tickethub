@@ -49,10 +49,36 @@ it('returns the pass and a signed code to the owner', async () => {
 		.send()
 		.expect(200);
 
-	expect(res.body.status).toEqual('issued');
-	expect(res.body.eventTitle).toEqual('Coldplay');
-	expect(typeof res.body.code).toEqual('string');
-	expect(res.body.code.startsWith(pass.id)).toBe(true);
+	expect(res.body.passes).toHaveLength(1);
+	const [p] = res.body.passes;
+	expect(p.status).toEqual('issued');
+	expect(p.seat).toEqual(1);
+	expect(p.eventTitle).toEqual('Coldplay');
+	expect(typeof p.code).toEqual('string');
+	expect(p.code.startsWith(pass.id)).toBe(true);
+});
+
+it('returns every seat pass for a multi-seat order (#10)', async () => {
+	const buyerId = new mongoose.Types.ObjectId().toHexString();
+	const orderId = new mongoose.Types.ObjectId().toHexString();
+	const ticketId = new mongoose.Types.ObjectId().toHexString();
+
+	// Mint 3 passes for one order, out of seat order.
+	for (const seat of [2, 1, 3]) {
+		await buildPass({ buyerId, orderId, ticketId, seat });
+	}
+
+	const res = await request(app)
+		.get(`/api/passes/order/${orderId}`)
+		.set('Cookie', global.signin(buyerId))
+		.send()
+		.expect(200);
+
+	expect(res.body.passes).toHaveLength(3);
+	// Sorted by seat, each with its own distinct code.
+	expect(res.body.passes.map((p: any) => p.seat)).toEqual([1, 2, 3]);
+	const codes = res.body.passes.map((p: any) => p.code);
+	expect(new Set(codes).size).toEqual(3);
 });
 
 it('hides the code once the pass is no longer issued', async () => {
@@ -67,6 +93,7 @@ it('hides the code once the pass is no longer issued', async () => {
 		.send()
 		.expect(200);
 
-	expect(res.body.status).toEqual('redeemed');
-	expect(res.body.code).toBeNull();
+	const [p] = res.body.passes;
+	expect(p.status).toEqual('redeemed');
+	expect(p.code).toBeNull();
 });

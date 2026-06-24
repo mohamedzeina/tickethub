@@ -9,16 +9,17 @@ const setup = async () => {
 	// Create an instance of the listener
 	const listener = new OrderCreatedListner(natsWrapper.connection);
 
-	// Create and save a ticket
+	// Create and save a 5-seat ticket (fully available)
 	const ticket = await Ticket.build({
 		title: 'Akon Concert',
 		price: 200,
+		quantity: 5,
 		userId: '123',
 	});
 
 	await ticket.save();
 
-	// Create fake data event
+	// Create fake data event — this order reserves 2 of the 5 seats
 	const data: OrderCreatedEvent['data'] = {
 		id: new mongoose.Types.ObjectId().toHexString(),
 		version: 0,
@@ -26,6 +27,7 @@ const setup = async () => {
 		userId: '123',
 		userEmail: 'buyer@test.com',
 		expiresAt: '123',
+		quantity: 2,
 		ticket: {
 			id: ticket.id,
 			price: ticket.price,
@@ -43,14 +45,15 @@ const setup = async () => {
 	return { listener, data, ticket, msg };
 };
 
-it('sets the orderId of the ticket', async () => {
+it('decrements availableQty by the order quantity', async () => {
 	const { listener, ticket, data, msg } = await setup();
 
 	await listener.onMessage(data, msg);
 
 	const orderedTicket = await Ticket.findById(ticket.id);
 
-	expect(orderedTicket!.orderId).toEqual(data.id);
+	expect(orderedTicket!.availableQty).toEqual(3);
+	expect(orderedTicket!.quantity).toEqual(5);
 });
 
 it('acks the message', async () => {
@@ -61,19 +64,22 @@ it('acks the message', async () => {
 	expect(msg.ack).toHaveBeenCalled();
 });
 
-it('publishes a ticket updated event', async () => {
+it('publishes a ticket updated event carrying the new availableQty', async () => {
 	const { listener, data, msg } = await setup();
 
 	await listener.onMessage(data, msg);
 
 	expect(natsWrapper.js.publish).toHaveBeenCalled();
 
-	const ticketUpdatedData = (JSONCodec().decode((natsWrapper.js.publish as jest.Mock).mock.calls[0][1]) as any);
+	const ticketUpdatedData = JSONCodec().decode(
+		(natsWrapper.js.publish as jest.Mock).mock.calls[0][1],
+	) as any;
 
-	expect(ticketUpdatedData.orderId).toEqual(data.id);
+	expect(ticketUpdatedData.availableQty).toEqual(3);
+	expect(ticketUpdatedData.quantity).toEqual(5);
 });
 
-it('reserves the ticket only once for a redelivered (duplicate) event', async () => {
+it('reserves the seats only once for a redelivered (duplicate) event', async () => {
 	const { listener, ticket, data, msg } = await setup();
 
 	await listener.onMessage(data, msg);
@@ -83,7 +89,7 @@ it('reserves the ticket only once for a redelivered (duplicate) event', async ()
 	expect(natsWrapper.js.publish).toHaveBeenCalledTimes(1);
 
 	const reservedTicket = await Ticket.findById(ticket.id);
-	expect(reservedTicket!.orderId).toEqual(data.id);
+	expect(reservedTicket!.availableQty).toEqual(3);
 	expect(reservedTicket!.version).toEqual(ticket.version + 1);
 
 	expect(msg.ack).toHaveBeenCalledTimes(2);

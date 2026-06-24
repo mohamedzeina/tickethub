@@ -161,3 +161,62 @@ it('publishes an event', async () => {
 
 	expect(natsWrapper.js.publish).toHaveBeenCalled();
 });
+
+it('defaults a listing to a single fully-available seat', async () => {
+	const { body } = await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({
+			title: 'single seat',
+			price: 20,
+			eventDate: '2030-06-01',
+			venue: 'Test Arena',
+		})
+		.expect(201);
+
+	expect(body.quantity).toEqual(1);
+	expect(body.availableQty).toEqual(1);
+});
+
+it('lists multiple seats, all initially available (#10)', async () => {
+	const { body } = await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({
+			title: 'four together',
+			price: 20,
+			quantity: 4,
+			eventDate: '2030-06-01',
+			venue: 'Test Arena',
+		})
+		.expect(201);
+
+	expect(body.quantity).toEqual(4);
+	expect(body.availableQty).toEqual(4);
+});
+
+it('rejects an invalid quantity', async () => {
+	await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({
+			title: 'bad qty',
+			price: 20,
+			quantity: 0,
+			eventDate: '2030-06-01',
+			venue: 'Test Arena',
+		})
+		.expect(400);
+
+	await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({
+			title: 'bad qty',
+			price: 20,
+			quantity: 2.5,
+			eventDate: '2030-06-01',
+			venue: 'Test Arena',
+		})
+		.expect(400);
+});

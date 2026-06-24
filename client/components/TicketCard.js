@@ -15,6 +15,8 @@ const TicketCard = ({ ticket, rating, sellerName, saved, onToggle, currentUser }
 	const router = useRouter();
 	const date = formatDateShort(ticket.eventDate);
 	const when = [date, ticket.venue].filter(Boolean).join(' · ');
+	// Multi-seat (#10): how many seats are still on sale for this listing.
+	const avail = ticket.availableQty ?? 1;
 	const rated = rating && rating.count > 0;
 	const name = sellerName || sellerHandle(ticket.userId);
 	// You can't wishlist your own listing — hide the heart on it (the detail page
@@ -99,7 +101,7 @@ const TicketCard = ({ ticket, rating, sellerName, saved, onToggle, currentUser }
 						</div>
 						<div className="cell">
 							<div className="k">Admit</div>
-							<div className="v">One</div>
+							<div className="v">{avail > 1 ? avail : 'One'}</div>
 						</div>
 						<div className="cell">
 							<div className="k">No.</div>
@@ -111,7 +113,7 @@ const TicketCard = ({ ticket, rating, sellerName, saved, onToggle, currentUser }
 				<div className="tk__foot">
 					<div className="tk__price">
 						{formatPrice(ticket.price)}
-						<small>ADMIT ONE</small>
+						<small>{avail > 1 ? `${avail} AVAILABLE` : 'ADMIT ONE'}</small>
 					</div>
 					<span className="tk__go">
 						View Ticket <ArrowRight />

@@ -4,12 +4,16 @@ import axios from 'axios';
 import PayoutNudge from '../components/PayoutNudge';
 import { formatPrice, formatDateShort, serialFromId } from '../utils/ticket';
 
-// status derived from the two flags the tickets service exposes:
-//  - orderId present → reserved/sold
-//  - unlisted        → hidden from the marketplace by the seller
+// status derived from the seat inventory the tickets service exposes (#10):
+//  - availableQty 0          → every seat sold
+//  - availableQty < quantity → some seats sold (still on sale if any remain)
+//  - unlisted                → hidden from the marketplace by the seller
 const statusOf = (ticket) => {
-	if (ticket.orderId) return { cls: 'stamp--pending', label: 'Reserved' };
+	const avail = ticket.availableQty ?? 1;
+	const qty = ticket.quantity ?? 1;
+	if (avail === 0) return { cls: 'stamp--muted', label: 'Sold Out' };
 	if (ticket.unlisted) return { cls: 'stamp--muted', label: 'Unlisted' };
+	if (avail < qty) return { cls: 'stamp--pending', label: `Selling · ${avail} left` };
 	return { cls: 'stamp--paid', label: 'On Sale' };
 };
 
@@ -18,7 +22,10 @@ const ListingRow = ({ ticket, onChange }) => {
 	const date = formatDateShort(ticket.eventDate);
 	const meta = [date, ticket.venue].filter(Boolean).join(' · ');
 	const status = statusOf(ticket);
-	const reserved = Boolean(ticket.orderId);
+	const qty = ticket.quantity ?? 1;
+	const avail = ticket.availableQty ?? 1;
+	// The server freezes edit/unlist once any seat is reserved or sold.
+	const locked = avail < qty;
 
 	const act = async (request) => {
 		setBusy(true);
@@ -45,7 +52,9 @@ const ListingRow = ({ ticket, onChange }) => {
 				<div className="ord__title">{ticket.title}</div>
 				{meta && <div className="ord__meta">{meta.toUpperCase()}</div>}
 				<div className="ord__price">
-					{formatPrice(ticket.price)} · No. {serialFromId(ticket.id)}
+					{formatPrice(ticket.price)}
+					{qty > 1 ? ` · ${avail}/${qty} seats` : ''} · No.{' '}
+					{serialFromId(ticket.id)}
 				</div>
 			</div>
 
@@ -53,7 +62,7 @@ const ListingRow = ({ ticket, onChange }) => {
 				<span className={`stamp ${status.cls}`}>{status.label}</span>
 
 				{/* Edit available on any unreserved ticket (listed or unlisted) */}
-				{!reserved && (
+				{!locked && (
 					<Link
 						href="/tickets/edit/[ticketId]"
 						as={`/tickets/edit/${ticket.id}`}
@@ -63,7 +72,7 @@ const ListingRow = ({ ticket, onChange }) => {
 					</Link>
 				)}
 
-				{!reserved && !ticket.unlisted && (
+				{!locked && !ticket.unlisted && (
 					<button
 						type="button"
 						className="btn btn--line"
@@ -74,7 +83,7 @@ const ListingRow = ({ ticket, onChange }) => {
 					</button>
 				)}
 
-				{!reserved && ticket.unlisted && (
+				{!locked && ticket.unlisted && (
 					<button
 						type="button"
 						className="btn btn--red"

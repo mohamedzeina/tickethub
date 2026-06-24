@@ -41,7 +41,7 @@ it('returns an error if the ticket does not exist', async () => {
 		.expect(404);
 });
 
-it('returns an error if the ticket is already reserved', async () => {
+it('returns an error if the ticket is sold out', async () => {
 	const ticket = Ticket.build({
 		id: new mongoose.Types.ObjectId().toHexString(),
 		title: 'Akon Concert',
@@ -49,13 +49,8 @@ it('returns an error if the ticket is already reserved', async () => {
 	});
 	await ticket.save();
 
-	const order = Order.build({
-		userId: 'asfafafas',
-		ticket,
-		status: OrderStatus.Created,
-		expiresAt: new Date(),
-	});
-	await order.save();
+	// Claim the listing's only seat so no capacity remains.
+	await Ticket.reserveSeats(ticket.id, 1);
 
 	await request(app)
 		.post('/api/orders')
@@ -63,6 +58,88 @@ it('returns an error if the ticket is already reserved', async () => {
 		.send({
 			ticketId: ticket.id,
 		})
+		.expect(400);
+});
+
+it('reserves multiple seats and records the quantity on the order', async () => {
+	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		title: 'Akon Concert',
+		price: 100,
+		quantity: 4,
+	});
+	await ticket.save();
+
+	const res = await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin())
+		.send({ ticketId: ticket.id, quantity: 3 })
+		.expect(201);
+
+	expect(res.body.quantity).toEqual(3);
+	const updated = await Ticket.findById(ticket.id);
+	expect(updated!.reservedSeats).toEqual(3);
+});
+
+it('leaves remaining seats reservable after a partial buy', async () => {
+	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		title: 'Akon Concert',
+		price: 100,
+		quantity: 4,
+	});
+	await ticket.save();
+	await Ticket.reserveSeats(ticket.id, 3);
+
+	// One seat left: buying it succeeds...
+	await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin())
+		.send({ ticketId: ticket.id, quantity: 1 })
+		.expect(201);
+
+	// ...and the listing is now sold out.
+	await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin())
+		.send({ ticketId: ticket.id, quantity: 1 })
+		.expect(400);
+});
+
+it('rejects an order for more seats than remain', async () => {
+	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		title: 'Akon Concert',
+		price: 100,
+		quantity: 4,
+	});
+	await ticket.save();
+	await Ticket.reserveSeats(ticket.id, 3);
+
+	// Only 1 left — asking for 2 is refused and claims nothing.
+	await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin())
+		.send({ ticketId: ticket.id, quantity: 2 })
+		.expect(400);
+
+	const updated = await Ticket.findById(ticket.id);
+	expect(updated!.reservedSeats).toEqual(3);
+});
+
+it('rejects an invalid quantity', async () => {
+	const ticket = Ticket.build({
+		id: new mongoose.Types.ObjectId().toHexString(),
+		title: 'Akon Concert',
+		price: 100,
+		quantity: 4,
+	});
+	await ticket.save();
+
+	await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin())
+		.send({ ticketId: ticket.id, quantity: 0 })
 		.expect(400);
 });
 

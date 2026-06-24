@@ -21,6 +21,8 @@ const publishUpdate = (ticket: any) =>
 		version: ticket.version,
 		title: ticket.title,
 		price: ticket.price,
+		quantity: ticket.quantity,
+		availableQty: ticket.availableQty,
 		userId: ticket.userId,
 		eventDate: ticket.eventDate?.toISOString(),
 		venue: ticket.venue,
@@ -40,9 +42,10 @@ const setListed = (listed: boolean) => async (req: Request, res: Response) => {
 		throw new NotAuthorizedError();
 	}
 	// Don't unlist a ticket that's mid-sale; relisting a reserved ticket is a
-	// no-op the buyer shouldn't be able to undo either.
-	if (ticket.orderId) {
-		throw new BadRequestError('Cannot change a reserved ticket');
+	// no-op the buyer shouldn't be able to undo either. With multi-seat, "mid-sale"
+	// means any seat has been reserved (availableQty below the listed quantity).
+	if (ticket.availableQty < ticket.quantity) {
+		throw new BadRequestError('Cannot change a ticket with active reservations');
 	}
 
 	ticket.set({ unlisted: !listed });
@@ -55,7 +58,7 @@ const setListed = (listed: boolean) => async (req: Request, res: Response) => {
 		// save. Surface a clean 400 instead of an unhandled version error.
 		if (err instanceof mongoose.Error.VersionError) {
 			const latest = await Ticket.findById(req.params.id);
-			if (latest?.orderId) {
+			if (latest && latest.availableQty < latest.quantity) {
 				throw new BadRequestError(
 					`This ticket was just reserved and can no longer be ${
 						listed ? 'relisted' : 'unlisted'

@@ -9,6 +9,7 @@ import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
 import { JsMsg } from 'nats';
 import { Order } from '../../models/order';
+import { Ticket } from '../../models/ticket';
 import { ProcessedEvent } from '../../models/processed-event';
 import { OrderCancelledPublisher } from '../publishers/order-cancelled-publisher';
 
@@ -36,15 +37,29 @@ export class ExpirationCompleteListener extends Listener<ExpirationCompleteEvent
 					return;
 				}
 
+				// Only an active hold (Created/AwaitingPayment) still occupies seats.
+				// If it was already cancelled, releasing again would over-credit the
+				// listing — skip it (#10).
+				if (
+					order.status !== OrderStatus.Created &&
+					order.status !== OrderStatus.AwaitingPayment
+				) {
+					return;
+				}
+
 				order.set({
 					status: OrderStatus.Cancelled,
 				});
 
 				await order.save();
 
+				// Return the held seats to the listing's pool.
+				await Ticket.releaseSeats(order.ticket.id, order.quantity);
+
 				await new OrderCancelledPublisher(this.js).publish({
 					id: order.id,
 					version: order.version,
+					quantity: order.quantity,
 					ticket: {
 						id: order.ticket.id,
 					},

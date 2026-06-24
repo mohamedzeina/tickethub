@@ -21,6 +21,9 @@ interface OrderAttrs {
 	// Optional so a replay of any pre-email order:created still builds.
 	userEmail?: string;
 	price?: number;
+	// Multi-seat (#10): seats in the order. Receipt/seller amounts are price *
+	// quantity. Optional so a pre-#10 replay defaults to a single seat.
+	quantity?: number;
 	// Seller (ticket owner), carried from order:created so we can notify them when
 	// their ticket sells / is refunded (#11). Optional for pre-#11 replays.
 	sellerId?: string;
@@ -32,6 +35,7 @@ interface OrderDoc extends mongoose.Document {
 	status: OrderStatus;
 	userEmail?: string;
 	price?: number;
+	quantity?: number;
 	sellerId?: string;
 }
 
@@ -46,6 +50,7 @@ const orderSchema = new mongoose.Schema<OrderDoc>(
 		status: { type: String, required: true },
 		userEmail: { type: String, required: false },
 		price: { type: Number, required: false },
+		quantity: { type: Number, required: false },
 		sellerId: { type: String, required: false },
 	},
 	{
@@ -67,6 +72,7 @@ orderSchema.statics.build = (attrs: OrderAttrs) => {
 		status: attrs.status,
 		userEmail: attrs.userEmail,
 		price: attrs.price,
+		quantity: attrs.quantity,
 		sellerId: attrs.sellerId,
 	});
 };

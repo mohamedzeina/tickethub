@@ -13,7 +13,11 @@ import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
 import { Notification, NotificationType } from '../../../models/notification';
 
-const seedOrder = async (userId: string, sellerId?: string) => {
+const seedOrder = async (
+	userId: string,
+	sellerId?: string,
+	quantity = 1,
+) => {
 	const order = Order.build({
 		id: new mongoose.Types.ObjectId().toHexString(),
 		userId,
@@ -21,6 +25,7 @@ const seedOrder = async (userId: string, sellerId?: string) => {
 		status: OrderStatus.Created,
 		userEmail: 'buyer@test.com',
 		price: 20,
+		quantity,
 		sellerId,
 	});
 	await order.save();
@@ -91,4 +96,29 @@ it('also notifies the SELLER that their ticket sold (#11)', async () => {
 	expect(sellerNotes.length).toEqual(1);
 	expect(sellerNotes[0].type).toEqual(NotificationType.TicketSold);
 	expect(sellerNotes[0].body).toContain('€20.00');
+});
+
+it('reflects the seat count and total in the receipt + seller note (#10)', async () => {
+	const listener = new PaymentCreatedListener(natsWrapper.connection);
+	const buyerId = new mongoose.Types.ObjectId().toHexString();
+	const sellerId = new mongoose.Types.ObjectId().toHexString();
+	// 3 seats × €20 = €60
+	const order = await seedOrder(buyerId, sellerId, 3);
+
+	// @ts-ignore
+	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
+	await listener.onMessage(
+		{ id: 'evt', orderId: order.id, stripeId: 'pi_1' } as PaymentCreatedEvent['data'],
+		msg,
+	);
+
+	// Seller note shows the seat count and the order total, not the per-seat price.
+	const sellerNotes = await Notification.find({ userId: sellerId });
+	expect(sellerNotes[0].body).toContain('3 seats');
+	expect(sellerNotes[0].body).toContain('€60.00');
+
+	// Receipt email totals to €60 and itemises the seats.
+	const mail = (sendMail as jest.Mock).mock.calls[0][0];
+	expect(mail.text).toContain('€60.00');
+	expect(mail.text).toContain('3 ×');
 });

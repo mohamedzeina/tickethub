@@ -41,15 +41,19 @@ async function paidOrderWithPass(prefix) {
 	settlePaymentIntent(pay.data.clientSecret);
 
 	// Pass is minted off payment:created (after the webhook) — poll until issued.
+	// A single-seat order yields exactly one pass (returned in the passes array).
 	const passRes = await h.retry(
 		() => h.api(`/api/passes/order/${order.data.id}`, { method: 'GET', cookie: buyer.cookie }),
 		{
 			tries: 60,
 			delay: 500,
-			until: (r) => r.status === 200 && r.data?.status === 'issued' && !!r.data?.code,
+			until: (r) =>
+				r.status === 200 &&
+				r.data?.passes?.[0]?.status === 'issued' &&
+				!!r.data?.passes?.[0]?.code,
 		},
 	);
-	return { seller, buyer, order, passRes };
+	return { seller, buyer, order, passRes, pass: passRes.data?.passes?.[0] };
 }
 
 async function run(t) {
@@ -63,14 +67,15 @@ async function run(t) {
 	}
 
 	t.suite('SUITE 1 — A pass is minted on payment and shown to the buyer');
-	const { buyer, order, passRes } = await paidOrderWithPass('adm');
+	const { buyer, order, passRes, pass } = await paidOrderWithPass('adm');
 	t.is('buyer fetches their pass → 200', passRes.status, 200);
-	t.is('pass starts issued', passRes.data?.status, 'issued');
+	t.is('a single-seat order yields one pass', passRes.data?.passes?.length, 1);
+	t.is('pass starts issued', pass?.status, 'issued');
 	t.check(
 		'pass carries a signed gate code',
-		typeof passRes.data?.code === 'string' && passRes.data.code.includes('.'),
+		typeof pass?.code === 'string' && pass.code.includes('.'),
 	);
-	const code = passRes.data.code;
+	const code = pass.code;
 
 	t.suite('SUITE 2 — A pass is private to its owner');
 	const stranger = await h.signupVerified('adm-stranger');
@@ -109,8 +114,8 @@ async function run(t) {
 		method: 'GET',
 		cookie: buyer.cookie,
 	});
-	t.is('buyer now sees the pass as redeemed', after.data?.status, 'redeemed');
-	t.check('a redeemed pass no longer exposes a code', !after.data?.code);
+	t.is('buyer now sees the pass as redeemed', after.data?.passes?.[0]?.status, 'redeemed');
+	t.check('a redeemed pass no longer exposes a code', !after.data?.passes?.[0]?.code);
 
 	// The scan fires ticket:redeemed → notifications writes the buyer a
 	// "Pass scanned" confirmation (#5).
@@ -130,7 +135,7 @@ async function run(t) {
 		(n) => n.orderId === order.data.id && n.type === 'pass_scanned',
 	);
 	t.check('buyer is notified their pass was scanned', !!scanNote);
-	t.is('scan notification names the gate-scan', scanNote?.title, 'Pass scanned ✓');
+	t.is('scan notification names the gate-scan', scanNote?.title, 'Pass scanned');
 	t.check(
 		'scan notification names the event',
 		(scanNote?.body || '').startsWith('Your pass for "Gate Seat'),
@@ -138,7 +143,7 @@ async function run(t) {
 
 	t.suite('SUITE 5 — A refund revokes an unused pass');
 	const second = await paidOrderWithPass('admrev');
-	const revokedCode = second.passRes.data.code; // capture while still issued
+	const revokedCode = second.pass.code; // capture while still issued
 
 	const refund = await h.api(`/api/orders/${second.order.data.id}/refund`, {
 		method: 'POST',
@@ -152,9 +157,13 @@ async function run(t) {
 				method: 'GET',
 				cookie: second.buyer.cookie,
 			}),
-		{ tries: 40, delay: 500, until: (r) => r.status === 200 && r.data?.status === 'revoked' },
+		{
+			tries: 40,
+			delay: 500,
+			until: (r) => r.status === 200 && r.data?.passes?.[0]?.status === 'revoked',
+		},
 	);
-	t.is('the refunded order pass is revoked', revoked.data?.status, 'revoked');
+	t.is('the refunded order pass is revoked', revoked.data?.passes?.[0]?.status, 'revoked');
 
 	const tryRevoked = await h.api('/api/passes/redeem', {
 		body: { code: revokedCode },

@@ -8,6 +8,7 @@ import { TicketUpdatedListener } from './events/listeners/ticket-updated-listene
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
 import { PaymentCreatedListener } from './events/listeners/payment-created-listener';
 import { PaymentRefundedListener } from './events/listeners/payment-refunded-listener';
+import { Pass } from './models/pass';
 
 const startAdmissionService = async () => {
 	let isShuttingDown = false;
@@ -54,6 +55,13 @@ const startAdmissionService = async () => {
 
 		await mongoose.connect(process.env.MONGO_URI);
 		logger.info('connected to MongoDB');
+
+		// Multi-seat (#10) migration: passes moved from a single-field unique index
+		// on orderId to a compound unique (orderId, seat). syncIndexes drops the
+		// stale orderId_1 index (which would otherwise block minting a 2nd seat's
+		// pass) and builds the compound one. Idempotent + safe to run every boot.
+		await Pass.syncIndexes();
+		logger.info('pass indexes synced');
 	} catch (err) {
 		logger.error({ err }, 'failed to start service');
 	}

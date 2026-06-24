@@ -15,7 +15,7 @@ export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 	protected deadLetterStore = FailedEvent;
 
 	async onMessage(data: TicketUpdatedEvent['data'], msg: JsMsg) {
-		const { id, title, price, userId, unlisted, eventDate, venue, description, category, imageUrl } =
+		const { id, title, price, quantity, userId, unlisted, eventDate, venue, description, category, imageUrl } =
 			data;
 
 		const ticket = await Ticket.findByEvent({ id, version: data.version });
@@ -27,6 +27,9 @@ export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 		ticket.set({
 			title,
 			price,
+			// Mirror seller quantity edits; keep the current value for legacy events
+			// that predate multi-seat. reservedSeats is intentionally untouched here.
+			quantity: quantity ?? ticket.quantity,
 			userId,
 			unlisted,
 			eventDate,

@@ -31,8 +31,13 @@ export class OrderCreatedListner extends Listener<OrderCreatedEvent> {
 					throw new Error('Ticket not found');
 				}
 
-				// Mark the ticket as being reserved by setting the orderId
-				ticket.set({ orderId: data.id });
+				// Multi-seat (#10): a reservation consumes `quantity` seats from the
+				// listing's pool. orders has already enforced the cap atomically, so
+				// availableQty can't legitimately go below 0 — clamp defensively.
+				const seats = data.quantity ?? 1;
+				ticket.set({
+					availableQty: Math.max(0, ticket.availableQty - seats),
+				});
 
 				// Save the ticket
 				await ticket.save();
@@ -41,8 +46,9 @@ export class OrderCreatedListner extends Listener<OrderCreatedEvent> {
 					version: ticket.version,
 					title: ticket.title,
 					price: ticket.price,
+					quantity: ticket.quantity,
+					availableQty: ticket.availableQty,
 					userId: ticket.userId,
-					orderId: ticket.orderId,
 					// Carry the full descriptive fields too: the orders replica
 					// overwrites its copy from this payload, so omitting these wipes
 					// eventDate/venue/etc. on reserve — which silently disabled the

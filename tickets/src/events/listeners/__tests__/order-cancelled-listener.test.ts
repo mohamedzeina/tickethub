@@ -1,4 +1,4 @@
-import { OrderCancelledEvent, OrderStatus } from '@zeina-tickethub/common';
+import { OrderCancelledEvent } from '@zeina-tickethub/common';
 import { OrderCancelledListener } from '../order-cancelled-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Ticket } from '../../../models/ticket';
@@ -9,23 +9,23 @@ const setup = async () => {
 	// Create an instance of the listener
 	const listener = new OrderCancelledListener(natsWrapper.connection);
 
-	const orderId = new mongoose.Types.ObjectId().toHexString();
-	// Create and save a ticket
+	// Create a 5-seat ticket with 3 seats currently reserved (availableQty 2)
 	const ticket = await Ticket.build({
 		title: 'Akon Concert',
 		price: 200,
+		quantity: 5,
 		userId: '123',
 	});
-
 	await ticket.save();
 
-	ticket.set({ orderId });
+	ticket.set({ availableQty: 2 });
 	await ticket.save();
 
-	// Create fake data event
+	// Cancelled order released 3 seats
 	const data: OrderCancelledEvent['data'] = {
 		id: new mongoose.Types.ObjectId().toHexString(),
 		version: 2,
+		quantity: 3,
 		ticket: {
 			id: ticket.id,
 		},
@@ -41,20 +41,22 @@ const setup = async () => {
 	return { listener, data, ticket, msg };
 };
 
-it('empties the orderId of the ticket, publishes an event, and acks message', async () => {
+it('restores availableQty by the order quantity, publishes an event, and acks message', async () => {
 	const { listener, ticket, data, msg } = await setup();
 
 	await listener.onMessage(data, msg);
 
-	const orderedTicket = await Ticket.findById(ticket.id);
+	const releasedTicket = await Ticket.findById(ticket.id);
 
-	expect(orderedTicket!.orderId).not.toBeDefined();
+	expect(releasedTicket!.availableQty).toEqual(5);
 	expect(msg.ack).toHaveBeenCalled();
 	expect(natsWrapper.js.publish).toHaveBeenCalled();
 
-	const ticketUpdatedData = (JSONCodec().decode((natsWrapper.js.publish as jest.Mock).mock.calls[0][1]) as any);
+	const ticketUpdatedData = JSONCodec().decode(
+		(natsWrapper.js.publish as jest.Mock).mock.calls[0][1],
+	) as any;
 
-	expect(ticketUpdatedData.orderId).not.toBeDefined();
+	expect(ticketUpdatedData.availableQty).toEqual(5);
 });
 
 it('releases the reservation only once for a redelivered (duplicate) event', async () => {
@@ -66,7 +68,8 @@ it('releases the reservation only once for a redelivered (duplicate) event', asy
 	expect(natsWrapper.js.publish).toHaveBeenCalledTimes(1);
 
 	const releasedTicket = await Ticket.findById(ticket.id);
-	expect(releasedTicket!.orderId).not.toBeDefined();
+	// Never exceeds the listed quantity even though the event was redelivered.
+	expect(releasedTicket!.availableQty).toEqual(5);
 
 	expect(msg.ack).toHaveBeenCalledTimes(2);
 });

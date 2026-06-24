@@ -9,6 +9,7 @@ const CATEGORIES = ['Concerts', 'Sports', 'Theater', 'Festivals', 'Other'];
 const EMPTY = {
 	title: '',
 	price: '',
+	quantity: '1',
 	eventDate: '',
 	venue: '',
 	category: 'Concerts',
@@ -34,6 +35,7 @@ const TicketForm = ({
 
 	const [title, setTitle] = useState(init.title);
 	const [price, setPrice] = useState(String(init.price ?? ''));
+	const [quantity, setQuantity] = useState(String(init.quantity ?? 1));
 	const [eventDate, setEventDate] = useState(init.eventDate);
 	const [venue, setVenue] = useState(init.venue);
 	const [category, setCategory] = useState(init.category || 'Concerts');
@@ -87,7 +89,7 @@ const TicketForm = ({
 	const { doRequest, fieldErrors, generalErrors } = useRequest({
 		url,
 		method,
-		body: { title, price, eventDate, venue, category, description, imageUrl },
+		body: { title, price, quantity, eventDate, venue, category, description, imageUrl },
 		onSuccess: () => Router.push(redirectTo),
 	});
 
@@ -225,21 +227,39 @@ const TicketForm = ({
 						{fieldErrors('imageUrl')}
 					</div>
 
-					<div className="field">
-						<label htmlFor="price">Price</label>
-						<div className="price-wrap">
-							<span>€</span>
-							<input
-								id="price"
-								inputMode="decimal"
-								required
-								value={price}
-								onBlur={onBlurPrice}
-								onChange={(e) => setPrice(e.target.value)}
-								placeholder="0.00"
-							/>
+					<div className="two">
+						<div className="field">
+							<label htmlFor="price">Price <span className="opt">per seat</span></label>
+							<div className="price-wrap">
+								<span>€</span>
+								<input
+									id="price"
+									inputMode="decimal"
+									required
+									value={price}
+									onBlur={onBlurPrice}
+									onChange={(e) => setPrice(e.target.value)}
+									placeholder="0.00"
+								/>
+							</div>
+							{fieldErrors('price')}
 						</div>
-						{fieldErrors('price')}
+
+						<div className="field">
+							<label htmlFor="quantity">Quantity <span className="opt">seats</span></label>
+							<input
+								id="quantity"
+								type="number"
+								min="1"
+								max="20"
+								step="1"
+								required
+								value={quantity}
+								onChange={(e) => setQuantity(e.target.value)}
+								placeholder="1"
+							/>
+							{fieldErrors('quantity')}
+						</div>
 					</div>
 
 					{generalErrors()}

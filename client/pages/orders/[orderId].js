@@ -19,10 +19,9 @@ import SellerReview from '../../components/SellerReview';
 import usePass from '../../hooks/usePass';
 import redirect from '../../utils/redirect';
 
-// The admission pass (#delivery) — the QR a buyer shows at the gate. Minted off
-// payment:created, so it can briefly lag; usePass polls while it's pending.
-const AdmissionPass = ({ orderId }) => {
-	const { pass, status } = usePass(orderId);
+// A single seat's pass card — QR + copy when issued, or a used/void state. Each
+// seat of a multi-seat order (#10) is scanned independently, so each gets its own.
+const PassCard = ({ pass, multi }) => {
 	const [copied, setCopied] = useState(false);
 
 	const copyCode = async () => {
@@ -35,9 +34,9 @@ const AdmissionPass = ({ orderId }) => {
 		}
 	};
 
-	let body;
-	if (status === 'ready' && pass?.status === 'issued' && pass?.code) {
-		body = (
+	let inner;
+	if (pass.status === 'issued' && pass.code) {
+		inner = (
 			<>
 				<div className="pass__qr">
 					<QRCodeSVG
@@ -51,26 +50,48 @@ const AdmissionPass = ({ orderId }) => {
 					/>
 				</div>
 				<div className="pass__hint">Scan at the gate. Single use.</div>
-				<button
-					type="button"
-					className="btn pass__copy"
-					onClick={copyCode}
-				>
+				<button type="button" className="btn pass__copy" onClick={copyCode}>
 					{copied ? 'Copied ✓' : 'Copy gate code'}
 				</button>
 			</>
 		);
-	} else if (status === 'ready' && pass?.status === 'redeemed') {
-		body = (
+	} else if (pass.status === 'redeemed') {
+		inner = (
 			<div className="pass__state pass__state--used">
 				✓ Checked in
 				{pass.redeemedAt ? ` · ${new Date(pass.redeemedAt).toLocaleString()}` : ''}
 			</div>
 		);
-	} else if (status === 'ready' && pass?.status === 'revoked') {
-		body = (
+	} else if (pass.status === 'revoked') {
+		inner = (
 			<div className="pass__state pass__state--void">
 				Pass revoked — this order was refunded.
+			</div>
+		);
+	}
+
+	return (
+		<div className="pass__card">
+			{multi && <div className="pass__seat">Seat {pass.seat}</div>}
+			{inner}
+		</div>
+	);
+};
+
+// The admission passes (#delivery / #10) — one QR per seat the buyer shows at the
+// gate. Minted off payment:created, so they can briefly lag; usePass polls while
+// pending.
+const AdmissionPass = ({ orderId }) => {
+	const { passes, status } = usePass(orderId);
+	const multi = passes.length > 1;
+
+	let body;
+	if (status === 'ready' && passes.length > 0) {
+		body = (
+			<div className={`pass__grid${multi ? ' pass__grid--multi' : ''}`}>
+				{passes.map((p) => (
+					<PassCard key={p.id} pass={p} multi={multi} />
+				))}
 			</div>
 		);
 	} else if (status === 'error') {
@@ -88,7 +109,9 @@ const AdmissionPass = ({ orderId }) => {
 
 	return (
 		<div className="pass">
-			<div className="pass__head">Admission Pass</div>
+			<div className="pass__head">
+				{multi ? `Admission Passes · ${passes.length} seats` : 'Admission Pass'}
+			</div>
 			{body}
 		</div>
 	);
@@ -120,6 +143,8 @@ const formatDeadline = (value) => {
 // Stripe `charge.refunded` webhook, so after requesting we poll the order and
 // reload into the refunded dead-end when it settles.
 const RefundControl = ({ order }) => {
+	// Multi-seat (#10): the refund returns the whole order (per-seat price × seats).
+	const total = order.ticket.price * (order.quantity ?? 1);
 	const [requested, setRequested] = useState(!!order.refundRequestedAt);
 	const [confirming, setConfirming] = useState(false);
 	const [loading, setLoading] = useState(false);
@@ -180,7 +205,7 @@ const RefundControl = ({ order }) => {
 				<div className="refund__spinner" aria-hidden="true" />
 				<div className="refund__head">Refund processing</div>
 				<p className="refund__note">
-					We&apos;re returning {formatPrice(order.ticket.price)} to your
+					We&apos;re returning {formatPrice(total)} to your
 					original payment method and releasing the ticket. This takes a few
 					seconds to confirm; it can take 5–10 business days to appear on your
 					statement.
@@ -198,7 +223,7 @@ const RefundControl = ({ order }) => {
 					<div className="refund__head">Refund this order?</div>
 					<p className="refund__note">
 						This releases your ticket back for sale and returns{' '}
-						{formatPrice(order.ticket.price)} to your original payment method.
+						{formatPrice(total)} to your original payment method.
 						This can&apos;t be undone.
 					</p>
 					{error && <div className="card-error">{error}</div>}
@@ -389,6 +414,9 @@ const formatPaidAt = (value) => {
 const Receipt = ({ order, reviewState }) => {
 	const eventDate = formatDateShort(order.ticket.eventDate);
 	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
+	// Multi-seat (#10): amount paid is the per-seat price times the seats bought.
+	const seats = order.quantity ?? 1;
+	const total = order.ticket.price * seats;
 	// "Paid on" carries a wall-clock time, which differs between the server (pod
 	// TZ) and the browser (the buyer's TZ) — formatting it during SSR causes a
 	// hydration mismatch. Format it after mount so it shows the buyer's local
@@ -416,9 +444,15 @@ const Receipt = ({ order, reviewState }) => {
 
 				<div className="gate__pay">
 					<dl className="receipt">
+						{seats > 1 && (
+							<div className="receipt__row">
+								<dt>Seats</dt>
+								<dd>{seats} × {formatPrice(order.ticket.price)}</dd>
+							</div>
+						)}
 						<div className="receipt__row">
 							<dt>Amount paid</dt>
-							<dd>{formatPrice(order.ticket.price)}</dd>
+							<dd>{formatPrice(total)}</dd>
 						</div>
 						{paidAt && (
 							<div className="receipt__row">
@@ -557,6 +591,9 @@ const OrderShow = ({ order, reviewState }) => {
 	const urgent = timeLeft <= 60;
 	const eventDate = formatDateShort(order.ticket.eventDate);
 	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
+	// Multi-seat (#10): the buyer pays the per-seat price for every reserved seat.
+	const seats = order.quantity ?? 1;
+	const total = order.ticket.price * seats;
 
 	return (
 		<div className="container">
@@ -573,8 +610,15 @@ const OrderShow = ({ order, reviewState }) => {
 						{formatClock(timeLeft)}
 					</div>
 					<div className="gate__total">
-						<span className="l">Total Due</span>
-						<span className="a">{formatPrice(order.ticket.price)}</span>
+						<span className="l">
+							Total Due
+							{seats > 1 && (
+								<small className="gate__seats">
+									{seats} × {formatPrice(order.ticket.price)}
+								</small>
+							)}
+						</span>
+						<span className="a">{formatPrice(total)}</span>
 					</div>
 				</div>
 
@@ -585,7 +629,7 @@ const OrderShow = ({ order, reviewState }) => {
 
 				<div className="gate__pay">
 					<Elements stripe={stripePromise}>
-						<CheckoutForm amount={order.ticket.price} orderId={order.id} />
+						<CheckoutForm amount={total} orderId={order.id} />
 					</Elements>
 				</div>
 			</div>

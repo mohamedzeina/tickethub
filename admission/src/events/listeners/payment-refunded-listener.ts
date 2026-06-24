@@ -17,10 +17,11 @@ export class PaymentRefundedListener extends Listener<PaymentRefundedEvent> {
 
 	async onMessage(data: PaymentRefundedEvent['data'], msg: JsMsg) {
 		await processOnce(ProcessedEvent, this.subject, msg.seq, async () => {
-			// A refunded ticket must stop working at the gate. Revoke only an
-			// still-issued pass — an already-redeemed pass means the buyer attended,
-			// and a refund in that (shouldn't-happen) case leaves the used record be.
-			await Pass.updateOne(
+			// A refunded ticket must stop working at the gate. Revoke every
+			// still-issued pass for the order (#10 — an order can have several) — an
+			// already-redeemed pass means that seat attended, so a refund in that
+			// (shouldn't-happen) case leaves the used record be.
+			await Pass.updateMany(
 				{ orderId: data.orderId, status: PassStatus.Issued },
 				{ $set: { status: PassStatus.Revoked } },
 			);

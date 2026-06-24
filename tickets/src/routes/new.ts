@@ -22,6 +22,11 @@ router.post(
 				gt: 0,
 			})
 			.withMessage('Price must be greater than 0'),
+		body('quantity')
+			.optional()
+			.isInt({ min: 1, max: 20 })
+			.withMessage('Quantity must be a whole number between 1 and 20')
+			.toInt(),
 		body('eventDate')
 			.isISO8601()
 			.withMessage('A valid event date is required')
@@ -48,12 +53,25 @@ router.post(
 	],
 	validateRequest,
 	async (req: Request, res: Response) => {
-		const { title, price, eventDate, venue, description, category, imageUrl } =
-			req.body;
+		const {
+			title,
+			price,
+			quantity,
+			eventDate,
+			venue,
+			description,
+			category,
+			imageUrl,
+		} = req.body;
+
+		// A new listing is fully available: every seat is on sale.
+		const seats = quantity ?? 1;
 
 		const ticket = Ticket.build({
 			title,
 			price,
+			quantity: seats,
+			availableQty: seats,
 			userId: req.currentUser!.id,
 			eventDate,
 			venue,
@@ -69,6 +87,8 @@ router.post(
 			version: ticket.version,
 			title: ticket.title,
 			price: ticket.price,
+			quantity: ticket.quantity,
+			availableQty: ticket.availableQty,
 			userId: ticket.userId,
 			eventDate: ticket.eventDate?.toISOString(),
 			venue: ticket.venue,

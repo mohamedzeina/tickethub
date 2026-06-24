@@ -31,14 +31,16 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 			order.set({ status: OrderStatus.Complete });
 			await order.save();
 
-			// Mint the admission pass — once. The unique index on orderId plus this
-			// guard make a redelivery a no-op. Venue/date are best-effort from the
-			// ticket replica; the pass is still valid without them.
-			const existing = await Pass.findOne({ orderId: data.orderId });
-			if (!existing) {
-				const ticketRef = await TicketRef.findById(order.ticketId);
+			// Mint one admission pass per seat (#10). The compound unique index on
+			// (orderId, seat) plus the swallowed 11000 make redelivery / a concurrent
+			// delivery a no-op. Venue/date are best-effort from the ticket replica;
+			// passes are still valid without them.
+			const ticketRef = await TicketRef.findById(order.ticketId);
+			const seats = order.quantity ?? 1;
+			for (let seat = 1; seat <= seats; seat++) {
 				const pass = Pass.build({
 					orderId: data.orderId,
+					seat,
 					buyerId: order.buyerId,
 					ticketId: order.ticketId,
 					eventTitle: order.ticketTitle,
@@ -48,7 +50,7 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 				try {
 					await pass.save();
 				} catch (err: any) {
-					// 11000 = a concurrent delivery already minted it. Benign.
+					// 11000 = this seat's pass already exists. Benign.
 					if (err?.code !== 11000) {
 						throw err;
 					}

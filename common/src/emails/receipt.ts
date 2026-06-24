@@ -4,7 +4,10 @@ import { escapeHtml } from './escape';
 export interface ReceiptDetails {
 	to: string;
 	ticketTitle: string;
-	price: number; // dollars
+	price: number; // per-seat price, in dollars
+	// Multi-seat (#10): number of seats. The amount charged is price * quantity.
+	// Optional so a single-seat caller (or replay) defaults to 1.
+	quantity?: number;
 	orderId: string;
 	stripeId: string;
 	paidAt?: Date;
@@ -23,12 +26,15 @@ export const purchaseReceiptEmail = (d: ReceiptDetails): MailMessage => {
 		day: 'numeric',
 	});
 	const ref = d.orderId.slice(-6).toUpperCase();
+	const qty = d.quantity ?? 1;
+	const total = d.price * qty;
 
 	const text = [
 		`You're in — payment confirmed.`,
 		``,
 		`Event:   ${d.ticketTitle}`,
-		`Amount:  ${money(d.price)}`,
+		...(qty > 1 ? [`Seats:   ${qty} × ${money(d.price)}`] : []),
+		`Amount:  ${money(total)}`,
 		`Order:   No. ${ref}`,
 		`Paid:    ${paid}`,
 		`Stripe:  ${d.stripeId}`,
@@ -49,7 +55,8 @@ export const purchaseReceiptEmail = (d: ReceiptDetails): MailMessage => {
 	        <tr><td style="padding:16px 32px;">
 	          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
 	                 style="font-family:'Courier New',monospace;font-size:13px;color:#5c5446;">
-	            <tr><td style="padding:6px 0;">AMOUNT</td><td align="right" style="color:#c0392b;font-weight:bold;">${money(d.price)}</td></tr>
+	            ${qty > 1 ? `<tr><td style="padding:6px 0;">SEATS</td><td align="right">${qty} &times; ${money(d.price)}</td></tr>` : ''}
+		            <tr><td style="padding:6px 0;">AMOUNT</td><td align="right" style="color:#c0392b;font-weight:bold;">${money(total)}</td></tr>
 	            <tr><td style="padding:6px 0;">ORDER</td><td align="right">No. ${escapeHtml(ref)}</td></tr>
 	            <tr><td style="padding:6px 0;">PAID</td><td align="right">${paid}</td></tr>
 	            <tr><td style="padding:6px 0;">STRIPE REF</td><td align="right" style="font-size:11px;">${escapeHtml(d.stripeId)}</td></tr>

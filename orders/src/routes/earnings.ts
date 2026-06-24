@@ -49,12 +49,13 @@ router.get(
 
 		let clearing = 0;
 		const sales = orders.map((o) => {
-			const amount = (o.ticket as any)?.price ?? 0;
+			// Multi-seat (#10): gross is per-seat price times seats sold.
+			const amount = (o.ticket?.price ?? 0) * (o.quantity ?? 1);
 			const net = netOf(amount);
 			clearing += net;
 			return {
 				orderId: o.id,
-				title: (o.ticket as any)?.title || 'your sale',
+				title: o.ticket?.title || 'your sale',
 				amount,
 				net,
 				clearsAt: refundableUntil(o),

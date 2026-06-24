@@ -12,9 +12,12 @@ interface OrderAttrs {
 	status: OrderStatus;
 	expiresAt: Date;
 	ticket: TicketDoc;
+	// Multi-seat (#10): seats reserved by this order. The order total is
+	// ticket.price * quantity. Defaults to 1 for single-unit orders.
+	quantity?: number;
 }
 
-interface OrderDoc extends mongoose.Document {
+export interface OrderDoc extends mongoose.Document {
 	userId: string;
 	// Buyer's email, kept so expiry/cancel notifications can reach them (#5b/5c).
 	userEmail?: string;
@@ -22,6 +25,8 @@ interface OrderDoc extends mongoose.Document {
 	status: OrderStatus;
 	expiresAt: Date;
 	ticket: TicketDoc;
+	// Multi-seat (#10): seats reserved by this order (>= 1).
+	quantity: number;
 	// Receipt metadata, set when payment:created completes the order (C5).
 	stripeId?: string;
 	paidAt?: Date;
@@ -77,6 +82,12 @@ const orderSchema = new mongoose.Schema(
 		ticket: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: 'Ticket',
+		},
+		quantity: {
+			type: Number,
+			required: true,
+			min: 1,
+			default: 1,
 		},
 		stripeId: {
 			type: String,

@@ -15,6 +15,9 @@ interface OrderRefAttrs {
 	ticketId: string;
 	ticketTitle: string;
 	status: OrderStatus;
+	// Multi-seat (#10): seats in the order, so payment:created mints one pass per
+	// seat. Optional so a pre-#10 order:created replay builds as a single seat.
+	quantity?: number;
 }
 
 interface OrderRefDoc extends mongoose.Document {
@@ -22,6 +25,7 @@ interface OrderRefDoc extends mongoose.Document {
 	ticketId: string;
 	ticketTitle: string;
 	status: OrderStatus;
+	quantity: number;
 }
 
 interface OrderRefModel extends mongoose.Model<OrderRefDoc> {
@@ -34,6 +38,7 @@ const orderRefSchema = new mongoose.Schema<OrderRefDoc>(
 		ticketId: { type: String, required: true },
 		ticketTitle: { type: String, required: true },
 		status: { type: String, required: true },
+		quantity: { type: Number, required: true, default: 1, min: 1 },
 	},
 	{
 		toJSON: {
@@ -53,6 +58,7 @@ orderRefSchema.statics.build = (attrs: OrderRefAttrs) => {
 		ticketId: attrs.ticketId,
 		ticketTitle: attrs.ticketTitle,
 		status: attrs.status,
+		quantity: attrs.quantity ?? 1,
 	});
 };
 

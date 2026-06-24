@@ -11,6 +11,7 @@ const EditTicket = ({ ticket }) => {
 	const initialValues = {
 		title: ticket.title,
 		price: ticket.price,
+		quantity: ticket.quantity ?? 1,
 		eventDate: ticket.eventDate
 			? new Date(ticket.eventDate).toISOString().slice(0, 10)
 			: '',
@@ -39,8 +40,9 @@ const EditTicket = ({ ticket }) => {
 	);
 };
 
-// Only the owner of a not-yet-reserved ticket may edit it (mirrors the server's
-// PUT /api/tickets/:id rules). Anyone else is redirected to their listings.
+// Only the owner of a fully-available ticket may edit it (mirrors the server's
+// PUT /api/tickets/:id rules — #10 blocks edits once any seat is reserved/sold).
+// Anyone else is redirected to their listings.
 EditTicket.getInitialProps = async (context, client, currentUser) => {
 	const { ticketId } = context.query;
 
@@ -57,7 +59,9 @@ EditTicket.getInitialProps = async (context, client, currentUser) => {
 	}
 
 	const allowed =
-		currentUser && ticket.userId === currentUser.id && !ticket.orderId;
+		currentUser &&
+		ticket.userId === currentUser.id &&
+		(ticket.availableQty ?? 1) >= (ticket.quantity ?? 1);
 
 	if (!allowed) {
 		redirect(context, '/listings');

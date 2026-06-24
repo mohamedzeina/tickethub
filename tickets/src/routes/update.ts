@@ -24,6 +24,11 @@ router.put(
 		body('price')
 			.isFloat({ gt: 0 })
 			.withMessage('Price must be greater than 0'),
+		body('quantity')
+			.optional()
+			.isInt({ min: 1, max: 20 })
+			.withMessage('Quantity must be a whole number between 1 and 20')
+			.toInt(),
 		body('eventDate')
 			.isISO8601()
 			.withMessage('A valid event date is required')
@@ -56,17 +61,26 @@ router.put(
 			throw new NotFoundError();
 		}
 
-		if (ticket.orderId) {
-			throw new BadRequestError('Cannot edit a reserved ticket');
+		// Block edits once any seat has been reserved or sold (availableQty has
+		// dropped below the listed quantity) — the same protection the single-unit
+		// orderId check gave, generalised to multi-seat.
+		if (ticket.availableQty < ticket.quantity) {
+			throw new BadRequestError('Cannot edit a ticket with active reservations');
 		}
 
 		if (ticket.userId !== req.currentUser!.id) {
 			throw new NotAuthorizedError();
 		}
 
+		// Quantity is only editable while fully available (guaranteed above), so the
+		// new quantity is also fully available.
+		const seats = req.body.quantity ?? ticket.quantity;
+
 		ticket.set({
 			title: req.body.title,
 			price: req.body.price,
+			quantity: seats,
+			availableQty: seats,
 			eventDate: req.body.eventDate,
 			venue: req.body.venue,
 			description: req.body.description,
@@ -83,7 +97,7 @@ router.put(
 			if (err instanceof mongoose.Error.VersionError) {
 				const latest = await Ticket.findById(req.params.id);
 				throw new BadRequestError(
-					latest?.orderId
+					latest && latest.availableQty < latest.quantity
 						? 'This ticket was just reserved and can no longer be edited'
 						: 'This ticket was just updated — reload and try again',
 				);
@@ -96,6 +110,8 @@ router.put(
 			version: ticket.version,
 			title: ticket.title,
 			price: ticket.price,
+			quantity: ticket.quantity,
+			availableQty: ticket.availableQty,
 			userId: ticket.userId,
 			eventDate: ticket.eventDate?.toISOString(),
 			venue: ticket.venue,

@@ -31,8 +31,15 @@ export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 					throw new Error('Ticket not found');
 				}
 
-				// Release the reservation by clearing the orderId
-				ticket.set({ orderId: undefined });
+				// Multi-seat (#10): releasing an order returns its seats to the pool,
+				// capped at the listed quantity so a duplicate release can't inflate it.
+				const seats = data.quantity ?? 1;
+				ticket.set({
+					availableQty: Math.min(
+						ticket.quantity,
+						ticket.availableQty + seats,
+					),
+				});
 
 				// Save the ticket
 				await ticket.save();
@@ -41,8 +48,9 @@ export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 					version: ticket.version,
 					title: ticket.title,
 					price: ticket.price,
+					quantity: ticket.quantity,
+					availableQty: ticket.availableQty,
 					userId: ticket.userId,
-					orderId: ticket.orderId,
 					// Carry the full descriptive fields too (see order-created-listener):
 					// the orders replica overwrites its copy from this payload, so
 					// omitting these wipes eventDate/venue/etc. on relist.

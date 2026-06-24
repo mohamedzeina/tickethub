@@ -40,7 +40,10 @@ async function run(t) {
 	t.is('created listing starts at version 0', created.data?.version, 0);
 	t.is('created listing is listed (unlisted=false)', created.data?.unlisted, false);
 	t.is('created listing belongs to the seller', created.data?.userId, seller.userId);
-	t.check('created listing is not reserved', created.data?.orderId === undefined);
+	t.check(
+		'created listing is fully available (not reserved)',
+		created.data?.availableQty === created.data?.quantity,
+	);
 
 	const noAuth = await h.api('/api/tickets', {
 		body: { title: 'No auth', price: 50, venue: 'Nowhere', eventDate: h.futureDate(10) },
@@ -342,13 +345,17 @@ async function run(t) {
 	const order = await h.reserveReady(other.cookie, freshId);
 	t.is('buyer reserves the fresh listing → 201', order.status, 201);
 
-	// Reservation flows back via OrderCreated → tickets sets orderId. Poll until
-	// the tickets service reflects it (replica/event lag), then assert edits fail.
+	// Reservation flows back via OrderCreated → tickets drops availableQty below
+	// quantity (#10). Poll until the tickets service reflects it (replica/event
+	// lag), then assert edits fail.
 	const reserved = await h.retry(
 		() => h.api(`/api/tickets/${freshId}`, { method: 'GET', cookie: seller.cookie }),
-		{ tries: 25, delay: 500, until: (r) => r.data?.orderId !== undefined },
+		{ tries: 25, delay: 500, until: (r) => r.data?.availableQty < r.data?.quantity },
 	);
-	t.check('reservation propagated into tickets service', reserved.data?.orderId !== undefined);
+	t.check(
+		'reservation propagated into tickets service',
+		reserved.data?.availableQty < reserved.data?.quantity,
+	);
 
 	const editReserved = await h.api(`/api/tickets/${freshId}`, {
 		method: 'PUT',

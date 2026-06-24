@@ -1,7 +1,10 @@
 import mongoose from 'mongoose';
 
-// An admission pass — the single-use credential a buyer shows at the gate. One
-// per paid order (unique `orderId`), minted on `payment:created`.
+// An admission pass — the single-use credential a buyer shows at the gate.
+// Multi-seat (#10): one pass PER SEAT, so a 3-seat order mints 3 independently
+// redeemable passes. Identity is the compound (orderId, seat) — unique so a
+// redelivered payment:created re-mints nothing. Each has its own QR / code and
+// is scanned independently at the gate.
 //
 // The QR encodes a signed `code` derived from the pass id (see services/code.ts);
 // the signature proves authenticity, while this `status` field enforces validity
@@ -20,6 +23,8 @@ export enum PassStatus {
 
 interface PassAttrs {
 	orderId: string;
+	// 1-based seat index within the order (1..quantity). Defaults to 1.
+	seat?: number;
 	buyerId: string;
 	ticketId: string;
 	eventTitle: string;
@@ -29,6 +34,7 @@ interface PassAttrs {
 
 interface PassDoc extends mongoose.Document {
 	orderId: string;
+	seat: number;
 	buyerId: string;
 	ticketId: string;
 	eventTitle: string;
@@ -44,7 +50,8 @@ interface PassModel extends mongoose.Model<PassDoc> {
 
 const passSchema = new mongoose.Schema<PassDoc>(
 	{
-		orderId: { type: String, required: true, unique: true },
+		orderId: { type: String, required: true },
+		seat: { type: Number, required: true, default: 1, min: 1 },
 		buyerId: { type: String, required: true },
 		ticketId: { type: String, required: true },
 		eventTitle: { type: String, required: true },
@@ -69,6 +76,9 @@ const passSchema = new mongoose.Schema<PassDoc>(
 		},
 	},
 );
+
+// One pass per seat: a redelivered payment:created can't double-mint.
+passSchema.index({ orderId: 1, seat: 1 }, { unique: true });
 
 passSchema.statics.build = (attrs: PassAttrs) => {
 	return new Pass(attrs);

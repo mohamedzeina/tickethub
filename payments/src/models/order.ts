@@ -7,7 +7,10 @@ interface OrderAttrs {
 	status: OrderStatus;
 	version: number;
 	userId: string;
+	// Per-seat price. The amount charged is price * quantity (#10).
 	price: number;
+	// Multi-seat (#10): seats in the order. Optional so pre-#10 replays build as 1.
+	quantity?: number;
 	// Carried on order:created so the webhook can email a receipt. (#5)
 	// Optional so replays of pre-#5 events still build.
 	userEmail?: string;
@@ -19,6 +22,7 @@ interface OrderDoc extends mongoose.Document {
 	version: number;
 	userId: string;
 	price: number;
+	quantity: number;
 	userEmail?: string;
 	ticketTitle?: string;
 }
@@ -45,6 +49,12 @@ const orderSchema = new mongoose.Schema(
 		price: {
 			type: Number,
 			required: true,
+		},
+		quantity: {
+			type: Number,
+			required: true,
+			min: 1,
+			default: 1,
 		},
 		status: {
 			type: String,
@@ -77,6 +87,7 @@ orderSchema.statics.build = (attrs: OrderAttrs) => {
 		_id: attrs.id,
 		version: attrs.version,
 		price: attrs.price,
+		quantity: attrs.quantity ?? 1,
 		userId: attrs.userId,
 		status: attrs.status,
 		userEmail: attrs.userEmail,

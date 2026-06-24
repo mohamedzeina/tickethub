@@ -1,5 +1,5 @@
 import { OrderStatus, logger } from '@zeina-tickethub/common';
-import { Order } from '../models/order';
+import { Order, OrderDoc } from '../models/order';
 import { refundableUntil } from './refund-window';
 import { OrderPayoutDuePublisher } from '../events/publishers/order-payout-due-publisher';
 import { natsWrapper } from '../nats-wrapper';
@@ -18,7 +18,9 @@ import { natsWrapper } from '../nats-wrapper';
 // Emit order:payout:due for one (populated) order and mark it, unless already
 // emitted or the seller/price is missing. Returns true if it published. Shared by
 // the sweep and the dev-only force trigger; the window check lives in the caller.
-export const emitPayoutForOrder = async (order: any): Promise<boolean> => {
+export const emitPayoutForOrder = async (
+	order: OrderDoc,
+): Promise<boolean> => {
 	// Never pay out an order that's already emitted, isn't a paid Complete order,
 	// or has a refund in flight (refundRequestedAt set but the Refunded status
 	// hasn't landed yet — paying out now could race the refund settling).
@@ -26,9 +28,11 @@ export const emitPayoutForOrder = async (order: any): Promise<boolean> => {
 	if (order.status !== OrderStatus.Complete || !order.paidAt) return false;
 	if (order.refundRequestedAt) return false;
 
-	const ticket: any = order.ticket;
+	const ticket = order.ticket;
 	const sellerId: string | undefined = ticket?.userId;
-	const amount: number | undefined = ticket?.price;
+	// Multi-seat (#10): the gross sale is the per-seat price times seats sold.
+	const amount: number | undefined =
+		ticket?.price != null ? ticket.price * (order.quantity ?? 1) : undefined;
 	if (!sellerId || amount == null) return false;
 
 	await new OrderPayoutDuePublisher(natsWrapper.js).publish({

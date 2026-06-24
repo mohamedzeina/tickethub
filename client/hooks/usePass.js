@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
-// Fetch the buyer's admission pass for an order. The pass is minted off the
-// payment:created event, so it can briefly lag a freshly-paid order — poll a few
-// times on 404 before settling. Returns { pass, status } where status is
+// Fetch the buyer's admission passes for an order. Multi-seat (#10): an order can
+// have several passes (one per seat), returned as an array. They're minted off the
+// payment:created event, so they can briefly lag a freshly-paid order — poll a few
+// times on 404 before settling. Returns { passes, status } where status is
 // 'loading' | 'ready' | 'pending' (not minted yet) | 'error'.
 const usePass = (orderId) => {
-	const [pass, setPass] = useState(null);
+	const [passes, setPasses] = useState([]);
 	const [status, setStatus] = useState('loading');
 
 	useEffect(() => {
@@ -18,7 +19,7 @@ const usePass = (orderId) => {
 			try {
 				const { data } = await axios.get(`/api/passes/order/${orderId}`);
 				if (!active) return;
-				setPass(data);
+				setPasses(data.passes || []);
 				setStatus('ready');
 			} catch (err) {
 				if (!active) return;
@@ -39,7 +40,7 @@ const usePass = (orderId) => {
 		};
 	}, [orderId]);
 
-	return { pass, status };
+	return { passes, status };
 };
 
 export default usePass;
