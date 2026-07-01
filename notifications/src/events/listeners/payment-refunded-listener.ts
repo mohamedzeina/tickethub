@@ -57,6 +57,7 @@ export class PaymentRefundedListener extends Listener<PaymentRefundedEvent> {
 						ticketTitle: order.ticketTitle || 'your ticket',
 						orderId: order.id,
 						price: order.price,
+						quantity: order.quantity ?? 1,
 						stripeId: data.stripeId,
 					}),
 				);

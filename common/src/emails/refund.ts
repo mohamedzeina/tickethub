@@ -7,7 +7,10 @@ export interface RefundDetails {
 	to: string;
 	ticketTitle: string;
 	orderId: string;
-	price?: number; // dollars; omitted on a pre-price replay
+	price?: number; // per-seat price, in dollars; omitted on a pre-price replay
+	// Multi-seat (#10): number of seats refunded. The amount is price * quantity.
+	// Optional so a single-seat caller (or replay) defaults to 1.
+	quantity?: number;
 	stripeId: string;
 	refundedAt?: Date;
 }
@@ -23,13 +26,16 @@ export const refundEmail = (d: RefundDetails): MailMessage => {
 		day: 'numeric',
 	});
 	const ref = d.orderId.slice(-6).toUpperCase();
-	const amountText = d.price != null ? money(d.price) : 'your payment';
+	const qty = d.quantity ?? 1;
+	const total = d.price != null ? d.price * qty : null;
+	const amountText = total != null ? money(total) : 'your payment';
 
 	const text = [
 		`Your refund is on its way.`,
 		``,
 		`Event:   ${d.ticketTitle}`,
-		...(d.price != null ? [`Amount:  ${money(d.price)}`] : []),
+		...(d.price != null && qty > 1 ? [`Seats:   ${qty} × ${money(d.price)}`] : []),
+		...(total != null ? [`Amount:  ${money(total)}`] : []),
 		`Order:   No. ${ref}`,
 		`Refunded: ${refunded}`,
 		`Stripe:  ${d.stripeId}`,
@@ -37,9 +43,13 @@ export const refundEmail = (d: RefundDetails): MailMessage => {
 		`Refunds typically take 5–10 business days to appear on your statement. — TicketHub`,
 	].join('\n');
 
+	const seatsRow =
+		d.price != null && qty > 1
+			? `<tr><td style="padding:6px 0;">SEATS</td><td align="right">${qty} &times; ${money(d.price)}</td></tr>`
+			: '';
 	const amountRow =
-		d.price != null
-			? `<tr><td style="padding:6px 0;">AMOUNT</td><td align="right" style="color:#2e7d4f;font-weight:bold;">${money(d.price)}</td></tr>`
+		total != null
+			? `<tr><td style="padding:6px 0;">AMOUNT</td><td align="right" style="color:#2e7d4f;font-weight:bold;">${money(total)}</td></tr>`
 			: '';
 
 	const html = `
@@ -55,6 +65,7 @@ export const refundEmail = (d: RefundDetails): MailMessage => {
 	        <tr><td style="padding:16px 32px;">
 	          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
 	                 style="font-family:'Courier New',monospace;font-size:13px;color:#5c5446;">
+	            ${seatsRow}
 	            ${amountRow}
 	            <tr><td style="padding:6px 0;">ORDER</td><td align="right">No. ${escapeHtml(ref)}</td></tr>
 	            <tr><td style="padding:6px 0;">REFUNDED</td><td align="right">${refunded}</td></tr>
