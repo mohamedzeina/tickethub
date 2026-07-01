@@ -1,4 +1,5 @@
 # Dev image: ts-node-dev for hot reload (used by skaffold dev + file sync)
+# rebuild: drop pending expiry/warning jobs on order:cancelled (#10)
 FROM node:20-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./

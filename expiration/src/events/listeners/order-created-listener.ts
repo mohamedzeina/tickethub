@@ -27,6 +27,9 @@ export class OrderCreatedListener extends Listener<OrderCreatedEvent> {
 			},
 			{
 				delay,
+				// Key the job by orderId so a later order:cancelled can drop it
+				// (#10 — a manually cancelled hold shouldn't still fire an expiry).
+				jobId: data.id,
 			},
 		);
 
@@ -41,7 +44,10 @@ export class OrderCreatedListener extends Listener<OrderCreatedEvent> {
 				{ orderId: data.id, warningDelayMs: warningDelay },
 				'scheduling expiration warning',
 			);
-			await warningQueue.add({ orderId: data.id }, { delay: warningDelay });
+			await warningQueue.add(
+				{ orderId: data.id },
+				{ delay: warningDelay, jobId: data.id },
+			);
 		}
 
 		msg.ack();
