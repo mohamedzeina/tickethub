@@ -657,15 +657,13 @@ const OrderShow = ({ order, reviewState }) => {
 						{formatClock(timeLeft)}
 					</div>
 					<div className="gate__total">
-						<span className="l">
-							Total Due
-							{seats > 1 && (
-								<small className="gate__seats">
-									{seats} × {formatPrice(order.ticket.price)}
-								</small>
-							)}
-						</span>
+						<span className="l">Total Due</span>
 						<span className="a">{formatPrice(total)}</span>
+						{seats > 1 && (
+							<span className="gate__seats">
+								{seats} × {formatPrice(order.ticket.price)}
+							</span>
+						)}
 					</div>
 				</div>
 

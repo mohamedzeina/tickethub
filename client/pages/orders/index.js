@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import Link from 'next/link';
+import Router from 'next/router';
+import axios from 'axios';
 import { formatPrice, formatDateShort, serialFromId } from '../../utils/ticket';
 import redirect from '../../utils/redirect';
 
@@ -18,6 +21,77 @@ const stampFor = (status) => {
 
 const payable = (status) =>
 	status === 'created' || status === 'awaiting:payment';
+
+// Actions for an unpaid hold: pay, or cancel to release the seats. Cancel is a
+// two-step confirm so a stray click can't drop a hold. DELETE /api/orders/:id is
+// idempotent and only touches unpaid orders (orders/src/routes/cancel.ts); it
+// releases the held seats and publishes order:cancelled.
+const PayableActions = ({ order }) => {
+	const [confirming, setConfirming] = useState(false);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState(null);
+
+	const cancel = async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			await axios.delete(`/api/orders/${order.id}`);
+			Router.reload();
+		} catch (err) {
+			setError(
+				err?.response?.data?.errors?.[0]?.message ||
+					'Could not cancel this hold. Please try again.',
+			);
+			setLoading(false);
+		}
+	};
+
+	if (confirming) {
+		return (
+			<div className="ord__confirm">
+				<span className="ord__confirm-q">Release these seats?</span>
+				<div className="ord__confirm-actions">
+					<button
+						type="button"
+						className="btn btn--red"
+						onClick={cancel}
+						disabled={loading}
+					>
+						{loading ? 'Cancelling…' : 'Confirm cancel'}
+					</button>
+					<button
+						type="button"
+						className="btn btn--line"
+						onClick={() => setConfirming(false)}
+						disabled={loading}
+					>
+						Keep hold
+					</button>
+				</div>
+				{error && <div className="card-error">{error}</div>}
+			</div>
+		);
+	}
+
+	return (
+		<>
+			<Link
+				href="/orders/[orderId]"
+				as={`/orders/${order.id}`}
+				className="btn btn--red"
+			>
+				Pay now
+			</Link>
+			<button
+				type="button"
+				className="ord__cancelbtn"
+				onClick={() => setConfirming(true)}
+			>
+				Cancel hold
+			</button>
+		</>
+	);
+};
 
 const OrderRow = ({ order }) => {
 	const date = formatDateShort(order.ticket.eventDate);
@@ -50,15 +124,7 @@ const OrderRow = ({ order }) => {
 
 			<div className="ord__right">
 				<span className={`stamp ${stamp.cls}`}>{stamp.label}</span>
-				{payable(order.status) && (
-					<Link
-						href="/orders/[orderId]"
-						as={`/orders/${order.id}`}
-						className="btn btn--red"
-					>
-						Pay now
-					</Link>
-				)}
+				{payable(order.status) && <PayableActions order={order} />}
 				{order.status === 'complete' && (
 					<Link
 						href="/orders/[orderId]"
