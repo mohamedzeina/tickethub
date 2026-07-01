@@ -148,12 +148,19 @@
 	font-size: 11px;
 	letter-spacing: 0.16em;
 	text-transform: uppercase;
-	color: rgba(239, 230, 208, 0.7);
+	color: var(--stock);
 	margin-bottom: 22px;
-	transition: color 0.18s;
+	padding: 11px 18px 11px 14px;
+	border: 1px solid rgba(239, 230, 208, 0.24);
+	border-radius: 999px;
+	background: rgba(239, 230, 208, 0.06);
+	transition: color 0.18s, border-color 0.18s, background 0.18s;
 }
-.backlink:hover { color: var(--red-2); }
-.backlink svg { width: 14px; height: 14px; stroke: currentColor; }
+.backlink:hover { color: var(--stock); border-color: var(--red-2); background: rgba(196, 41, 27, 0.14); }
+.backlink:hover svg { transform: translateX(-2px); }
+.backlink:focus-visible { outline: 2px solid var(--red-2); outline-offset: 2px; }
+.backlink svg { width: 14px; height: 14px; stroke: currentColor; transition: transform 0.18s; }
+@media (prefers-reduced-motion: reduce) { .backlink svg { transition: none; } }
 
 /* ==== ticket stock + guilloché security tint ==== */
 .stocked {
@@ -1155,11 +1162,16 @@
 
 .detail__buy {
 	position: relative;
-	padding: 34px 26px;
+	padding: 34px 28px;
 	border-left: 2px dashed var(--stock-edge);
 	display: flex;
 	flex-direction: column;
-	gap: 18px;
+	gap: 20px;
+	/* Reads as a real detachable counterfoil: a soft fold-shadow bleeding in
+	   from the perforation, plus a faint sheen across the top of the stub. */
+	background-image:
+		linear-gradient(90deg, rgba(33, 27, 20, 0.06), rgba(33, 27, 20, 0) 20px),
+		linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 96px);
 }
 .detail__buy::before,
 .detail__buy::after {
@@ -1178,21 +1190,38 @@
 	.detail__buy::before { left: -12px; top: -12px; }
 	.detail__buy::after { right: -12px; left: auto; top: -12px; bottom: auto; }
 }
+.detail__buy .pricegroup { padding-bottom: 20px; border-bottom: 1px dashed var(--stock-edge); }
 .detail__buy .lbl { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--red-press); }
-.detail__buy .price { font-family: var(--f-display); font-size: 52px; color: var(--ink); line-height: 0.86; margin-top: 8px; }
-.detail__buy .price small { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--ink-soft); display: block; margin-top: 8px; }
-.detail__buy .qrline { display: flex; align-items: center; gap: 12px; }
-.detail__buy .qrline small { font-family: var(--f-mono); font-size: 10px; color: var(--ink-soft); line-height: 1.5; }
+.detail__buy .price { font-family: var(--f-display); font-size: 52px; color: var(--ink); line-height: 0.86; margin-top: 8px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.detail__buy .price small { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); display: block; margin-top: 10px; }
+
+/* Gate-pass field — the QR preview framed as a printed stub field. */
+.gatepass {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 12px;
+	border: 1px solid var(--stock-edge);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.32);
+}
+.gatepass .qr { width: 56px; height: 56px; }
+.gatepass__meta { display: flex; flex-direction: column; gap: 5px; }
+.gatepass__lab { font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--red-press); }
+.gatepass__meta small { font-family: var(--f-mono); font-size: 10px; line-height: 1.55; color: var(--ink-soft); }
 
 /* TEAR-TO-BUY */
 .tear {
 	position: relative;
 	border: 2px dashed var(--red);
-	border-radius: 4px;
+	border-radius: 8px;
 	overflow: hidden;
 	background: rgba(196, 41, 27, 0.06);
 	user-select: none;
+	transition: background 0.18s ease, box-shadow 0.18s ease;
 }
+.tear:hover { background: rgba(196, 41, 27, 0.11); box-shadow: 0 8px 22px -14px var(--red); }
+.tear:focus-within { outline: 2px solid var(--red-2); outline-offset: 3px; }
 .tear__strip {
 	display: flex;
 	align-items: center;
@@ -1231,6 +1260,9 @@
 }
 .tear.torn .tear__done { opacity: 1; }
 .tear__done svg { width: 18px; height: 18px; stroke: var(--teal); }
+@media (prefers-reduced-motion: reduce) {
+	.tear, .tear__strip, .tear__done { transition: none; }
+}
 
 /* shown on your own listing instead of the tear-to-buy strip */
 .owner-note {
@@ -1501,6 +1533,43 @@
    CHECKOUT — validation gate
    ============================================================== */
 .gate { max-width: 480px; margin: 0 auto; border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; }
+
+/* Paid receipt (#10): wider two-column stub so details + all seat passes fit
+   without a long scroll. Only the receipt — the checkout gate stays narrow.
+   Top block = receipt figures | passes (balanced); review + back sit full-width
+   below so neither column runs long. */
+/* Back link + card share one centered wrapper so they align at the same left
+   edge, while the card stays a comfortable width (rows don't stretch too wide). */
+.receiptwrap { max-width: 980px; margin: 0 auto; }
+.gate--receipt { max-width: none; margin: 0; }
+.gate--receipt .gate__cols { display: grid; grid-template-columns: 1fr 340px; gap: 40px; align-items: stretch; }
+
+/* Left column stretches to the pass card's height; the receipt rows grow evenly
+   so the dashed rules run the full length instead of leaving a gap at the bottom. */
+.gate__info { display: flex; flex-direction: column; }
+.gate__info .receipt { flex: 1; display: flex; flex-direction: column; }
+.gate__info .receipt__row { flex: 1; align-items: center; }
+
+/* The passes get a framed "gate pass" stub so the QR sits in a deliberate field
+   rather than floating in dead space. */
+.gate__passcol {
+	align-self: start;
+	padding: 24px 22px 26px;
+	border: 1px dashed var(--stock-edge);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.3);
+}
+.gate__passcol .pass { margin-top: 0; padding-top: 0; border-top: none; }
+.gate__passcol .pass__head { margin-bottom: 16px; }
+
+/* Review + back, full width, separated by a rule from the top block. */
+.gate--receipt .gate__foot { margin-top: 30px; padding-top: 26px; border-top: 1px dashed var(--stock-edge); }
+
+@media (max-width: 760px) {
+	.gate--receipt .gate__cols { grid-template-columns: 1fr; gap: 20px; }
+	.gate__passcol { padding: 20px 16px 22px; }
+	.gate--receipt .gate__foot { margin-top: 22px; padding-top: 20px; }
+}
 .gate__head { padding: 30px 30px 0; text-align: center; }
 .gate__head .lab { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--red-press); }
 .gate__head h2 { font-family: var(--f-display); color: var(--ink); font-size: 30px; margin-top: 10px; line-height: 0.96; }
@@ -2301,15 +2370,16 @@
 .sellerbadge {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-	padding: 11px 13px;
+	gap: 5px;
+	padding: 12px 14px;
 	margin-bottom: 4px;
-	border: 1.5px solid var(--stock-edge);
-	border-radius: 4px;
+	border: 1px solid var(--stock-edge);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.32);
 	text-decoration: none;
-	transition: border-color 0.15s ease, transform 0.15s ease;
+	transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
-.sellerbadge:hover { border-color: var(--ink); transform: translateY(-1px); }
+.sellerbadge:hover { border-color: var(--ink); transform: translateY(-1px); box-shadow: 0 6px 16px -12px rgba(33, 27, 20, 0.6); }
 .sellerbadge__who {
 	font-family: var(--f-mono);
 	font-size: 10px;
@@ -2408,24 +2478,46 @@
 .pass__head { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 12px; }
 .pass__qr { display: inline-block; padding: 12px; background: #f3ecd8; border: 1px solid #c9bfa6; border-radius: 8px; line-height: 0; }
 .pass__hint { margin-top: 10px; font-size: 12px; color: var(--ink-soft); font-family: var(--f-mono); letter-spacing: 0.04em; }
-.pass__state { margin-top: 6px; font-size: 14px; font-weight: 600; }
+.pass__state { margin-top: 6px; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
+.pass__state svg { width: 16px; height: 16px; }
 .pass__state--used { color: #2e7d4f; }
+.pass__state--used svg { stroke: #2e7d4f; }
 .pass__state--void { color: #c4291b; }
 .pass__copy { margin-top: 10px; font-size: 12px; padding: 6px 14px; }
 
-/* ===== Multi-seat (#10) — N passes, seat picker, line totals ===== */
-.pass__grid { display: flex; flex-direction: column; align-items: center; gap: 18px; }
-.pass__grid--multi { flex-direction: row; flex-wrap: wrap; justify-content: center; }
-.pass__card { display: flex; flex-direction: column; align-items: center; }
-.pass__grid--multi .pass__card { padding: 16px 14px; border: 1px dashed #c9bfa6; border-radius: 10px; width: 212px; }
-.pass__seat { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--red-press); margin-bottom: 10px; }
+/* ===== Multi-seat (#10) — one QR at a time behind a compact seat picker so the
+   receipt stays short no matter how many seats were bought. ===== */
+.pass__tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 18px; }
+.pass__tab {
+	display: inline-flex; align-items: center; gap: 8px;
+	padding: 8px 14px; border: 1px solid var(--stock-edge); border-radius: 999px;
+	background: rgba(255, 255, 255, 0.32);
+	font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+	color: var(--ink-soft); cursor: pointer;
+	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.pass__tab:hover { border-color: var(--ink-soft); color: var(--ink); }
+.pass__tab.is-active { border-color: var(--red); color: var(--ink); background: rgba(196, 41, 27, 0.06); }
+.pass__tab:focus-visible { outline: 2px solid var(--red-2); outline-offset: 2px; }
+.pass__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.pass__dot--live { background: var(--red); }
+.pass__dot--used { background: var(--teal); }
+.pass__dot--void { background: var(--ink-soft); }
+/* min-height keeps the panel from jumping as you switch between a QR seat and a
+   checked-in / revoked seat (shorter content). */
+.pass__panel { display: flex; flex-direction: column; align-items: center; min-height: 240px; justify-content: center; }
 
-.qtybuy { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+/* Order summary — seat selector over a ruled total, framed like a stub field. */
+.qtybuy { display: flex; flex-direction: column; margin-bottom: 4px; border: 1px solid var(--stock-edge); border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, 0.32); }
+.qtybuy__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; }
 .qtybuy label { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); }
-.qtybuy select { font-family: var(--f-mono); font-size: 15px; padding: 8px 12px; border: 1.5px solid var(--stock-edge); border-radius: 8px; background: #f3ecd8; color: var(--ink); }
-.qtybuy__total { margin-left: auto; text-align: right; }
-.qtybuy__total span { display: block; font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); }
-.qtybuy__total b { font-family: var(--f-display); font-size: 24px; color: var(--ink); line-height: 1; }
+.qtybuy select { font-family: var(--f-mono); font-size: 15px; padding: 8px 12px; border: 1.5px solid var(--stock-edge); border-radius: 8px; background: #f3ecd8; color: var(--ink); cursor: pointer; transition: border-color 0.15s ease; }
+.qtybuy select:hover { border-color: var(--ink-soft); }
+.qtybuy select:focus-visible { outline: 2px solid var(--red-2); outline-offset: 2px; }
+.qtybuy select:disabled { opacity: 0.5; cursor: default; }
+.qtybuy__total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 12px 14px; border-top: 1px dashed var(--stock-edge); background: rgba(33, 27, 20, 0.035); }
+.qtybuy__total span { font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); }
+.qtybuy__total b { font-family: var(--f-display); font-size: 26px; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; }
 
 .gate__seats { display: block; font-family: var(--f-mono); font-size: 10px; color: var(--ink-soft); margin-top: 3px; letter-spacing: 0.04em; }
 

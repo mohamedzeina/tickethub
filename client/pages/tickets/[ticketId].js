@@ -158,7 +158,7 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 				</div>
 
 				<div className="detail__buy">
-					<div>
+					<div className="pricegroup">
 						<div className="lbl">Counterfoil · Retain</div>
 						<div className="price">
 							{formatPrice(ticket.price)}
@@ -168,13 +168,12 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 
 					{ticket.userId && <SellerBadge sellerId={ticket.userId} initial={seller} />}
 
-					<div className="qrline">
+					<div className="gatepass">
 						<div className="qr" aria-hidden="true" />
-						<small>
-							Scan at
-							<br />the gate to
-							<br />enter venue
-						</small>
+						<div className="gatepass__meta">
+							<span className="gatepass__lab">Gate Pass</span>
+							<small>Scan at the gate to enter the venue.</small>
+						</div>
 					</div>
 
 					{isOwner ? (
@@ -231,19 +230,21 @@ const TicketDetail = ({ ticket, currentUser, seller }) => {
 						<>
 							{avail > 1 && (
 								<div className="qtybuy">
-									<label htmlFor="qty">Seats</label>
-									<select
-										id="qty"
-										value={qty}
-										onChange={(e) => setQty(Number(e.target.value))}
-										disabled={torn}
-									>
-										{Array.from({ length: avail }, (_, i) => i + 1).map((n) => (
-											<option key={n} value={n}>
-												{n}
-											</option>
-										))}
-									</select>
+									<div className="qtybuy__row">
+										<label htmlFor="qty">Seats</label>
+										<select
+											id="qty"
+											value={qty}
+											onChange={(e) => setQty(Number(e.target.value))}
+											disabled={torn}
+										>
+											{Array.from({ length: avail }, (_, i) => i + 1).map((n) => (
+												<option key={n} value={n}>
+													{n}
+												</option>
+											))}
+										</select>
+									</div>
 									<div className="qtybuy__total">
 										<span>
 											{qty} × {formatPrice(ticket.price)}

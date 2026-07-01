@@ -16,12 +16,14 @@ import {
 	serialFromId,
 } from '../../utils/ticket';
 import SellerReview from '../../components/SellerReview';
+import { ArrowLeft, Check } from '../../components/icons';
 import usePass from '../../hooks/usePass';
 import redirect from '../../utils/redirect';
 
-// A single seat's pass card — QR + copy when issued, or a used/void state. Each
-// seat of a multi-seat order (#10) is scanned independently, so each gets its own.
-const PassCard = ({ pass, multi }) => {
+// One seat's pass body: a live QR (+ copy code), a checked-in note, or a revoked
+// note. Shared by the single-seat view and the multi-seat tab panel (#10). Each
+// seat is scanned independently, so each carries its own single-use code.
+const PassBody = ({ pass }) => {
 	const [copied, setCopied] = useState(false);
 
 	const copyCode = async () => {
@@ -34,9 +36,23 @@ const PassCard = ({ pass, multi }) => {
 		}
 	};
 
-	let inner;
+	if (pass.status === 'redeemed') {
+		return (
+			<div className="pass__state pass__state--used">
+				<Check /> Checked in
+				{pass.redeemedAt ? ` · ${new Date(pass.redeemedAt).toLocaleString()}` : ''}
+			</div>
+		);
+	}
+	if (pass.status === 'revoked') {
+		return (
+			<div className="pass__state pass__state--void">
+				Pass revoked — this order was refunded.
+			</div>
+		);
+	}
 	if (pass.status === 'issued' && pass.code) {
-		inner = (
+		return (
 			<>
 				<div className="pass__qr">
 					<QRCodeSVG
@@ -51,66 +67,77 @@ const PassCard = ({ pass, multi }) => {
 				</div>
 				<div className="pass__hint">Scan at the gate. Single use.</div>
 				<button type="button" className="btn pass__copy" onClick={copyCode}>
-					{copied ? 'Copied ✓' : 'Copy gate code'}
+					{copied ? 'Copied' : 'Copy gate code'}
 				</button>
 			</>
 		);
-	} else if (pass.status === 'redeemed') {
-		inner = (
-			<div className="pass__state pass__state--used">
-				✓ Checked in
-				{pass.redeemedAt ? ` · ${new Date(pass.redeemedAt).toLocaleString()}` : ''}
-			</div>
-		);
-	} else if (pass.status === 'revoked') {
-		inner = (
-			<div className="pass__state pass__state--void">
-				Pass revoked — this order was refunded.
-			</div>
-		);
 	}
-
-	return (
-		<div className="pass__card">
-			{multi && <div className="pass__seat">Seat {pass.seat}</div>}
-			{inner}
-		</div>
-	);
+	return null;
 };
 
-// The admission passes (#delivery / #10) — one QR per seat the buyer shows at the
-// gate. Minted off payment:created, so they can briefly lag; usePass polls while
-// pending.
+// Maps a pass status to the coloured dot shown on its seat tab.
+const seatDot = (status) =>
+	status === 'redeemed' ? 'used' : status === 'revoked' ? 'void' : 'live';
+
+// The admission passes (#delivery / #10). For a multi-seat order the seats are a
+// compact tab strip showing one QR at a time — the receipt stays short no matter
+// how many seats, and each tab carries that seat's status at a glance. Minted off
+// payment:created, so they can briefly lag; usePass polls while pending.
 const AdmissionPass = ({ orderId }) => {
 	const { passes, status } = usePass(orderId);
-	const multi = passes.length > 1;
+	const [active, setActive] = useState(0);
+
+	// Sort by seat so tabs read 1, 2, 3… regardless of the fetch order.
+	const seats = [...passes].sort((a, b) => (a.seat ?? 0) - (b.seat ?? 0));
+	const multi = seats.length > 1;
+	const activeIndex = Math.min(active, Math.max(seats.length - 1, 0));
 
 	let body;
-	if (status === 'ready' && passes.length > 0) {
+	if (status === 'ready' && seats.length > 0) {
 		body = (
-			<div className={`pass__grid${multi ? ' pass__grid--multi' : ''}`}>
-				{passes.map((p) => (
-					<PassCard key={p.id} pass={p} multi={multi} />
-				))}
-			</div>
+			<>
+				{multi && (
+					<div className="pass__tabs" role="tablist" aria-label="Seat passes">
+						{seats.map((p, i) => (
+							<button
+								key={p.id}
+								type="button"
+								role="tab"
+								aria-selected={i === activeIndex}
+								className={`pass__tab${i === activeIndex ? ' is-active' : ''}`}
+								onClick={() => setActive(i)}
+							>
+								Seat {p.seat}
+								<span
+									className={`pass__dot pass__dot--${seatDot(p.status)}`}
+									aria-hidden="true"
+								/>
+							</button>
+						))}
+					</div>
+				)}
+				<div className="pass__panel" role="tabpanel">
+					<PassBody pass={seats[activeIndex]} />
+				</div>
+			</>
 		);
 	} else if (status === 'error') {
 		body = <div className="pass__hint">Couldn’t load your pass.</div>;
 	} else {
-		// loading / pending — skeleton of the QR card so the slot doesn't sit
-		// empty while the pass is minted (it can lag the paid order by a moment).
+		// loading / pending — skeleton of the QR so the slot doesn't sit empty
+		// while the pass is minted (it can lag the paid order by a moment).
 		body = (
-			<>
+			<div className="pass__panel">
 				<div className="pass__qr sk" style={{ width: 172, height: 172 }} />
 				<div className="pass__hint">Generating your pass…</div>
-			</>
+			</div>
 		);
 	}
 
 	return (
 		<div className="pass">
 			<div className="pass__head">
-				{multi ? `Admission Passes · ${passes.length} seats` : 'Admission Pass'}
+				{multi ? `Admission Passes · ${seats.length} seats` : 'Admission Pass'}
 			</div>
 			{body}
 		</div>
@@ -316,9 +343,17 @@ const CheckoutForm = ({ amount, orderId }) => {
 	const [finalizing, setFinalizing] = useState(false);
 	const [focused, setFocused] = useState(false);
 	const [cardError, setCardError] = useState(null);
+	const [cardComplete, setCardComplete] = useState(false);
 
 	const handlePay = async () => {
 		if (!stripe || !elements) return;
+
+		// Guard incomplete card details up front with a clear message, rather than
+		// letting the attempt fail and surface a vague "something went wrong".
+		if (!cardComplete) {
+			setCardError('Please enter your full card details.');
+			return;
+		}
 
 		setLoading(true);
 		setCardError(null);
@@ -367,7 +402,10 @@ const CheckoutForm = ({ amount, orderId }) => {
 					options={cardElementOptions}
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
-					onChange={(e) => setCardError(e.error ? e.error.message : null)}
+					onChange={(e) => {
+						setCardError(e.error ? e.error.message : null);
+						setCardComplete(e.complete);
+					}}
 				/>
 			</div>
 			{cardError && <div className="card-error">{cardError}</div>}
@@ -428,7 +466,12 @@ const Receipt = ({ order, reviewState }) => {
 
 	return (
 		<div className="container">
-			<div className="gate stocked bordered">
+			<div className="receiptwrap">
+				<Link href="/orders" className="backlink">
+					<ArrowLeft /> Back to my orders
+				</Link>
+
+				<div className="gate gate--receipt stocked bordered">
 				<div className="gate__head">
 					<span className="stamp stamp--paid" style={{ marginBottom: 14 }}>
 						Paid
@@ -443,49 +486,53 @@ const Receipt = ({ order, reviewState }) => {
 				</div>
 
 				<div className="gate__pay">
-					<dl className="receipt">
-						{seats > 1 && (
-							<div className="receipt__row">
-								<dt>Seats</dt>
-								<dd>{seats} × {formatPrice(order.ticket.price)}</dd>
-							</div>
-						)}
-						<div className="receipt__row">
-							<dt>Amount paid</dt>
-							<dd>{formatPrice(total)}</dd>
+					<div className="gate__cols">
+						{/* Left: the receipt figures + refund */}
+						<div className="gate__info">
+							<dl className="receipt">
+								{seats > 1 && (
+									<div className="receipt__row">
+										<dt>Seats</dt>
+										<dd>{seats} × {formatPrice(order.ticket.price)}</dd>
+									</div>
+								)}
+								<div className="receipt__row">
+									<dt>Amount paid</dt>
+									<dd>{formatPrice(total)}</dd>
+								</div>
+								{paidAt && (
+									<div className="receipt__row">
+										<dt>Paid on</dt>
+										<dd>{paidAt}</dd>
+									</div>
+								)}
+								<div className="receipt__row">
+									<dt>Order no.</dt>
+									<dd>{serialFromId(order.id)}</dd>
+								</div>
+								{order.stripeId && (
+									<div className="receipt__row">
+										<dt>Stripe ref</dt>
+										<dd className="receipt__ref">{order.stripeId}</dd>
+									</div>
+								)}
+							</dl>
+
+							<RefundControl order={order} />
 						</div>
-						{paidAt && (
-							<div className="receipt__row">
-								<dt>Paid on</dt>
-								<dd>{paidAt}</dd>
-							</div>
-						)}
-						<div className="receipt__row">
-							<dt>Order no.</dt>
-							<dd>{serialFromId(order.id)}</dd>
+
+						{/* Right: the admission passes — a detachable stub column */}
+						<div className="gate__passcol">
+							<AdmissionPass orderId={order.id} />
 						</div>
-						{order.stripeId && (
-							<div className="receipt__row">
-								<dt>Stripe ref</dt>
-								<dd className="receipt__ref">{order.stripeId}</dd>
-							</div>
-						)}
-					</dl>
+					</div>
 
-					<AdmissionPass orderId={order.id} />
-
-					<RefundControl order={order} />
-
-					<SellerReview orderId={order.id} initialState={reviewState} />
-
-					<Link
-						href="/orders"
-						className="btn btn--red btn--block"
-						style={{ marginTop: 18 }}
-					>
-						Back to my orders
-					</Link>
+					{/* Full-width footer: seller review, so the top stays balanced */}
+					<div className="gate__foot">
+						<SellerReview orderId={order.id} initialState={reviewState} />
+					</div>
 				</div>
+			</div>
 			</div>
 		</div>
 	);
