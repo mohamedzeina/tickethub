@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import { logger } from '@zeina-tickethub/common';
 import { stripe, CURRENCY } from '../stripe';
 import { Payout, PayoutDoc } from '../models/payout';
@@ -49,17 +48,18 @@ export const attemptTransfer = async (payout: PayoutDoc): Promise<PayoutDoc> => 
 	const feeCents = Math.round(payout.fee * 100);
 	const transferCents = amountCents - feeCents;
 
-	const params: Stripe.TransferCreateParams = {
+	// Inferred against transfers.create() rather than annotated: stripe v22 stopped
+	// re-exporting its param types from the package entry point (they live in an
+	// unexported namespace), so Stripe.TransferCreateParams no longer resolves.
+	const params = {
 		amount: transferCents,
 		currency: CURRENCY,
 		destination: account.stripeAccountId,
 		metadata: { orderId: payout.orderId },
+		// Tie the transfer to the originating charge so it draws from that charge's
+		// funds (and doesn't fail on a not-yet-available platform balance).
+		...(payout.chargeId ? { source_transaction: payout.chargeId } : {}),
 	};
-	// Tie the transfer to the originating charge so it draws from that charge's
-	// funds (and doesn't fail on a not-yet-available platform balance).
-	if (payout.chargeId) {
-		params.source_transaction = payout.chargeId;
-	}
 
 	try {
 		const transfer = await stripe.transfers.create(params, {

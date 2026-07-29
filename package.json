@@ -1,4 +1,15 @@
 {
+  "name": "tickethub",
+  "private": true,
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "monitor": "bash scripts/monitor.sh",
+    "seed": "cd seed && npm install --silent && npm run seed",
+    "e2e": "node e2e/run-all.js",
+    "build:prod": "skaffold build -p prod",
+    "deploy:prod": "skaffold run -p prod",
+    "down": "skaffold delete"
+  },
   "dependencies": {
     "node-nats-streaming": "^0.3.2"
   }

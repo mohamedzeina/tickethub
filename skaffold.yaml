@@ -13,6 +13,78 @@ profiles:
       rawYaml:
         - ./infra/k8s/*
         - ./infra/hpa/*
+
+  # Production build: the multi-stage Dockerfiles (compiled dist/, prod deps
+  # only, non-root, no ts-node-dev) instead of Dockerfile.dev, git-sha tags so
+  # a redeploy actually rolls the pods, and no file sync.
+  #
+  #   skaffold run -p prod              deploy
+  #   skaffold run -p prod,autoscale    same, plus the HPAs
+  #
+  # platforms targets the Oracle Ampere A1 node (aarch64) — native on an Apple
+  # Silicon build host. Change to linux/amd64 for an Intel/AMD cluster.
+  # NEXT_PUBLIC_STRIPE_KEY must be exported in the shell: Next inlines it at
+  # build time, so the runtime env var in client-depl.yaml does not reach the
+  # browser bundle in a production build.
+  - name: prod
+    build:
+      tagPolicy:
+        gitCommit: {}
+      platforms: ['linux/arm64']
+      local:
+        push: true
+      artifacts:
+        - image: toxiczeina/auth
+          context: auth
+          docker:
+            dockerfile: Dockerfile
+
+        - image: toxiczeina/client
+          context: client
+          docker:
+            dockerfile: Dockerfile
+            buildArgs:
+              NEXT_PUBLIC_STRIPE_KEY: '{{.NEXT_PUBLIC_STRIPE_KEY}}'
+
+        - image: toxiczeina/tickets
+          context: tickets
+          docker:
+            dockerfile: Dockerfile
+
+        - image: toxiczeina/orders
+          context: orders
+          docker:
+            dockerfile: Dockerfile
+
+        - image: toxiczeina/expiration
+          context: expiration
+          docker:
+            dockerfile: Dockerfile
+
+        - image: toxiczeina/payments
+          context: payments
+          docker:
+            dockerfile: Dockerfile
+
+        - image: toxiczeina/notifications
+          context: notifications
+          docker:
+            dockerfile: Dockerfile
+
+        - image: toxiczeina/reviews
+          context: reviews
+          docker:
+            dockerfile: Dockerfile
+
+        - image: toxiczeina/admission
+          context: admission
+          docker:
+            dockerfile: Dockerfile
+
+        - image: toxiczeina/wishlists
+          context: wishlists
+          docker:
+            dockerfile: Dockerfile
 build:
   # Static :latest tags (instead of the default git-sha) so Docker Hub stays
   # clean: toxiczeina/<svc>:latest. k8s treats :latest as imagePullPolicy=Always,
