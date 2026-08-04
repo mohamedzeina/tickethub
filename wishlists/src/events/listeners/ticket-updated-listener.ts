@@ -14,14 +14,7 @@ import { Wishlist } from '../../models/wishlist';
 import { PriceDroppedPublisher } from '../publishers/price-dropped-publisher';
 import { AvailablePublisher } from '../publishers/available-publisher';
 import { natsWrapper } from '../../nats-wrapper';
-
-// Buyable right now = listed AND at least one seat free. Multi-seat (#10): use
-// availableQty as the signal; a partially-sold listing (availableQty > 0) is
-// still buyable. Fall back to the legacy orderId for pre-#10 event replays.
-const isAvailable = (data: TicketUpdatedEvent['data']) => {
-	const seatsLeft = data.availableQty ?? (data.orderId ? 0 : 1);
-	return !(data.unlisted ?? false) && seatsLeft > 0;
-};
+import { isAvailable } from './is-available';
 
 export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 	readonly subject = Subjects.TicketUpdated;

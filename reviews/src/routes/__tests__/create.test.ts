@@ -86,3 +86,31 @@ it('allows only one review per order', async () => {
 		.send({ orderId: order.id, rating: 3 })
 		.expect(400);
 });
+
+it('answers a duplicate race with the same 400, never a 500', async () => {
+	// Two concurrent submits both clear the findOne pre-check, so the unique
+	// index is what separates them. Build it up front so the collision is
+	// deterministic rather than dependent on background index creation.
+	await Review.init();
+
+	const buyerId = id();
+	const order = await seedOrder({ buyerId });
+	const cookie = global.signin(buyerId);
+
+	const submit = () =>
+		request(app)
+			.post('/api/reviews')
+			.set('Cookie', cookie)
+			.send({ orderId: order.id, rating: 5 });
+
+	const results = await Promise.all([submit(), submit()]);
+
+	expect(results.map((r) => r.status).sort()).toEqual([201, 400]);
+	// The loser sees the friendly message, not a raw E11000.
+	const loser = results.find((r) => r.status === 400)!;
+	expect(loser.body.errors[0].message).toEqual(
+		'You have already reviewed this order.',
+	);
+
+	expect(await Review.countDocuments({})).toEqual(1);
+});

@@ -66,7 +66,14 @@ router.post(
 		// null result means not enough seats remain (or it was just unlisted).
 		const reserved = await Ticket.reserveSeats(ticketId, quantity);
 		if (!reserved) {
-			const remaining = Math.max(0, ticket.quantity - ticket.reservedSeats);
+			// Re-read before quoting a number: the `ticket` snapshot above predates
+			// the reservation attempt, so under contention it would report seats that
+			// someone else has already taken. The guard itself is the atomic op — this
+			// is only about the message telling the truth.
+			const current = await Ticket.findById(ticketId);
+			const remaining = current
+				? Math.max(0, current.quantity - current.reservedSeats)
+				: 0;
 			throw new BadRequestError(
 				remaining > 0
 					? `Only ${remaining} seat${remaining === 1 ? '' : 's'} left`

@@ -104,6 +104,28 @@ it('rejects an order for more seats than remain', async () => {
 	expect(updated!.reservedSeats).toEqual(3);
 });
 
+it('quotes the post-contention seat count in the sold-out message', async () => {
+	const ticket = await buildTicket({ price: 100, quantity: 4 });
+	await Ticket.reserveSeats(ticket.id, 2); // 2 free when the route reads the ticket
+
+	// A competing buyer lands between that read and our reservation: they take a
+	// seat, and our 3-seat claim comes back empty. The message must describe what
+	// is left NOW (1), not the count from the stale pre-reservation snapshot (2).
+	const reserveSeats = Ticket.reserveSeats.bind(Ticket);
+	jest.spyOn(Ticket, 'reserveSeats').mockImplementationOnce(async (id) => {
+		await reserveSeats(id, 1);
+		return null;
+	});
+
+	const res = await request(app)
+		.post('/api/orders')
+		.set('Cookie', global.signin())
+		.send({ ticketId: ticket.id, quantity: 3 })
+		.expect(400);
+
+	expect(res.body.errors[0].message).toEqual('Only 1 seat left');
+});
+
 it('rejects an invalid quantity', async () => {
 	const ticket = await buildTicket({ price: 100, quantity: 4 });
 

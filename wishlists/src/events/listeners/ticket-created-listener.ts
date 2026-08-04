@@ -9,6 +9,7 @@ import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
 import { ProcessedEvent } from '../../models/processed-event';
 import { TicketRef } from '../../models/ticket-ref';
+import { isAvailable } from './is-available';
 
 export class TicketCreatedListener extends Listener<TicketCreatedEvent> {
 	readonly subject = Subjects.TicketCreated;
@@ -30,8 +31,10 @@ export class TicketCreatedListener extends Listener<TicketCreatedEvent> {
 						price: data.price,
 						version: data.version,
 						unlisted: data.unlisted ?? false,
-						// A brand-new listing is buyable unless created unlisted.
-						available: !(data.unlisted ?? false),
+						// Same predicate the updated-listener uses, so seat inventory
+						// counts here too — a listing created already sold out must not
+						// be seeded as buyable.
+						available: isAvailable(data),
 						eventDate: data.eventDate,
 						venue: data.venue,
 						imageUrl: data.imageUrl,
