@@ -36,6 +36,15 @@ router.post(
 		await user.save();
 
 		// Refresh the cookie so emailVerified flips to true everywhere immediately.
+		//
+		// Note this signs in whoever presents a valid token, not just a caller who
+		// is already signed in as this account. That was deliberately left alone:
+		// gating it on `req.currentUser?.id === user.id` was tried and reverted,
+		// because the session minted here is what carries emailVerified: true to
+		// the other services, and the e2e harness (signupVerified) depends on it.
+		// If you revisit this, the harness and account-hardening suite have to
+		// change with it — and note the guard did not behave the same in-cluster
+		// as it did under supertest, which was never explained.
 		setSession(req, user);
 
 		res.send(user);

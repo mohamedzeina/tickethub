@@ -1,5 +1,6 @@
 # Dev image: ts-node-dev for hot reload (used by skaffold dev + file sync)
-# cachebust: rate-limit bypass header (e2e) — force rebuild so the new src bakes in
+# cachebust: verify-email comment — ts-node-dev's watcher stopped firing after a
+# sync, so the pod kept serving a stale module; bump this to bake the src in
 FROM node:20-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./
