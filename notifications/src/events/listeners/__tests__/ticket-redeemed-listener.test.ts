@@ -1,28 +1,15 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
-import { TicketRedeemedEvent, OrderStatus } from '@zeina-tickethub/common';
+import { TicketRedeemedEvent } from '@zeina-tickethub/common';
 import { TicketRedeemedListener } from '../ticket-redeemed-listener';
 import { natsWrapper } from '../../../nats-wrapper';
-import { Order } from '../../../models/order';
 import { Notification, NotificationType } from '../../../models/notification';
+import { msg, oid, seedOrder } from '../../../test/helpers';
 
-const oid = () => new mongoose.Types.ObjectId().toHexString();
-
-const seedOrder = async (userId: string) => {
-	const order = Order.build({
-		id: oid(),
-		userId,
-		ticketTitle: 'Akon Concert',
-		status: OrderStatus.Complete,
-	});
-	await order.save();
-	return order;
+// Delivers the event and hands back that delivery's ack spy.
+const deliver = async (data: TicketRedeemedEvent['data'], seq: number) => {
+	const m = msg(seq);
+	await new TicketRedeemedListener(natsWrapper.connection).onMessage(data, m);
+	return m.ack;
 };
-
-const deliver = (data: TicketRedeemedEvent['data'], seq: number, ack = jest.fn()) =>
-	new TicketRedeemedListener(natsWrapper.connection)
-		.onMessage(data, { ack, seq } as unknown as JsMsg)
-		.then(() => ack);
 
 const payload = (orderId: string, buyerId: string): TicketRedeemedEvent['data'] => ({
 	passId: oid(),
@@ -34,7 +21,7 @@ const payload = (orderId: string, buyerId: string): TicketRedeemedEvent['data'] 
 
 it('notifies the buyer their pass was scanned, with the ticket title', async () => {
 	const buyerId = oid();
-	const order = await seedOrder(buyerId);
+	const order = await seedOrder({ userId: buyerId });
 
 	await deliver(payload(order.id, buyerId), 1);
 
@@ -58,7 +45,7 @@ it('falls back gracefully when the order replica is missing', async () => {
 
 it('is idempotent on redelivery (same seq → one notification)', async () => {
 	const buyerId = oid();
-	const order = await seedOrder(buyerId);
+	const order = await seedOrder({ userId: buyerId });
 
 	const ack1 = await deliver(payload(order.id, buyerId), 7);
 	const ack2 = await deliver(payload(order.id, buyerId), 7);

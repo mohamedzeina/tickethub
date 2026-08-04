@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { ArrowRight } from './icons';
 import Stars from './Stars';
 import SaveButton from './SaveButton';
-import { formatPrice, formatDateShort, serialFromId, sellerHandle } from '../utils/ticket';
+import { formatPrice, formatDateShort, serialFromId, sellerHandle, eventMeta } from '../utils/ticket';
 
 // A single listing rendered as an admission ticket: main face + counterfoil stub.
 // `rating` is the SELLER's aggregate ({ average, count }) and `sellerName` their
@@ -14,7 +14,7 @@ import { formatPrice, formatDateShort, serialFromId, sellerHandle } from '../uti
 const TicketCard = ({ ticket, rating, sellerName, saved, onToggle, currentUser }) => {
 	const router = useRouter();
 	const date = formatDateShort(ticket.eventDate);
-	const when = [date, ticket.venue].filter(Boolean).join(' · ');
+	const when = eventMeta(date, ticket.venue);
 	// Multi-seat (#10): how many seats are still on sale for this listing.
 	const avail = ticket.availableQty ?? 1;
 	const rated = rating && rating.count > 0;

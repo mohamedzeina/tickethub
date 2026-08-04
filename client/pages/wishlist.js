@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import TicketCard from '../components/TicketCard';
+import SignInPrompt from '../components/SignInPrompt';
 import useSellerRatings from '../hooks/useSellerRatings';
 import useDisplayNames from '../hooks/useDisplayNames';
 
@@ -33,15 +34,10 @@ const Wishlist = ({ saved, currentUser }) => {
 
 	if (!currentUser) {
 		return (
-			<div className="container container--mid">
-				<div className="empty stocked bordered">
-					<h3>Sign in to see your wishlist</h3>
-					<p>Save listings you&apos;re eyeing and get alerted when the price drops.</p>
-					<Link href="/auth/signin" className="btn btn--red" style={{ marginTop: 22 }}>
-						Sign In
-					</Link>
-				</div>
-			</div>
+			<SignInPrompt
+				heading="Sign in to see your wishlist"
+				body="Save listings you&apos;re eyeing and get alerted when the price drops."
+			/>
 		);
 	}
 

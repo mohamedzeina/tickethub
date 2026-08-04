@@ -4,6 +4,7 @@ import { ensureStream, logger } from '@zeina-tickethub/common';
 
 import { app } from './app';
 import { natsWrapper } from './nats-wrapper';
+import { User } from './models/user';
 
 const startAuthService = async () => {
 	let isShuttingDown = false;
@@ -39,6 +40,14 @@ const startAuthService = async () => {
 
 		await mongoose.connect(process.env.MONGO_URI);
 		logger.info('connected to MongoDB');
+
+		// Build the unique index on email. Idempotent and safe every boot.
+		// PREREQUISITE: emails must already be normalized and free of duplicates
+		// — run `npm run normalize-emails` first. If two accounts still differ
+		// only by case, this throws and the error below is the only warning that
+		// signup is running unprotected.
+		await User.syncIndexes();
+		logger.info('user indexes synced');
 	} catch (err) {
 		logger.error({ err }, 'failed to start service');
 	}

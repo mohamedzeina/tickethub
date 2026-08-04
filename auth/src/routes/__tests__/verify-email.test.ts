@@ -1,24 +1,11 @@
 import request from 'supertest';
-import { JSONCodec } from 'nats';
 import { app } from '../../app';
 import { User } from '../../models/user';
 import { natsWrapper } from '../../nats-wrapper';
-
-const jc = JSONCodec<{ email: string; token: string }>();
-
-// Pull the raw verification token out of the (mocked) published event — that's
-// the only place it exists in the clear, since the DB stores just a hash.
-const lastPublishedToken = (): string => {
-	const calls = (natsWrapper.js.publish as jest.Mock).mock.calls;
-	const last = calls[calls.length - 1];
-	return jc.decode(last[1]).token;
-};
+import { lastPublishedToken, signupUser } from '../../test/helpers';
 
 const signupAndGetToken = async (email = 'verify@test.com') => {
-	await request(app)
-		.post('/api/users/signup')
-		.send({ email, password: '123456' })
-		.expect(201);
+	await signupUser(email);
 	return lastPublishedToken();
 };
 

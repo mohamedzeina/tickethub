@@ -1,9 +1,7 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
 import { Payout } from '../../models/payout';
-
-const oid = () => new mongoose.Types.ObjectId().toHexString();
+import { oid } from '../../test/helpers';
 
 it('requires auth', async () => {
 	await request(app).get('/api/payments/payouts').expect(401);

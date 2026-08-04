@@ -4,6 +4,7 @@ import { body } from 'express-validator';
 import { PasswordManager } from '../services/password';
 import { User } from '../models/user';
 import { setSession } from '../services/session';
+import { emailRule } from './validators';
 import { validateRequest, BadRequestError } from '@zeina-tickethub/common';
 import { signinIpLimiter, signinEmailLimiter } from '../middlewares/rate-limiters';
 
@@ -14,7 +15,7 @@ router.post(
 	signinIpLimiter,
 	signinEmailLimiter,
 	[
-		body('email').isEmail().withMessage('Invalid email address'),
+		emailRule('Invalid email address'),
 		body('password').trim().notEmpty().withMessage('Password is required'),
 	],
 	validateRequest,

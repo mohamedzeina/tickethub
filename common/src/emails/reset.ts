@@ -1,5 +1,5 @@
 import { MailMessage } from '../mailer';
-import { ctaShell } from './shell';
+import { noticeShell } from './shell';
 
 export interface PasswordResetDetails {
 	to: string;
@@ -22,14 +22,13 @@ export const passwordResetEmail = (d: PasswordResetDetails): MailMessage => {
 	return {
 		to: d.to,
 		subject: `Reset your password — TicketHub`,
-		html: ctaShell(
-			'#c0392b',
-			'Admit One · Password Reset',
-			'Reset your password',
-			`We got a request to reset your TicketHub password. Choose a new one with the button below. This link expires in 1 hour. If you didn't request this, ignore this email — your password won't change.`,
-			'Reset password',
-			d.resetUrl,
-		),
+		html: noticeShell({
+			accent: '#c0392b',
+			eyebrow: 'Admit One · Password Reset',
+			heading: 'Reset your password',
+			body: `We got a request to reset your TicketHub password. Choose a new one with the button below. This link expires in 1 hour. If you didn't request this, ignore this email — your password won't change.`,
+			cta: { label: 'Reset password', url: d.resetUrl },
+		}),
 		text,
 	};
 };

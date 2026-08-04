@@ -18,6 +18,10 @@ const router = express.Router();
 
 const MAX_NAME = 40;
 
+// A well-formed Mongo ObjectId. Used only as a shape check before hitting the
+// DB, so a junk id degrades to "not found" instead of throwing a cast error.
+const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
+
 // Normalize a submitted name: trim, strip control chars, collapse internal
 // whitespace. Returns '' for an all-blank/empty submission (→ clears the name).
 const sanitizeName = (raw: unknown): string => {
@@ -83,7 +87,7 @@ router.get(
 
 		// Ignore malformed ids rather than 400 — a batch read should degrade,
 		// not fail, if one id is junk.
-		const valid = ids.filter((id) => id.match(/^[0-9a-fA-F]{24}$/));
+		const valid = ids.filter((id) => OBJECT_ID.test(id));
 		if (!valid.length) {
 			return res.send([]);
 		}
@@ -100,7 +104,7 @@ router.get(
 	currentUser,
 	async (req: Request, res: Response) => {
 		const { id } = req.params;
-		if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+		if (!OBJECT_ID.test(id)) {
 			throw new NotFoundError();
 		}
 

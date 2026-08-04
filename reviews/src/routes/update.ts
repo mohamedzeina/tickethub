@@ -1,5 +1,4 @@
 import express, { Request, Response } from 'express';
-import { body } from 'express-validator';
 import {
 	requireAuth,
 	validateRequest,
@@ -8,6 +7,7 @@ import {
 	BadRequestError,
 } from '@zeina-tickethub/common';
 import { Review } from '../models/review';
+import { reviewBodyValidators, normalizeComment } from './validators';
 
 const router = express.Router();
 
@@ -15,16 +15,7 @@ const router = express.Router();
 router.put(
 	'/api/reviews/:id',
 	requireAuth,
-	[
-		body('rating')
-			.isInt({ min: 1, max: 5 })
-			.withMessage('rating must be an integer from 1 to 5'),
-		body('comment')
-			.optional()
-			.isString()
-			.isLength({ max: 1000 })
-			.withMessage('comment must be 1000 characters or fewer'),
-	],
+	reviewBodyValidators,
 	validateRequest,
 	async (req: Request, res: Response) => {
 		const review = await Review.findById(req.params.id);
@@ -41,7 +32,7 @@ router.put(
 
 		review.set({
 			rating: req.body.rating,
-			comment: req.body.comment?.trim() || undefined,
+			comment: normalizeComment(req.body.comment),
 		});
 		await review.save();
 

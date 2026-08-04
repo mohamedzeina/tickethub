@@ -17,20 +17,9 @@
  * refunds.js), and the orders service running with PAYOUTS_TEST_TRIGGER=true.
  */
 const h = require('./lib/harness');
-const { execFileSync } = require('child_process');
 
 const FEE_BPS = 1000; // keep in sync with payments PLATFORM_FEE_BPS default (10%)
 const net = (amount) => Math.round(amount * (1 - FEE_BPS / 10000) * 100) / 100;
-
-function stripeCli(args) {
-	return execFileSync('stripe', args, { stdio: 'pipe' }).toString();
-}
-
-function settlePaymentIntent(clientSecret) {
-	const intentId = clientSecret.split('_secret_')[0];
-	stripeCli(['payment_intents', 'confirm', intentId, '-d', 'payment_method=pm_card_visa']);
-	return intentId;
-}
 
 async function buyAndSettle(t, buyer, ticketId, label) {
 	const order = await h.reserveReady(buyer.cookie, ticketId);
@@ -45,7 +34,7 @@ async function buyAndSettle(t, buyer, ticketId, label) {
 		return null;
 	}
 	try {
-		settlePaymentIntent(clientSecret);
+		h.settlePaymentIntent(clientSecret);
 	} catch (err) {
 		t.check(`${label}: settle via Stripe CLI`, false, (err.stderr?.toString() || err.message).slice(0, 200));
 		return null;
@@ -123,14 +112,13 @@ async function run(t) {
 	// through the hosted onboarding page, which is interactive and can't be
 	// scripted. The transfer logic itself (amount − fee, source_transaction,
 	// hold→release, idempotency, failure handling) is covered by the payments unit
-	// tests; the live paid path is verified manually via real hosted onboarding.
-	// Set RUN_PAID_PAYOUT=1 only if you've pre-enabled a connectable test account.
-	if (!process.env.RUN_PAID_PAYOUT) {
-		console.log('  ⓘ skipping live transfer assertions (Express needs interactive hosted onboarding — see note)');
-	}
+	// tests; the live paid path is verified manually, by walking a seller through
+	// the real hosted onboarding page and watching the transfer land.
+	console.log('  ⓘ skipping live transfer assertions (Express needs interactive hosted onboarding — see note)');
 }
+
+module.exports = run;
 
 if (require.main === module) {
 	h.runStandalone(run, { needsMail: false });
 }
-module.exports = { run };

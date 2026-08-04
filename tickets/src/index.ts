@@ -6,6 +6,9 @@ import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListner } from './events/listeners/order-created-listener';
 import { OrderCancelledListener } from './events/listeners/order-cancelled-listener';
 
+// How long graceful shutdown may take before we stop waiting and hard-exit.
+const SHUTDOWN_GRACE_MS = 10_000;
+
 const startTicketsService = async () => {
 	let isShuttingDown = false;
 
@@ -60,7 +63,7 @@ const startTicketsService = async () => {
 		const forceExit = setTimeout(() => {
 			logger.error('could not shut down in time, forcing exit');
 			process.exit(1);
-		}, 10000);
+		}, SHUTDOWN_GRACE_MS);
 		forceExit.unref();
 
 		try {

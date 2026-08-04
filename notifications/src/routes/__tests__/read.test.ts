@@ -1,21 +1,10 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { Notification, NotificationType } from '../../models/notification';
-
-const buildNotification = async (userId: string) => {
-	const n = Notification.build({
-		userId,
-		type: NotificationType.HoldExpiring,
-		title: 'Hold expiring soon',
-		body: 'body',
-	});
-	await n.save();
-	return n;
-};
+import { Notification } from '../../models/notification';
+import { buildNotification, oid } from '../../test/helpers';
 
 it('marks a notification read for its owner', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
 	const n = await buildNotification(userId);
 
 	const res = await request(app)
@@ -30,8 +19,8 @@ it('marks a notification read for its owner', async () => {
 });
 
 it('404s for an unknown notification', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
-	const id = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
+	const id = oid();
 
 	await request(app)
 		.post(`/api/notifications/${id}/read`)
@@ -40,7 +29,7 @@ it('404s for an unknown notification', async () => {
 });
 
 it('401s when marking someone else notification read', async () => {
-	const ownerId = new mongoose.Types.ObjectId().toHexString();
+	const ownerId = oid();
 	const n = await buildNotification(ownerId);
 
 	await request(app)

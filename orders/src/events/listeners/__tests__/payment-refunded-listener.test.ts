@@ -1,33 +1,11 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { OrderStatus, PaymentRefundedEvent } from '@zeina-tickethub/common';
 import { PaymentRefundedListener } from '../payment-refunded-listener';
 import { natsWrapper } from '../../../nats-wrapper';
-import { Ticket } from '../../../models/ticket';
 import { Order } from '../../../models/order';
-
-const buildOrder = async (status = OrderStatus.Complete) => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 50,
-	});
-	await ticket.save();
-	const order = Order.build({
-		userId: new mongoose.Types.ObjectId().toHexString(),
-		status,
-		expiresAt: new Date(),
-		ticket,
-	});
-	order.set({ paidAt: new Date() });
-	await order.save();
-	return order;
-};
-
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
+import { oid, fakeMsg as msg, buildPaidOrder } from '../../../test/factories';
 
 it('flips the order to Refunded with metadata and releases the ticket', async () => {
-	const order = await buildOrder();
+	const order = await buildPaidOrder();
 	const listener = new PaymentRefundedListener(natsWrapper.connection);
 	const data: PaymentRefundedEvent['data'] = {
 		id: 'pay_1',
@@ -51,7 +29,7 @@ it('flips the order to Refunded with metadata and releases the ticket', async ()
 });
 
 it('is a no-op when the order is already Refunded', async () => {
-	const order = await buildOrder(OrderStatus.Refunded);
+	const order = await buildPaidOrder({ status: OrderStatus.Refunded });
 	const listener = new PaymentRefundedListener(natsWrapper.connection);
 	await listener.onMessage(
 		{ id: 'p', orderId: order.id, stripeId: 'pi_1' } as any,
@@ -65,7 +43,7 @@ it('throws (for retry) when the order replica is missing', async () => {
 	const m = msg(1);
 	await expect(
 		listener.onMessage(
-			{ id: 'p', orderId: new mongoose.Types.ObjectId().toHexString(), stripeId: 'pi_1' } as any,
+			{ id: 'p', orderId: oid(), stripeId: 'pi_1' } as any,
 			m,
 		),
 	).rejects.toThrow('Order not found');

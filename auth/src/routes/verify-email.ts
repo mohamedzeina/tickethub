@@ -1,8 +1,7 @@
 import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
 
-import { User } from '../models/user';
-import { TokenManager } from '../services/tokens';
+import { findByToken } from '../services/tokens';
 import { setSession } from '../services/session';
 import { validateRequest, BadRequestError } from '@zeina-tickethub/common';
 import { verifyEmailIpLimiter } from '../middlewares/rate-limiters';
@@ -17,11 +16,11 @@ router.post(
 	async (req: Request, res: Response) => {
 		const { token } = req.body;
 
-		// We store only the hash, so look up by hashing the presented token.
-		const user = await User.findOne({
-			verificationToken: TokenManager.hash(token),
-			verificationTokenExpires: { $gt: new Date() },
-		});
+		const user = await findByToken(
+			'verificationToken',
+			'verificationTokenExpires',
+			token,
+		);
 
 		if (!user) {
 			throw new BadRequestError(

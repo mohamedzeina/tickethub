@@ -1,10 +1,9 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { Ticket } from '../../models/ticket';
 import { Order } from '../../models/order';
 import { OrderStatus } from '@zeina-tickethub/common';
 import { natsWrapper } from '../../nats-wrapper';
+import { oid, buildTicket, buildPaidOrder } from '../../test/factories';
 
 const DAY = 86400000;
 const futureISO = (days: number) => new Date(Date.now() + days * DAY).toISOString();
@@ -18,28 +17,18 @@ const buildOrder = async (
 		redeemedAt,
 		refundRequestedAt,
 	}: any = {},
-) => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 50,
-		eventDate,
-	});
-	await ticket.save();
-
-	const order = Order.build({
+) =>
+	buildPaidOrder({
+		ticket: await buildTicket({ eventDate }),
 		userId,
 		status,
-		expiresAt: new Date(),
-		ticket,
+		paidAt,
+		redeemedAt,
+		refundRequestedAt,
 	});
-	order.set({ paidAt, redeemedAt, refundRequestedAt });
-	await order.save();
-	return order;
-};
 
 it('refunds a paid, in-window order: 200, marks requested, publishes order:refund:requested', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
 	const order = await buildOrder(userId);
 
 	const res = await request(app)
@@ -59,14 +48,14 @@ it('refunds a paid, in-window order: 200, marks requested, publishes order:refun
 
 it('404s for a non-existent order', async () => {
 	await request(app)
-		.post(`/api/orders/${new mongoose.Types.ObjectId().toHexString()}/refund`)
+		.post(`/api/orders/${oid()}/refund`)
 		.set('Cookie', global.signin())
 		.send()
 		.expect(404);
 });
 
 it("401s when the order isn't yours", async () => {
-	const order = await buildOrder(new mongoose.Types.ObjectId().toHexString());
+	const order = await buildOrder(oid());
 	await request(app)
 		.post(`/api/orders/${order.id}/refund`)
 		.set('Cookie', global.signin())
@@ -75,7 +64,7 @@ it("401s when the order isn't yours", async () => {
 });
 
 it('400s when the order is not paid', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
 	const order = await buildOrder(userId, { status: OrderStatus.Created, paidAt: undefined });
 	await request(app)
 		.post(`/api/orders/${order.id}/refund`)
@@ -85,7 +74,7 @@ it('400s when the order is not paid', async () => {
 });
 
 it('400s when the ticket has already been scanned in (redeemed)', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
 	const order = await buildOrder(userId, { redeemedAt: new Date() });
 	await request(app)
 		.post(`/api/orders/${order.id}/refund`)
@@ -95,7 +84,7 @@ it('400s when the ticket has already been scanned in (redeemed)', async () => {
 });
 
 it('400s when the refund window has passed', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
 	// Paid 2 days ago → past the default 24h window.
 	const order = await buildOrder(userId, { paidAt: new Date(Date.now() - 2 * DAY) });
 	await request(app)
@@ -106,7 +95,7 @@ it('400s when the refund window has passed', async () => {
 });
 
 it('400s when a refund was already requested', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
 	const order = await buildOrder(userId, { refundRequestedAt: new Date() });
 	await request(app)
 		.post(`/api/orders/${order.id}/refund`)

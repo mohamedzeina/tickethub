@@ -1,23 +1,7 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
 import { Wishlist } from '../../models/wishlist';
-import { TicketRef } from '../../models/ticket-ref';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
-
-const seedTicket = async (overrides: any = {}) => {
-	const ticketId = id();
-	await TicketRef.build({
-		id: ticketId,
-		title: 'Coldplay',
-		price: 100,
-		version: 0,
-		sellerId: id(),
-		...overrides,
-	}).save();
-	return ticketId;
-};
+import { id, seedTicket } from '../../test/factories';
 
 describe('POST /api/wishlists', () => {
 	it('requires auth → 401', async () => {

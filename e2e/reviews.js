@@ -59,7 +59,7 @@ async function run(t) {
 
 	const unknown = await h.api('/api/reviews', {
 		cookie: buyer.cookie,
-		body: { orderId: '0'.repeat(24), rating: 5 },
+		body: { orderId: h.MISSING_ID, rating: 5 },
 	});
 	t.is('review for an unknown order → 404', unknown.status, 404);
 

@@ -1,27 +1,14 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { Notification, NotificationType } from '../../models/notification';
-
-const buildNotification = async (userId: string, read = false) => {
-	const n = Notification.build({
-		userId,
-		type: NotificationType.PaymentSucceeded,
-		title: 'Payment confirmed',
-		body: 'body',
-	});
-	n.set({ read });
-	await n.save();
-	return n;
-};
+import { buildNotification, oid } from '../../test/helpers';
 
 it('requires auth', async () => {
 	await request(app).get('/api/notifications').send().expect(401);
 });
 
 it('returns only the signed-in user notifications, newest first', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
-	const otherId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
+	const otherId = oid();
 
 	await buildNotification(userId);
 	await buildNotification(userId);
@@ -37,10 +24,10 @@ it('returns only the signed-in user notifications, newest first', async () => {
 });
 
 it('reports the unread count', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
-	await buildNotification(userId, false);
-	await buildNotification(userId, false);
-	await buildNotification(userId, true);
+	const userId = oid();
+	await buildNotification(userId, { read: false });
+	await buildNotification(userId, { read: false });
+	await buildNotification(userId, { read: true });
 
 	const res = await request(app)
 		.get('/api/notifications')

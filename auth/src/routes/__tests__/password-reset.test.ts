@@ -1,21 +1,10 @@
 import request from 'supertest';
-import { JSONCodec } from 'nats';
 import { app } from '../../app';
 import { natsWrapper } from '../../nats-wrapper';
-
-const jc = JSONCodec<{ email: string; token: string }>();
-
-const lastPublishedToken = (): string => {
-	const calls = (natsWrapper.js.publish as jest.Mock).mock.calls;
-	const last = calls[calls.length - 1];
-	return jc.decode(last[1]).token;
-};
-
-const signup = (email: string, password = '123456') =>
-	request(app).post('/api/users/signup').send({ email, password }).expect(201);
+import { lastPublishedToken, signupUser } from '../../test/helpers';
 
 it('returns 200 and publishes a reset request for a known email', async () => {
-	await signup('reset@test.com');
+	await signupUser('reset@test.com');
 	(natsWrapper.js.publish as jest.Mock).mockClear();
 
 	await request(app)
@@ -45,7 +34,7 @@ it('rejects a forgot-password with an invalid email', async () => {
 });
 
 it('resets the password with a valid token and lets the user sign in', async () => {
-	await signup('reset@test.com', '123456');
+	await signupUser('reset@test.com', '123456');
 
 	await request(app)
 		.post('/api/users/forgot-password')
@@ -72,7 +61,7 @@ it('resets the password with a valid token and lets the user sign in', async () 
 });
 
 it('marks the email verified after a successful reset', async () => {
-	await signup('reset@test.com');
+	await signupUser('reset@test.com');
 	await request(app)
 		.post('/api/users/forgot-password')
 		.send({ email: 'reset@test.com' })
@@ -95,7 +84,7 @@ it('rejects an invalid reset token', async () => {
 });
 
 it('rejects a reset token that was already used', async () => {
-	await signup('reset@test.com');
+	await signupUser('reset@test.com');
 	await request(app)
 		.post('/api/users/forgot-password')
 		.send({ email: 'reset@test.com' })

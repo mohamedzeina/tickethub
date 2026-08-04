@@ -2,12 +2,11 @@ import express, { Request, Response } from 'express';
 import {
 	requireAuth,
 	NotFoundError,
-	NotAuthorizedError,
 	BadRequestError,
 	OrderStatus,
 } from '@zeina-tickethub/common';
-import { Order } from '../models/order';
 import { emitPayoutForOrder } from '../services/payout-sweep';
+import { loadOwnedOrder } from '../services/load-owned-order';
 
 const router = express.Router();
 
@@ -28,16 +27,11 @@ router.post(
 			throw new NotFoundError();
 		}
 
-		const order = await Order.findById(req.params.orderId).populate('ticket');
-		if (!order) {
-			throw new NotFoundError();
-		}
 		// Only the order's buyer may trigger it (no forcing other people's orders).
 		// The payout still goes to the legit seller regardless of caller; this is
 		// just hygiene so the trigger isn't an open IDOR.
-		if (order.userId !== req.currentUser!.id) {
-			throw new NotAuthorizedError();
-		}
+		const order = await loadOwnedOrder(req);
+
 		if (order.status !== OrderStatus.Complete || !order.paidAt) {
 			throw new BadRequestError('Only a paid, completed order can be paid out.');
 		}

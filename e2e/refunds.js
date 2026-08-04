@@ -27,55 +27,6 @@
  */
 
 const h = require('./lib/harness');
-const { execFileSync } = require('child_process');
-
-// Settle a PaymentIntent with a Stripe test card via the authenticated Stripe
-// CLI. The clientSecret is `pi_xxx_secret_yyy`; the intent id is the prefix.
-function settlePaymentIntent(clientSecret) {
-	const intentId = clientSecret.split('_secret_')[0];
-	execFileSync(
-		'stripe',
-		['payment_intents', 'confirm', intentId, '-d', 'payment_method=pm_card_visa'],
-		{ stdio: 'pipe' },
-	);
-	return intentId;
-}
-
-// Reserve → pay → settle → wait until the order reflects the payment. Returns the
-// orderId once the order is Complete, or null if any step failed (already
-// asserted). The order being Complete implies payments recorded the Payment (it
-// publishes payment:created only after), so a refund request can find the charge.
-async function buyAndSettle(t, buyer, ticketId, label) {
-	const order = await h.reserveReady(buyer.cookie, ticketId);
-	t.is(`${label}: buyer reserves the ticket → 201`, order.status, 201);
-	const orderId = order.data?.id;
-	if (!orderId) return null;
-
-	const pay = await h.payIntent(buyer.cookie, orderId);
-	t.is(`${label}: buyer creates a PaymentIntent → 201`, pay.status, 201);
-	const clientSecret = pay.data?.clientSecret;
-	if (!clientSecret) return null;
-
-	try {
-		settlePaymentIntent(clientSecret);
-	} catch (err) {
-		const detail = (err.stderr?.toString() || err.message || '').slice(0, 300);
-		t.check(`${label}: settle PaymentIntent via Stripe CLI`, false, detail);
-		return null;
-	}
-
-	// Wait for the webhook to flip the order to Complete.
-	const done = await h.retry(
-		() => h.api(`/api/orders/${orderId}`, { method: 'GET', cookie: buyer.cookie }),
-		{
-			tries: 40,
-			delay: 500,
-			until: (r) => r.status === 200 && r.data?.status === 'complete',
-		},
-	);
-	const ok = t.is(`${label}: order is Complete after settle`, done.data?.status, 'complete');
-	return ok ? orderId : null;
-}
 
 async function run(t) {
 	t.suite('SUITE 1 — Buyer refund: status flips, email, notification, review hidden');
@@ -90,7 +41,7 @@ async function run(t) {
 	t.is('verified seller creates a listing → 201', listing.status, 201);
 	const ticketId = listing.data?.id;
 
-	const orderId = await buyAndSettle(t, buyer, ticketId, 'happy');
+	const orderId = await h.buyAndSettle(t, buyer, ticketId, 'happy');
 	if (!orderId) return; // no paid order → nothing to refund
 
 	// Receipt email confirms the settle path emailed the buyer (sanity check
@@ -160,20 +111,10 @@ async function run(t) {
 	t.is('exactly one refund email (no duplicate from webhook redelivery)', refundsAfter, 1);
 
 	// …and the in-app "Refund issued" notification lands too.
-	const refundFeed = await h.retry(
-		() => h.api('/api/notifications', { method: 'GET', cookie: buyer.cookie }),
-		{
-			tries: 40,
-			delay: 500,
-			until: (r) =>
-				r.status === 200 &&
-				(r.data?.notifications || []).some(
-					(n) => n.orderId === orderId && n.type === 'payment_refunded',
-				),
-		},
-	);
-	const refundNote = (refundFeed.data?.notifications || []).find(
+	const { note: refundNote } = await h.waitForNotification(
+		buyer.cookie,
 		(n) => n.orderId === orderId && n.type === 'payment_refunded',
+		{ tries: 40, delay: 500 },
 	);
 	t.check('an in-app refund notification appeared', !!refundNote);
 	t.is('refund notification title is "Refund issued"', refundNote?.title, 'Refund issued');
@@ -197,7 +138,7 @@ async function run(t) {
 	});
 	t.is('seller creates a last-minute listing → 201', soonListing.status, 201);
 
-	const soonOrderId = await buyAndSettle(t, buyer, soonListing.data?.id, 'window');
+	const soonOrderId = await h.buyAndSettle(t, buyer, soonListing.data?.id, 'window');
 	if (soonOrderId) {
 		const soonOrder = await h.api(`/api/orders/${soonOrderId}`, {
 			method: 'GET',

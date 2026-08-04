@@ -1,33 +1,29 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { OrderCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
 import { OrderCreatedListener } from '../order-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
 import { Notification, NotificationType } from '../../../models/notification';
+import { msg, oid } from '../../../test/helpers';
 
 const setup = () => {
 	const listener = new OrderCreatedListener(natsWrapper.connection);
 
-	const userId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
 	const data: OrderCreatedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		version: 0,
 		status: OrderStatus.Created,
 		userId,
 		userEmail: 'buyer@test.com',
 		expiresAt: new Date().toISOString(),
 		ticket: {
-			id: new mongoose.Types.ObjectId().toHexString(),
+			id: oid(),
 			price: 20,
 			title: 'Akon Concert',
 		},
 	};
 
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
-
-	return { listener, data, msg, userId };
+	return { listener, data, msg: msg(1), userId };
 };
 
 it('seeds the order replica and creates a reservation notification', async () => {

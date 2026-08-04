@@ -13,18 +13,8 @@
  */
 
 const h = require('./lib/harness');
-const { execFileSync } = require('child_process');
 
 const GATE_API_KEY = process.env.GATE_API_KEY;
-
-function settlePaymentIntent(clientSecret) {
-	const intentId = clientSecret.split('_secret_')[0];
-	execFileSync(
-		'stripe',
-		['payment_intents', 'confirm', intentId, '-d', 'payment_method=pm_card_visa'],
-		{ stdio: 'pipe' },
-	);
-}
 
 // Sign up buyer+seller, list, reserve, pay, settle, and wait for the pass to be
 // minted. Returns the buyer/order + the issued pass response (with its code).
@@ -38,7 +28,7 @@ async function paidOrderWithPass(prefix) {
 	});
 	const order = await h.reserveReady(buyer.cookie, listing.data?.id);
 	const pay = await h.payIntent(buyer.cookie, order.data?.id);
-	settlePaymentIntent(pay.data.clientSecret);
+	h.settlePaymentIntent(pay.data.clientSecret);
 
 	// Pass is minted off payment:created (after the webhook) — poll until issued.
 	// A single-seat order yields exactly one pass (returned in the passes array).
@@ -53,7 +43,7 @@ async function paidOrderWithPass(prefix) {
 				!!r.data?.passes?.[0]?.code,
 		},
 	);
-	return { seller, buyer, order, passRes, pass: passRes.data?.passes?.[0] };
+	return { buyer, order, passRes, pass: passRes.data?.passes?.[0] };
 }
 
 async function run(t) {
@@ -119,20 +109,10 @@ async function run(t) {
 
 	// The scan fires ticket:redeemed → notifications writes the buyer a
 	// "Pass scanned" confirmation (#5).
-	const scanFeed = await h.retry(
-		() => h.api('/api/notifications', { method: 'GET', cookie: buyer.cookie }),
-		{
-			tries: 40,
-			delay: 500,
-			until: (r) =>
-				r.status === 200 &&
-				(r.data?.notifications || []).some(
-					(n) => n.orderId === order.data.id && n.type === 'pass_scanned',
-				),
-		},
-	);
-	const scanNote = (scanFeed.data?.notifications || []).find(
+	const { note: scanNote } = await h.waitForNotification(
+		buyer.cookie,
 		(n) => n.orderId === order.data.id && n.type === 'pass_scanned',
+		{ tries: 40, delay: 500 },
 	);
 	t.check('buyer is notified their pass was scanned', !!scanNote);
 	t.is('scan notification names the gate-scan', scanNote?.title, 'Pass scanned');

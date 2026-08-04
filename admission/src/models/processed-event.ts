@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { ProcessedEventStore } from '@zeina-tickethub/common';
+import { isDuplicateKey } from '../is-duplicate-key';
 
 // One row per event this service has handled, keyed uniquely on the NATS
 // channel + message sequence. Lets listeners apply at-least-once-delivered
@@ -45,8 +46,8 @@ processedEventSchema.statics.markProcessed = async function (
 	try {
 		await this.create({ channel, sequence });
 	} catch (err: any) {
-		// 11000 = duplicate key: another worker already recorded it. Benign.
-		if (err?.code !== 11000) {
+		// Duplicate key: another worker already recorded it. Benign.
+		if (!isDuplicateKey(err)) {
 			throw err;
 		}
 	}

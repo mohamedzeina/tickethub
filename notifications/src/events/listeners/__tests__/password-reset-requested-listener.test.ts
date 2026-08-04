@@ -1,5 +1,3 @@
-import { JsMsg } from 'nats';
-
 jest.mock('@zeina-tickethub/common', () => ({
 	...jest.requireActual('@zeina-tickethub/common'),
 	sendMail: jest.fn(),
@@ -8,6 +6,7 @@ jest.mock('@zeina-tickethub/common', () => ({
 import { PasswordResetRequestedEvent, sendMail } from '@zeina-tickethub/common';
 import { PasswordResetRequestedListener } from '../password-reset-requested-listener';
 import { natsWrapper } from '../../../nats-wrapper';
+import { msg } from '../../../test/helpers';
 
 const setup = (seq = 1) => {
 	const listener = new PasswordResetRequestedListener(natsWrapper.connection);
@@ -15,13 +14,10 @@ const setup = (seq = 1) => {
 		email: 'forgot@test.com',
 		token: 'resettoken456',
 	};
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq };
-	return { listener, data, msg };
+	return { listener, data, msg: msg(seq) };
 };
 
 beforeEach(() => {
-	(sendMail as jest.Mock).mockClear();
 	process.env.CLIENT_URL = 'https://example.test';
 });
 

@@ -1,11 +1,12 @@
 import express, { Request, Response } from 'express';
-import { body } from 'express-validator';
 
 import { User } from '../models/user';
+import { emailRule, passwordRule } from './validators';
 import { setSession } from '../services/session';
 import { issueVerification } from '../services/account-emails';
 import { BadRequestError, validateRequest } from '@zeina-tickethub/common';
 import { signupIpLimiter } from '../middlewares/rate-limiters';
+import { isDuplicateKey } from '../is-duplicate-key';
 
 const router = express.Router();
 
@@ -13,11 +14,8 @@ router.post(
 	'/api/users/signup',
 	signupIpLimiter,
 	[
-		body('email').isEmail().withMessage('Email must be valid'),
-		body('password')
-			.trim()
-			.isLength({ min: 4, max: 20 })
-			.withMessage('Password must be between 4 and 20 characters'),
+		emailRule('Email must be valid'),
+		passwordRule(),
 	],
 	validateRequest,
 	async (req: Request, res: Response) => {
@@ -30,7 +28,17 @@ router.post(
 		}
 
 		const user = User.build({ email, password });
-		await user.save();
+		try {
+			await user.save();
+		} catch (err) {
+			// The unique index rejected a concurrent signup that slipped past the
+			// findOne above. Same 400 the pre-check would have produced, so the
+			// race is invisible to the client.
+			if (isDuplicateKey(err)) {
+				throw new BadRequestError('Email already in use');
+			}
+			throw err;
+		}
 
 		// Send the verification email (mints + stores a hashed token, publishes
 		// the request). New accounts start unverified.

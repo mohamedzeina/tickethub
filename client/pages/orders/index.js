@@ -2,7 +2,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Router from 'next/router';
 import axios from 'axios';
-import { formatPrice, formatDateShort, serialFromId } from '../../utils/ticket';
+import {
+	formatPrice,
+	formatDateShort,
+	serialFromId,
+	eventMeta,
+} from '../../utils/ticket';
+import { apiError } from '../../utils/apiError';
 import redirect from '../../utils/redirect';
 
 // Map an order status to an admission-stamp style + label.
@@ -38,10 +44,7 @@ const PayableActions = ({ order }) => {
 			await axios.delete(`/api/orders/${order.id}`);
 			Router.reload();
 		} catch (err) {
-			setError(
-				err?.response?.data?.errors?.[0]?.message ||
-					'Could not cancel this hold. Please try again.',
-			);
+			setError(apiError(err, 'Could not cancel this hold. Please try again.'));
 			setLoading(false);
 		}
 	};
@@ -95,7 +98,7 @@ const PayableActions = ({ order }) => {
 
 const OrderRow = ({ order }) => {
 	const date = formatDateShort(order.ticket.eventDate);
-	const meta = [date, order.ticket.venue].filter(Boolean).join(' · ');
+	const meta = eventMeta(date, order.ticket.venue);
 	const stamp = stampFor(order.status);
 	// Multi-seat (#10): the order total is the per-seat price times the seats.
 	const seats = order.quantity ?? 1;

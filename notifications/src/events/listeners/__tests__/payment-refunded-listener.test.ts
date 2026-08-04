@@ -1,47 +1,28 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
-
 // Mock just sendMail; keep the rest of common real (events, OrderStatus, …).
 jest.mock('@zeina-tickethub/common', () => ({
 	...jest.requireActual('@zeina-tickethub/common'),
 	sendMail: jest.fn(),
 }));
 
-import { PaymentRefundedEvent, OrderStatus, sendMail } from '@zeina-tickethub/common';
+import { PaymentRefundedEvent, sendMail } from '@zeina-tickethub/common';
 import { PaymentRefundedListener } from '../payment-refunded-listener';
 import { natsWrapper } from '../../../nats-wrapper';
-import { Order } from '../../../models/order';
 import { Notification, NotificationType } from '../../../models/notification';
-
-const seedOrder = async (userId: string, userEmail?: string) => {
-	const order = Order.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		userId,
-		ticketTitle: 'Akon Concert',
-		status: OrderStatus.Complete,
-		userEmail,
-		price: 20,
-	});
-	await order.save();
-	return order;
-};
-
-beforeEach(() => (sendMail as jest.Mock).mockClear());
+import { msg, oid, seedOrder } from '../../../test/helpers';
 
 it('notifies the buyer and emails a refund confirmation', async () => {
 	const listener = new PaymentRefundedListener(natsWrapper.connection);
-	const userId = new mongoose.Types.ObjectId().toHexString();
-	const order = await seedOrder(userId, 'buyer@test.com');
+	const userId = oid();
+	const order = await seedOrder({ userId, userEmail: 'buyer@test.com', price: 20 });
 
 	const data: PaymentRefundedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		orderId: order.id,
 		stripeId: 'pi_123',
 	};
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
+	const m = msg(1);
 
-	await listener.onMessage(data, msg);
+	await listener.onMessage(data, m);
 
 	const notifications = await Notification.find({ userId });
 	expect(notifications.length).toEqual(1);
@@ -52,41 +33,39 @@ it('notifies the buyer and emails a refund confirmation', async () => {
 	expect(mail.to).toEqual('buyer@test.com');
 	expect(mail.subject).toContain('refund');
 
-	expect(msg.ack).toHaveBeenCalled();
+	expect(m.ack).toHaveBeenCalled();
 });
 
 it('still notifies but skips email when no buyer email is on the replica', async () => {
 	const listener = new PaymentRefundedListener(natsWrapper.connection);
-	const userId = new mongoose.Types.ObjectId().toHexString();
-	const order = await seedOrder(userId);
+	const userId = oid();
+	const order = await seedOrder({ userId, price: 20 });
 
 	const data: PaymentRefundedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		orderId: order.id,
 		stripeId: 'pi_123',
 	};
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 2 };
+	const m = msg(2);
 
-	await listener.onMessage(data, msg);
+	await listener.onMessage(data, m);
 
 	const notifications = await Notification.find({ userId });
 	expect(notifications.length).toEqual(1);
 	expect(sendMail).not.toHaveBeenCalled();
-	expect(msg.ack).toHaveBeenCalled();
+	expect(m.ack).toHaveBeenCalled();
 });
 
 it('throws (for retry) when the order replica is not yet present', async () => {
 	const listener = new PaymentRefundedListener(natsWrapper.connection);
 	const data: PaymentRefundedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
-		orderId: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
+		orderId: oid(),
 		stripeId: 'pi_123',
 	};
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 3 };
+	const m = msg(3);
 
-	await expect(listener.onMessage(data, msg)).rejects.toThrow('Order not found');
-	expect(msg.ack).not.toHaveBeenCalled();
+	await expect(listener.onMessage(data, m)).rejects.toThrow('Order not found');
+	expect(m.ack).not.toHaveBeenCalled();
 	expect(sendMail).not.toHaveBeenCalled();
 });

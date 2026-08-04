@@ -24,7 +24,7 @@ export enum NotificationType {
 	ReviewReceived = 'review_received',
 }
 
-interface NotificationAttrs {
+export interface NotificationAttrs {
 	userId: string;
 	type: NotificationType;
 	title: string;

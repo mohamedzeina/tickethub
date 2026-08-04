@@ -1,31 +1,18 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
-import { OrderStatus } from '@zeina-tickethub/common';
 import { app } from '../../app';
-import { Ticket } from '../../models/ticket';
-import { Order } from '../../models/order';
+import {
+	oid,
+	buildTicket as buildTicketDoc,
+	buildPaidOrder,
+} from '../../test/factories';
 
-const oid = () => new mongoose.Types.ObjectId().toHexString();
-
-const buildTicket = async (sellerId: string, price: number, title = 'Seat') => {
-	const ticket = Ticket.build({ id: oid(), title, price, userId: sellerId });
-	await ticket.save();
-	return ticket;
-};
+const buildTicket = (sellerId: string, price: number, title = 'Seat') =>
+	buildTicketDoc({ title, price, userId: sellerId });
 
 // A completed, paid order (a real sale) for the given ticket. `extra` overrides
 // let a test mark it swept / refunded / refund-requested.
-const paidOrder = async (ticket: any, extra: Record<string, unknown> = {}) => {
-	const order = Order.build({
-		userId: oid(), // buyer
-		status: OrderStatus.Complete,
-		expiresAt: new Date(),
-		ticket,
-	});
-	order.set({ paidAt: new Date(), ...extra });
-	await order.save();
-	return order;
-};
+const paidOrder = async (ticket: any, extra: Record<string, unknown> = {}) =>
+	buildPaidOrder({ ticket, ...extra });
 
 it('returns the seller’s in-window sales as clearing earnings, net of the fee', async () => {
 	const sellerId = oid();

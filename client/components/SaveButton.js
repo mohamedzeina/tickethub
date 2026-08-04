@@ -11,12 +11,8 @@ const SaveButton = ({
 	saved,
 	onToggle,
 	currentUser,
-	returnTo,
 	size = 18,
 	withLabel = false,
-	// `plain` drops the circular bubble/shadow — for placing the heart inline on
-	// a solid surface (e.g. the detail counterfoil) rather than over an image.
-	plain = false,
 }) => {
 	const router = useRouter();
 
@@ -24,7 +20,7 @@ const SaveButton = ({
 		e.preventDefault();
 		e.stopPropagation();
 		if (!currentUser) {
-			router.push(signInHref(returnTo || `/tickets/${ticketId}`));
+			router.push(signInHref(`/tickets/${ticketId}`));
 			return;
 		}
 		onToggle(ticketId);
@@ -34,7 +30,6 @@ const SaveButton = ({
 		'savebtn',
 		saved ? 'is-saved' : '',
 		withLabel ? 'savebtn--label' : '',
-		plain ? 'savebtn--plain' : '',
 	]
 		.filter(Boolean)
 		.join(' ');

@@ -1,6 +1,6 @@
-// Shared between the landing page, the /search page, and the filter bar so the
-// list of categories and sort options lives in exactly one place. CATEGORIES
-// mirrors TICKET_CATEGORIES in the tickets service model.
+// Shared between the landing page, the /search page, the filter bar, and the
+// ticket form so the list of categories and sort options lives in exactly one
+// place. CATEGORIES mirrors TICKET_CATEGORIES in the tickets service model.
 export const CATEGORIES = ['Concerts', 'Sports', 'Theater', 'Festivals', 'Other'];
 
 export const SORTS = [
@@ -46,4 +46,23 @@ export const parseTicketQuery = (query) => {
 	if (cleanPage) params.set('page', cleanPage);
 
 	return { filters, qs: params.toString() };
+};
+
+// The getInitialProps body shared by the landing page and /search: read the URL
+// query, let the tickets service do the search/filter/sort/pagination, and hand
+// back the page of results plus its paging metadata. Runs on the server for the
+// initial load and in the browser during a client-side transition.
+export const fetchBrowsePage = async (context, client) => {
+	const { filters, qs } = parseTicketQuery(context.query);
+	const { data } = await client.get(`/api/tickets${qs ? `?${qs}` : ''}`);
+
+	return {
+		tickets: data.tickets,
+		meta: {
+			page: data.page,
+			total: data.total,
+			totalPages: data.totalPages,
+		},
+		filters,
+	};
 };

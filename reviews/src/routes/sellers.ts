@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { Review } from '../models/review';
+import { sellerSummaries } from '../services/seller-summary';
 
 const router = express.Router();
 
@@ -20,26 +20,14 @@ router.get('/api/reviews/sellers', async (req: Request, res: Response) => {
 		return res.send([]);
 	}
 
-	// Exclude soft-hidden reviews (refunded orders, Option A) so the badge matches
-	// the seller-profile aggregate. Group by seller in a single query.
-	const groups = await Review.aggregate([
-		{ $match: { sellerId: { $in: ids }, hidden: { $ne: true } } },
-		{
-			$group: {
-				_id: '$sellerId',
-				sum: { $sum: '$rating' },
-				count: { $sum: 1 },
-			},
-		},
-	]);
+	// Same aggregate the seller profile uses, so the badge and the profile always
+	// report the same numbers.
+	const summaries = await sellerSummaries(ids);
 
 	res.send(
-		groups.map((g) => ({
-			sellerId: g._id,
-			summary: {
-				average: Math.round((g.sum / g.count) * 10) / 10,
-				count: g.count,
-			},
+		summaries.map((s) => ({
+			sellerId: s.sellerId,
+			summary: { average: s.average, count: s.count },
 		})),
 	);
 });

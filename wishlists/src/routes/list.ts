@@ -20,13 +20,10 @@ router.get(
 
 		const ids = items.map((i) => i.ticketId);
 		const refs = await TicketRef.find({ _id: { $in: ids } });
-		const byId: Record<string, any> = {};
-		refs.forEach((r) => {
-			byId[r.id] = r;
-		});
+		const byId = new Map(refs.map((r) => [r.id, r]));
 
 		const result = items.map((i) => {
-			const t = byId[i.ticketId];
+			const t = byId.get(i.ticketId);
 			return {
 				ticketId: i.ticketId,
 				savedAt: i.createdAt,

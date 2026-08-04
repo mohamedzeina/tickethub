@@ -9,6 +9,7 @@ import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
 import { ProcessedEvent } from '../../models/processed-event';
 import { OrderRef } from '../../models/order-ref';
+import { isDuplicateKey } from '../../is-duplicate-key';
 
 export class OrderCreatedListener extends Listener<OrderCreatedEvent> {
 	readonly subject = Subjects.OrderCreated;
@@ -32,7 +33,7 @@ export class OrderCreatedListener extends Listener<OrderCreatedEvent> {
 			try {
 				await order.save();
 			} catch (err: any) {
-				if (err?.code !== 11000) {
+				if (!isDuplicateKey(err)) {
 					throw err;
 				}
 			}

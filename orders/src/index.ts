@@ -12,6 +12,9 @@ import { PaymentRefundedListener } from './events/listeners/payment-refunded-lis
 import { TicketRedeemedListener } from './events/listeners/ticket-redeemed-listener';
 import { startPayoutSweep } from './services/payout-sweep';
 
+// How long graceful shutdown may take before we stop waiting and hard-exit.
+const SHUTDOWN_GRACE_MS = 10_000;
+
 const startOrdersService = async () => {
 	let isShuttingDown = false;
 
@@ -78,7 +81,7 @@ const startOrdersService = async () => {
 		const forceExit = setTimeout(() => {
 			logger.error('could not shut down in time, forcing exit');
 			process.exit(1);
-		}, 10000);
+		}, SHUTDOWN_GRACE_MS);
 		forceExit.unref();
 
 		try {

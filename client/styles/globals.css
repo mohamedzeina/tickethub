@@ -1045,9 +1045,6 @@
 .savebtn:hover { color: var(--red); }
 .savebtn:active { transform: scale(0.92); }
 .savebtn.is-saved { color: var(--red); }
-/* Plain (no bubble) — inline on a solid surface, e.g. the detail counterfoil. */
-.savebtn--plain { background: transparent; box-shadow: none; padding: 4px; }
-.savebtn--plain:active { transform: scale(0.9); }
 
 /* Labeled secondary control — sits BELOW the buy CTA on the detail page. Clearly
    visible (full-width, labeled, 44px tall) but quiet vs. the red dashed CTA:

@@ -4,6 +4,14 @@ import Link from 'next/link';
 import axios from 'axios';
 import useRequest from '../hooks/useRequest';
 
+// A payout row's pill: CSS modifier + label per status. One lookup (like the
+// payoutField map below) so the class and the wording can't drift apart.
+const pillFor = (status) =>
+	({
+		paid: { cls: 'paid', label: 'Paid' },
+		failed: { cls: 'retry', label: 'Retrying' },
+	})[status] || { cls: 'held', label: 'Held' };
+
 // Account settings. One "will-call" ticket: the red stub on the left is the
 // member's counterfoil (identity + serial + barcode); the right side holds
 // perforated tabs — Profile (#18 display name) and Payouts (#11 Stripe Connect).
@@ -427,31 +435,24 @@ const Account = ({ currentUser }) => {
 												</span>
 											</li>
 										))}
-										{payoutItems.slice(0, 6).map((p) => (
-											<li key={p.id}>
-												<span className="acct__earnings-net">
-													€{p.net.toFixed(2)}
-												</span>
-												<span className="acct__earnings-meta">
-													on a €{p.amount.toFixed(2)} sale
-												</span>
-												<span
-													className={`acct__earnings-pill acct__earnings-pill--${
-														p.status === 'paid'
-															? 'paid'
-															: p.status === 'failed'
-																? 'retry'
-																: 'held'
-													}`}
-												>
-													{p.status === 'paid'
-														? 'Paid'
-														: p.status === 'failed'
-															? 'Retrying'
-															: 'Held'}
-												</span>
-											</li>
-										))}
+										{payoutItems.slice(0, 6).map((p) => {
+											const pill = pillFor(p.status);
+											return (
+												<li key={p.id}>
+													<span className="acct__earnings-net">
+														€{p.net.toFixed(2)}
+													</span>
+													<span className="acct__earnings-meta">
+														on a €{p.amount.toFixed(2)} sale
+													</span>
+													<span
+														className={`acct__earnings-pill acct__earnings-pill--${pill.cls}`}
+													>
+														{pill.label}
+													</span>
+												</li>
+											);
+										})}
 									</ul>
 								</div>
 							)}

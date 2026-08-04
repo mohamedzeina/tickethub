@@ -1,16 +1,9 @@
-import { JetStreamClient, JSONCodec } from 'nats';
+import { JetStreamClient } from 'nats';
 import { SpanKind, SpanStatusCode } from '@opentelemetry/api';
-import { Subjects } from './subjects';
 import { logger } from '../logger';
 import { eventsPublished } from '../metrics';
 import { eventsTracer, injectTraceHeaders } from './trace';
-
-const jc = JSONCodec();
-
-interface Event {
-	subject: Subjects;
-	data: any;
-}
+import { Event, jc } from './event';
 
 export abstract class Publisher<T extends Event> {
 	abstract subject: T['subject'];

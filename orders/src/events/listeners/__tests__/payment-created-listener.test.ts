@@ -1,20 +1,13 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { PaymentCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
 import { PaymentCreatedListener } from '../payment-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
-import { Ticket } from '../../../models/ticket';
 import { Order } from '../../../models/order';
+import { oid, fakeMsg, buildTicket } from '../../../test/factories';
 
 const setup = async () => {
 	const listener = new PaymentCreatedListener(natsWrapper.connection);
 
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 20,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 20 });
 
 	const order = Order.build({
 		status: OrderStatus.Created,
@@ -25,16 +18,12 @@ const setup = async () => {
 	await order.save();
 
 	const data: PaymentCreatedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		orderId: order.id,
 		stripeId: 'stripe123',
 	};
 
-	// @ts-ignore
-	const msg: JsMsg = {
-		ack: jest.fn(),
-		seq: 1,
-	};
+	const msg = fakeMsg(1);
 
 	return { listener, order, data, msg };
 };

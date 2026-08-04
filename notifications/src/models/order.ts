@@ -11,7 +11,7 @@ import { OrderStatus } from '@zeina-tickethub/common';
 // each status transition arrives on a distinct event guarded by `processOnce`,
 // so there's no concurrent in-place update of the same field to race.
 
-interface OrderAttrs {
+export interface OrderAttrs {
 	id: string;
 	userId: string;
 	ticketTitle: string;
@@ -64,17 +64,11 @@ const orderSchema = new mongoose.Schema<OrderDoc>(
 	},
 );
 
+// The only rename is `id` → `_id` (the replica is keyed on the order's id);
+// everything else passes straight through.
 orderSchema.statics.build = (attrs: OrderAttrs) => {
-	return new Order({
-		_id: attrs.id,
-		userId: attrs.userId,
-		ticketTitle: attrs.ticketTitle,
-		status: attrs.status,
-		userEmail: attrs.userEmail,
-		price: attrs.price,
-		quantity: attrs.quantity,
-		sellerId: attrs.sellerId,
-	});
+	const { id, ...rest } = attrs;
+	return new Order({ _id: id, ...rest });
 };
 
 const Order = mongoose.model<OrderDoc, OrderModel>('Order', orderSchema);

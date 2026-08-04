@@ -1,16 +1,15 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { PaymentCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
 import { PaymentCreatedListener } from '../payment-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { OrderRef } from '../../../models/order-ref';
 import { TicketRef } from '../../../models/ticket-ref';
 import { Pass } from '../../../models/pass';
+import { oid, msg } from '../../../test/helpers';
 
 const seed = async (quantity = 1) => {
-	const ticketId = new mongoose.Types.ObjectId().toHexString();
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
-	const orderId = new mongoose.Types.ObjectId().toHexString();
+	const ticketId = oid();
+	const buyerId = oid();
+	const orderId = oid();
 	await OrderRef.build({
 		id: orderId,
 		buyerId,
@@ -28,13 +27,11 @@ const seed = async (quantity = 1) => {
 	return { orderId, buyerId, ticketId };
 };
 
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
-
 it('mints an issued pass and completes the order replica', async () => {
 	const { orderId, buyerId } = await seed();
 	const listener = new PaymentCreatedListener(natsWrapper.connection);
 	const data: PaymentCreatedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		orderId,
 		stripeId: 'pi_1',
 	};
@@ -82,7 +79,7 @@ it('throws (for retry) when the order replica is missing', async () => {
 	const listener = new PaymentCreatedListener(natsWrapper.connection);
 	const data: any = {
 		id: 'p',
-		orderId: new mongoose.Types.ObjectId().toHexString(),
+		orderId: oid(),
 		stripeId: 'pi_1',
 	};
 	const m = msg(1);

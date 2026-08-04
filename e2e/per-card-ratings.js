@@ -21,48 +21,6 @@
  */
 
 const h = require('./lib/harness');
-const { execFileSync } = require('child_process');
-
-// Settle a PaymentIntent with a Stripe test card via the authenticated Stripe
-// CLI (clientSecret is `pi_xxx_secret_yyy`; the intent id is the prefix).
-function settlePaymentIntent(clientSecret) {
-	const intentId = clientSecret.split('_secret_')[0];
-	execFileSync(
-		'stripe',
-		['payment_intents', 'confirm', intentId, '-d', 'payment_method=pm_card_visa'],
-		{ stdio: 'pipe' },
-	);
-	return intentId;
-}
-
-// Reserve → pay → settle → wait until the order is Complete. Returns orderId or
-// null (already asserted on failure).
-async function buyAndSettle(t, buyer, ticketId, label) {
-	const order = await h.reserveReady(buyer.cookie, ticketId);
-	t.is(`${label}: buyer reserves the ticket → 201`, order.status, 201);
-	const orderId = order.data?.id;
-	if (!orderId) return null;
-
-	const pay = await h.payIntent(buyer.cookie, orderId);
-	t.is(`${label}: buyer creates a PaymentIntent → 201`, pay.status, 201);
-	const clientSecret = pay.data?.clientSecret;
-	if (!clientSecret) return null;
-
-	try {
-		settlePaymentIntent(clientSecret);
-	} catch (err) {
-		const detail = (err.stderr?.toString() || err.message || '').slice(0, 300);
-		t.check(`${label}: settle PaymentIntent via Stripe CLI`, false, detail);
-		return null;
-	}
-
-	const done = await h.retry(
-		() => h.api(`/api/orders/${orderId}`, { method: 'GET', cookie: buyer.cookie }),
-		{ tries: 40, delay: 500, until: (r) => r.status === 200 && r.data?.status === 'complete' },
-	);
-	const ok = t.is(`${label}: order is Complete after settle`, done.data?.status, 'complete');
-	return ok ? orderId : null;
-}
 
 async function run(t) {
 	t.suite('SUITE 1 — a rated seller surfaces in the batch ratings endpoint');
@@ -88,7 +46,7 @@ async function run(t) {
 	t.is('a second seller creates a listing → 201', freshListing.status, 201);
 	const freshSellerId = freshListing.data?.userId;
 
-	const orderId = await buyAndSettle(t, buyer, ticketId, 'rated');
+	const orderId = await h.buyAndSettle(t, buyer, ticketId, 'rated');
 	if (!orderId) return; // can't review without a Complete order
 
 	// Buyer reviews the paid order (rating 4). Retry while reviews' order replica

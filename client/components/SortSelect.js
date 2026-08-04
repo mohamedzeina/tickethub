@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check } from './icons';
+import useDismiss from '../hooks/useDismiss';
 
 // Themed replacement for a native <select>: the OS dropdown can't be styled to
 // match the ticket stock, so we render our own popover. Closes on outside click
@@ -9,23 +10,21 @@ const SortSelect = ({ value, options, onChange }) => {
 	const [open, setOpen] = useState(false);
 	const current = options.find((o) => o.value === value) || options[0];
 
+	useDismiss(ref, open, () => setOpen(false));
+
+	// Arrow keys move through the options while open — the one thing this popover
+	// needs on top of the shared outside-click/Escape dismissal.
 	useEffect(() => {
 		if (!open) return;
-		const onDown = (e) => {
-			if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-		};
 		const onKey = (e) => {
-			if (e.key === 'Escape') return setOpen(false);
 			if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
 			e.preventDefault();
 			const i = options.findIndex((o) => o.value === value);
 			const next = e.key === 'ArrowDown' ? i + 1 : i - 1;
 			if (options[next]) onChange(options[next].value);
 		};
-		document.addEventListener('mousedown', onDown);
 		document.addEventListener('keydown', onKey);
 		return () => {
-			document.removeEventListener('mousedown', onDown);
 			document.removeEventListener('keydown', onKey);
 		};
 	}, [open, options, value, onChange]);

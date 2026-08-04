@@ -1,38 +1,28 @@
 import { OrderStatus, logger } from '@zeina-tickethub/common';
 import { Order, OrderDoc } from '../models/order';
 import { refundableUntil } from './refund-window';
+import { PAYABLE_ORDER_FILTER, grossAmount } from './payout-policy';
 import { OrderPayoutDuePublisher } from '../events/publishers/order-payout-due-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
-// #11 payouts — the release scheduler. Orders owns `refundableUntil`, so it owns
-// the moment a seller becomes payable: once an order passes its refund window it
-// can never be refunded, so it's safe to pay the seller. A periodic sweep (not a
-// per-order delayed job) keeps this self-contained and restart-safe — every tick
-// re-derives the truth from the DB.
-//
-// For each Complete, paid, not-yet-emitted order whose window has closed, we
-// publish order:payout:due once. We publish BEFORE marking payoutDueAt so a crash
-// between the two re-publishes next tick (payments is idempotent per orderId), and
-// we mark with updateOne so we don't bump the order's OCC version (no event
-// carries it, so replicas must not drift).
 // Emit order:payout:due for one (populated) order and mark it, unless already
 // emitted or the seller/price is missing. Returns true if it published. Shared by
 // the sweep and the dev-only force trigger; the window check lives in the caller.
+// We publish BEFORE marking payoutDueAt so a crash between the two re-publishes
+// next tick (payments is idempotent per orderId).
 export const emitPayoutForOrder = async (
 	order: OrderDoc,
 ): Promise<boolean> => {
 	// Never pay out an order that's already emitted, isn't a paid Complete order,
 	// or has a refund in flight (refundRequestedAt set but the Refunded status
-	// hasn't landed yet — paying out now could race the refund settling).
+	// hasn't landed yet — paying out now could race the refund settling) or one
+	// already settled. Mirrors PAYABLE_ORDER_FILTER doc-side, for payout-now.
 	if (order.payoutDueAt) return false;
 	if (order.status !== OrderStatus.Complete || !order.paidAt) return false;
-	if (order.refundRequestedAt) return false;
+	if (order.refundRequestedAt || order.refundedAt) return false;
 
-	const ticket = order.ticket;
-	const sellerId: string | undefined = ticket?.userId;
-	// Multi-seat (#10): the gross sale is the per-seat price times seats sold.
-	const amount: number | undefined =
-		ticket?.price != null ? ticket.price * (order.quantity ?? 1) : undefined;
+	const sellerId: string | undefined = order.ticket?.userId;
+	const amount = grossAmount(order);
 	if (!sellerId || amount == null) return false;
 
 	await new OrderPayoutDuePublisher(natsWrapper.js).publish({
@@ -50,13 +40,14 @@ export const emitPayoutForOrder = async (
 	return true;
 };
 
+// #11 payouts — the release scheduler. Orders owns `refundableUntil`, so it owns
+// the moment a seller becomes payable: once an order passes its refund window it
+// can never be refunded, so it's safe to pay the seller. A periodic sweep (not a
+// per-order delayed job) keeps this self-contained and restart-safe — every tick
+// re-derives the truth from the DB. For each Complete, paid, not-yet-emitted
+// order whose window has closed, we publish order:payout:due exactly once.
 export const runPayoutSweep = async (): Promise<number> => {
-	const candidates = await Order.find({
-		status: OrderStatus.Complete,
-		paidAt: { $exists: true, $ne: null },
-		payoutDueAt: { $exists: false },
-		refundRequestedAt: { $exists: false }, // refund in flight → don't pay out
-	}).populate('ticket');
+	const candidates = await Order.find(PAYABLE_ORDER_FILTER).populate('ticket');
 
 	const now = Date.now();
 	let emitted = 0;

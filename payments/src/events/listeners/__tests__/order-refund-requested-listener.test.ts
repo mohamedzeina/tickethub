@@ -1,6 +1,5 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { OrderRefundRequestedEvent } from '@zeina-tickethub/common';
+import { oid, msg } from '../../../test/helpers';
 
 // Mock the Stripe client so the unit test is deterministic and needs no network
 // / API key — we only assert that we *ask* Stripe to refund and record it pending.
@@ -18,10 +17,8 @@ import { Payment } from '../../../models/payment';
 import { Refund } from '../../../models/refund';
 import { stripe } from '../../../stripe';
 
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
-
 it('refunds the charge, records it PENDING, and does NOT publish yet', async () => {
-	const orderId = new mongoose.Types.ObjectId().toHexString();
+	const orderId = oid();
 	await Payment.build({ orderId, stripeId: 'pi_abc' }).save();
 
 	const listener = new OrderRefundRequestedListener(natsWrapper.connection);
@@ -50,14 +47,14 @@ it('is a no-op when the order was never paid (no Payment record)', async () => {
 	const listener = new OrderRefundRequestedListener(natsWrapper.connection);
 	const m = msg(1);
 
-	await listener.onMessage({ id: new mongoose.Types.ObjectId().toHexString() }, m);
+	await listener.onMessage({ id: oid() }, m);
 
 	expect(stripe.refunds.create).not.toHaveBeenCalled();
 	expect(m.ack).toHaveBeenCalled();
 });
 
 it('does not create a second refund when one already exists', async () => {
-	const orderId = new mongoose.Types.ObjectId().toHexString();
+	const orderId = oid();
 	await Payment.build({ orderId, stripeId: 'pi_abc' }).save();
 	await Refund.build({ orderId, stripeId: 'pi_abc', status: 'pending' }).save();
 

@@ -1,25 +1,14 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { TicketUpdatedEvent, Subjects } from '@zeina-tickethub/common';
 import { TicketUpdatedListener } from '../ticket-updated-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { TicketRef } from '../../../models/ticket-ref';
-import { Wishlist } from '../../../models/wishlist';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
+import { id, msg, seedTicket, seedWatchers } from '../../../test/factories';
 
 // Seed a replica baseline + N watchers for a ticket.
 const seed = async (ticketId: string, price: number, watchers: number) => {
 	const sellerId = id();
-	await TicketRef.build({ id: ticketId, title: 'Coldplay', price, version: 0, sellerId }).save();
-	for (let i = 0; i < watchers; i++) {
-		await Wishlist.build({
-			userId: id(),
-			ticketId,
-			userEmail: `watcher${i}@test.com`,
-		}).save();
-	}
+	await seedTicket({ id: ticketId, price, sellerId });
+	await seedWatchers(ticketId, watchers);
 	return sellerId;
 };
 

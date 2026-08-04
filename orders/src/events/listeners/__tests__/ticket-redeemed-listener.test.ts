@@ -1,33 +1,11 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
-import { OrderStatus, TicketRedeemedEvent } from '@zeina-tickethub/common';
+import { TicketRedeemedEvent } from '@zeina-tickethub/common';
 import { TicketRedeemedListener } from '../ticket-redeemed-listener';
 import { natsWrapper } from '../../../nats-wrapper';
-import { Ticket } from '../../../models/ticket';
 import { Order } from '../../../models/order';
-
-const buildOrder = async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 50,
-	});
-	await ticket.save();
-	const order = Order.build({
-		userId: new mongoose.Types.ObjectId().toHexString(),
-		status: OrderStatus.Complete,
-		expiresAt: new Date(),
-		ticket,
-	});
-	order.set({ paidAt: new Date() });
-	await order.save();
-	return order;
-};
-
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
+import { oid, fakeMsg as msg, buildPaidOrder } from '../../../test/factories';
 
 it('stamps redeemedAt so the order can no longer be refunded', async () => {
-	const order = await buildOrder();
+	const order = await buildPaidOrder();
 	const listener = new TicketRedeemedListener(natsWrapper.connection);
 	const data: TicketRedeemedEvent['data'] = {
 		passId: 'pass_1',
@@ -51,7 +29,7 @@ it('is a no-op for an unknown order', async () => {
 	await listener.onMessage(
 		{
 			passId: 'p',
-			orderId: new mongoose.Types.ObjectId().toHexString(),
+			orderId: oid(),
 			ticketId: 't',
 			buyerId: 'b',
 			redeemedAt: new Date().toISOString(),

@@ -1,9 +1,10 @@
 import request from 'supertest';
 import { JSONCodec } from 'nats';
-import mongoose from 'mongoose';
 import { app } from '../../app';
 import { Ticket } from '../../models/ticket';
 import { natsWrapper } from '../../nats-wrapper';
+import { oid } from '../../test/factories';
+import { injectStaleDocRace } from '../../test/stale-doc-race';
 
 const event = { eventDate: '2030-06-01', venue: 'Test Arena' };
 
@@ -15,12 +16,12 @@ const createTicket = (cookie: string[]) =>
 		.expect(201);
 
 it('returns a 401 if the user is not signed in', async () => {
-	const id = new mongoose.Types.ObjectId().toHexString();
+	const id = oid();
 	await request(app).delete(`/api/tickets/${id}`).send().expect(401);
 });
 
 it('returns a 404 if the ticket does not exist', async () => {
-	const id = new mongoose.Types.ObjectId().toHexString();
+	const id = oid();
 	await request(app)
 		.delete(`/api/tickets/${id}`)
 		.set('Cookie', global.signin())
@@ -118,28 +119,7 @@ it('returns a 400 (not a 500) if the ticket is reserved concurrently mid-unlist'
 	const { body } = await createTicket(cookie);
 	const id = body.id;
 
-	// Reproduce the race precisely: the unlist route loads the ticket (fully
-	// available, so its guard passes), but before its save runs a buyer reserves
-	// the ticket — dropping availableQty and advancing the version. We inject that
-	// by stubbing only the *first* findById to return a now-stale document while
-	// concurrently bumping the DB. The route's later save then version-conflicts.
-	const realFindById = (Ticket.findById as any).bind(Ticket);
-	let injected = false;
-	const spy = jest.spyOn(Ticket, 'findById').mockImplementation(((
-		ticketId: any,
-	) => {
-		if (injected) {
-			return realFindById(ticketId);
-		}
-		injected = true;
-		return (async () => {
-			const stale = await realFindById(ticketId);
-			const concurrent = await realFindById(ticketId);
-			concurrent!.set({ availableQty: 0 });
-			await concurrent!.save(); // advances the DB version
-			return stale; // still holds the pre-reservation version
-		})();
-	}) as any);
+	const spy = injectStaleDocRace();
 
 	const res = await request(app)
 		.delete(`/api/tickets/${id}`)

@@ -1,22 +1,15 @@
 import { TicketUpdatedListener } from '../ticket-updated-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { TicketUpdatedEvent } from '@zeina-tickethub/common';
-import { JsMsg } from 'nats';
-import mongoose from 'mongoose';
 import { Ticket } from '../../../models/ticket';
+import { oid, fakeMsg, buildTicket } from '../../../test/factories';
 
 const setup = async () => {
 	// Create an instance of the listener
 	const listener = new TicketUpdatedListener(natsWrapper.connection);
 
 	// Create and save a ticket
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-	});
-
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100 });
 
 	// Create a fake data event
 	const data: TicketUpdatedEvent['data'] = {
@@ -24,14 +17,11 @@ const setup = async () => {
 		id: ticket.id,
 		title: 'Akon Concert',
 		price: 10,
-		userId: new mongoose.Types.ObjectId().toHexString(),
+		userId: oid(),
 	};
 
 	// Create a fake message object
-	// @ts-ignore
-	const msg: JsMsg = {
-		ack: jest.fn(),
-	};
+	const msg = fakeMsg();
 
 	return { listener, data, ticket, msg };
 };

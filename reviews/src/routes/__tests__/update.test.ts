@@ -1,23 +1,12 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { Review } from '../../models/review';
+import { id, seedReview } from '../../test/factories';
 
-const buildReview = async (buyerId: string, hidden = false) => {
-	const review = Review.build({
-		orderId: new mongoose.Types.ObjectId().toHexString(),
-		sellerId: new mongoose.Types.ObjectId().toHexString(),
-		buyerId,
-		ticketTitle: 'Akon Concert',
-		rating: 4,
-	});
-	if (hidden) review.set({ hidden: true });
-	await review.save();
-	return review;
-};
+const buildReview = (buyerId: string, hidden = false) =>
+	seedReview({ buyerId, ticketTitle: 'Akon Concert', rating: 4, hidden });
 
 it('lets the author edit their own review', async () => {
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
+	const buyerId = id();
 	const review = await buildReview(buyerId);
 
 	const res = await request(app)
@@ -30,7 +19,7 @@ it('lets the author edit their own review', async () => {
 });
 
 it("401s when editing someone else's review", async () => {
-	const review = await buildReview(new mongoose.Types.ObjectId().toHexString());
+	const review = await buildReview(id());
 	await request(app)
 		.put(`/api/reviews/${review.id}`)
 		.set('Cookie', global.signin())
@@ -39,7 +28,7 @@ it("401s when editing someone else's review", async () => {
 });
 
 it('400s when editing a hidden (refunded) review', async () => {
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
+	const buyerId = id();
 	const review = await buildReview(buyerId, true);
 	await request(app)
 		.put(`/api/reviews/${review.id}`)

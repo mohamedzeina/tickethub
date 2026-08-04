@@ -8,6 +8,7 @@ import {
 import { Ticket } from '../../models/ticket';
 import { ProcessedEvent } from '../../models/processed-event';
 import { TicketUpdatedPublisher } from '../publishers/ticket-updated-publisher';
+import { ticketEventPayload } from '../ticket-event-payload';
 import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
 
@@ -43,23 +44,12 @@ export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 
 				// Save the ticket
 				await ticket.save();
-				await new TicketUpdatedPublisher(this.js).publish({
-					id: ticket.id,
-					version: ticket.version,
-					title: ticket.title,
-					price: ticket.price,
-					quantity: ticket.quantity,
-					availableQty: ticket.availableQty,
-					userId: ticket.userId,
-					// Carry the full descriptive fields too (see order-created-listener):
-					// the orders replica overwrites its copy from this payload, so
-					// omitting these wipes eventDate/venue/etc. on relist.
-					eventDate: ticket.eventDate?.toISOString(),
-					venue: ticket.venue,
-					description: ticket.description,
-					category: ticket.category,
-					imageUrl: ticket.imageUrl,
-				});
+				// ticketEventPayload carries EVERY replicated field: the orders
+				// replica overwrites its copy from this payload, so anything omitted
+				// is unset over there.
+				await new TicketUpdatedPublisher(this.js).publish(
+					ticketEventPayload(ticket),
+				);
 			},
 		);
 

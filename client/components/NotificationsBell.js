@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Router from 'next/router';
 import axios from 'axios';
 import { Bell } from './icons';
+import useDismiss from '../hooks/useDismiss';
 import { timeAgo } from '../utils/time';
 
 // Navbar bell: an unread badge + a dropdown of recent notifications. Fetches
@@ -113,19 +114,7 @@ const NotificationsBell = () => {
 	}, []);
 
 	// Close the dropdown on an outside click or Escape.
-	useEffect(() => {
-		if (!open) return;
-		const onClick = (e) => {
-			if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
-		};
-		const onKey = (e) => e.key === 'Escape' && setOpen(false);
-		document.addEventListener('mousedown', onClick);
-		document.addEventListener('keydown', onKey);
-		return () => {
-			document.removeEventListener('mousedown', onClick);
-			document.removeEventListener('keydown', onKey);
-		};
-	}, [open]);
+	useDismiss(wrapRef, open, () => setOpen(false));
 
 	const markAllRead = async () => {
 		// Optimistic — clear the badge immediately, then persist.

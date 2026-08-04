@@ -13,6 +13,7 @@ import { OrderRef } from '../models/order-ref';
 import { Review } from '../models/review';
 import { ReviewCreatedPublisher } from '../events/publishers/review-created-publisher';
 import { natsWrapper } from '../nats-wrapper';
+import { reviewBodyValidators, normalizeComment } from './validators';
 
 const router = express.Router();
 
@@ -25,14 +26,7 @@ router.post(
 	requireAuth,
 	[
 		body('orderId').notEmpty().withMessage('orderId is required'),
-		body('rating')
-			.isInt({ min: 1, max: 5 })
-			.withMessage('rating must be an integer from 1 to 5'),
-		body('comment')
-			.optional()
-			.isString()
-			.isLength({ max: 1000 })
-			.withMessage('comment must be 1000 characters or fewer'),
+		...reviewBodyValidators,
 	],
 	validateRequest,
 	async (req: Request, res: Response) => {
@@ -60,7 +54,7 @@ router.post(
 			buyerId: order.buyerId,
 			ticketTitle: order.ticketTitle,
 			rating,
-			comment: comment?.trim() || undefined,
+			comment: normalizeComment(comment),
 		});
 		await review.save();
 

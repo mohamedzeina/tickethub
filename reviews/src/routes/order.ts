@@ -1,5 +1,9 @@
 import express, { Request, Response } from 'express';
-import { requireAuth, NotAuthorizedError } from '@zeina-tickethub/common';
+import {
+	requireAuth,
+	NotAuthorizedError,
+	OrderStatus,
+} from '@zeina-tickethub/common';
 import { OrderRef } from '../models/order-ref';
 import { Review } from '../models/review';
 
@@ -24,7 +28,7 @@ router.get(
 		const review = await Review.findOne({ orderId });
 
 		res.status(200).send({
-			reviewable: order.status === 'complete',
+			reviewable: order.status === OrderStatus.Complete,
 			sellerId: order.sellerId,
 			review: review || null,
 		});

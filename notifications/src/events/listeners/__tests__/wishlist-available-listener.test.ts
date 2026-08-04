@@ -1,6 +1,3 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
-
 jest.mock('@zeina-tickethub/common', () => ({
 	...jest.requireActual('@zeina-tickethub/common'),
 	sendMail: jest.fn(),
@@ -10,20 +7,16 @@ import { WishlistAvailableEvent, sendMail } from '@zeina-tickethub/common';
 import { WishlistAvailableListener } from '../wishlist-available-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Notification, NotificationType } from '../../../models/notification';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
+import { msg, oid } from '../../../test/helpers';
 
 const data = (over: Partial<WishlistAvailableEvent['data']> = {}): WishlistAvailableEvent['data'] => ({
-	userId: id(),
+	userId: oid(),
 	email: 'watcher@test.com',
-	ticketId: id(),
+	ticketId: oid(),
 	title: 'Coldplay',
 	price: 90,
 	...over,
 });
-
-beforeEach(() => (sendMail as jest.Mock).mockClear());
 
 it('writes an in-app "back on sale" notification linked to the ticket', async () => {
 	const listener = new WishlistAvailableListener(natsWrapper.connection);

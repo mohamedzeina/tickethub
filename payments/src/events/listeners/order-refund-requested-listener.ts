@@ -11,6 +11,7 @@ import { ProcessedEvent } from '../../models/processed-event';
 import { Payment } from '../../models/payment';
 import { Refund } from '../../models/refund';
 import { stripe } from '../../stripe';
+import { isDuplicateKey } from '../../is-duplicate-key';
 
 // A buyer asked to refund a completed order (gated by the orders service). We
 // create the Stripe refund and record it as PENDING — we do NOT announce success
@@ -54,7 +55,7 @@ export class OrderRefundRequestedListener extends Listener<OrderRefundRequestedE
 				}).save();
 			} catch (err: any) {
 				// A concurrent delivery already recorded it. Benign.
-				if (err?.code !== 11000) {
+				if (!isDuplicateKey(err)) {
 					throw err;
 				}
 			}

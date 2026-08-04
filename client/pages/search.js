@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft } from '../components/icons';
 import BrowseResults from '../components/BrowseResults';
-import { parseTicketQuery } from '../utils/ticketQuery';
+import { fetchBrowsePage } from '../utils/ticketQuery';
 
 // Dedicated results page reached from the nav search (or the hero "Find Seats").
 // Reuses the same browse experience as the landing page, scoped to the query.
@@ -31,20 +31,6 @@ const SearchPage = ({ currentUser, tickets, meta, filters }) => {
 	);
 };
 
-SearchPage.getInitialProps = async (context, client) => {
-	const { filters, qs } = parseTicketQuery(context.query);
-	const { data } = await client.get(`/api/tickets${qs ? `?${qs}` : ''}`);
-
-	return {
-		tickets: data.tickets,
-		meta: {
-			page: data.page,
-			limit: data.limit,
-			total: data.total,
-			totalPages: data.totalPages,
-		},
-		filters,
-	};
-};
+SearchPage.getInitialProps = (context, client) => fetchBrowsePage(context, client);
 
 export default SearchPage;

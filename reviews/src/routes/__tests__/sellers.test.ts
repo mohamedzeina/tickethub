@@ -1,26 +1,6 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { Review } from '../../models/review';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
-
-const seedReview = async (
-	sellerId: string,
-	rating: number,
-	hidden = false,
-) => {
-	const review = Review.build({
-		orderId: id(),
-		sellerId,
-		buyerId: id(),
-		ticketTitle: 'Coldplay',
-		rating,
-	});
-	// `hidden` is set post-hoc on refund (Option A), not at build time.
-	if (hidden) review.set('hidden', true);
-	await review.save();
-};
+import { id, seedReview } from '../../test/factories';
 
 it('is public and returns [] when no ids are supplied', async () => {
 	const res = await request(app).get('/api/reviews/sellers').expect(200);
@@ -30,9 +10,9 @@ it('is public and returns [] when no ids are supplied', async () => {
 it('aggregates rating per seller for a batch of ids', async () => {
 	const a = id();
 	const b = id();
-	await seedReview(a, 5);
-	await seedReview(a, 4); // a → avg 4.5, count 2
-	await seedReview(b, 3); // b → avg 3,   count 1
+	await seedReview({ sellerId: a, rating: 5 });
+	await seedReview({ sellerId: a, rating: 4 }); // a → avg 4.5, count 2
+	await seedReview({ sellerId: b, rating: 3 }); // b → avg 3,   count 1
 
 	const res = await request(app)
 		.get(`/api/reviews/sellers?ids=${a},${b}`)
@@ -47,8 +27,8 @@ it('omits sellers with no (visible) reviews and excludes hidden ones', async () 
 	const rated = id();
 	const refundedOnly = id();
 	const unknown = id();
-	await seedReview(rated, 5);
-	await seedReview(refundedOnly, 1, true); // only a hidden review → excluded
+	await seedReview({ sellerId: rated, rating: 5 });
+	await seedReview({ sellerId: refundedOnly, rating: 1, hidden: true }); // only a hidden review → excluded
 
 	const res = await request(app)
 		.get(`/api/reviews/sellers?ids=${rated},${refundedOnly},${unknown}`)
@@ -64,8 +44,8 @@ it('omits sellers with no (visible) reviews and excludes hidden ones', async () 
 it('does not bleed in reviews from sellers outside the requested batch', async () => {
 	const wanted = id();
 	const other = id();
-	await seedReview(wanted, 4);
-	await seedReview(other, 1);
+	await seedReview({ sellerId: wanted, rating: 4 });
+	await seedReview({ sellerId: other, rating: 1 });
 
 	const res = await request(app)
 		.get(`/api/reviews/sellers?ids=${wanted}`)

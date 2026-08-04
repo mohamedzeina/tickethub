@@ -30,12 +30,11 @@ interface TicketAttrs {
 	unlisted?: boolean;
 }
 
-interface TicketDoc extends mongoose.Document {
+export interface TicketDoc extends mongoose.Document {
 	title: string;
 	price: number;
 	userId: string;
 	version: number;
-	orderId?: string;
 	// Multi-seat (#10): the listing's seat inventory. `quantity` is the immutable
 	// total the seller listed; `availableQty` falls as buyers reserve seats and
 	// rises again when those reservations are released. availableQty > 0 means the
@@ -59,7 +58,6 @@ interface TicketJSON {
 	price: number;
 	userId: string;
 	id?: string; // Added during transformation
-	orderId?: string | null;
 }
 
 interface TicketModel extends mongoose.Model<TicketDoc> {
@@ -79,9 +77,6 @@ const ticketSchema = new mongoose.Schema(
 		userId: {
 			type: String,
 			required: true,
-		},
-		orderId: {
-			type: String,
 		},
 		quantity: {
 			type: Number,

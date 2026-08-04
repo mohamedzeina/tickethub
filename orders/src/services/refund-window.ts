@@ -8,9 +8,20 @@ const HOUR_MS = 3600 * 1000;
 const windowHours = () => Number(process.env.REFUND_WINDOW_HOURS ?? 24);
 const eventCutoffHours = () => Number(process.env.REFUND_EVENT_CUTOFF_HOURS ?? 48);
 
+// Just the fields these two need. Deliberately structural rather than OrderDoc:
+// models/order.ts imports this module for its toJSON, so importing OrderDoc back
+// would be a cycle. Everything is optional because the guards below already
+// tolerate an unpaid order or an unpopulated ticket.
+type RefundableOrder = {
+	paidAt?: Date;
+	status?: OrderStatus;
+	redeemedAt?: Date;
+	ticket?: { eventDate?: Date };
+};
+
 // `order` may carry a populated `ticket` (with eventDate) or not — callers that
 // need the event bound must populate it. Returns null if the order was never paid.
-export const refundableUntil = (order: any): Date | null => {
+export const refundableUntil = (order: RefundableOrder): Date | null => {
 	if (!order?.paidAt) return null;
 	const byWindow = new Date(order.paidAt).getTime() + windowHours() * HOUR_MS;
 	const eventAt =
@@ -23,7 +34,7 @@ export const refundableUntil = (order: any): Date | null => {
 
 // True when a buyer may still request a refund: the order is paid (Complete),
 // hasn't been scanned in (redeemed), and we're inside the window.
-export const isRefundable = (order: any): boolean => {
+export const isRefundable = (order: RefundableOrder): boolean => {
 	if (order?.status !== OrderStatus.Complete) return false;
 	if (order?.redeemedAt) return false;
 	const until = refundableUntil(order);

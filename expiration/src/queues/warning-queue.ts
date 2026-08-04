@@ -1,20 +1,12 @@
-import Queue from 'bull';
 import { logger } from '@zeina-tickethub/common';
 import { ExpirationWarningPublisher } from '../events/publishers/expiration-warning-publisher';
 import { natsWrapper } from '../nats-wrapper';
-
-interface Payload {
-	orderId: string;
-}
+import { makeQueue } from './make-queue';
 
 // Separate delayed queue that fires a configurable lead time *before* the hold
 // expires (scheduled alongside the expiry job). It just emits the warning event;
 // orders decides whether the order is still unpaid and worth emailing. (#5b)
-const warningQueue = new Queue<Payload>('order:warning', {
-	redis: {
-		host: process.env.REDIS_HOST,
-	},
-});
+const warningQueue = makeQueue('order:warning');
 
 warningQueue.process(async (job) => {
 	// The warning is a nice-to-have nudge — never let a publish failure crash

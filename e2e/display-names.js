@@ -95,7 +95,7 @@ async function run(t) {
 	t.is('a cleared name reads back as null', afterClear.data?.displayName, null);
 
 	t.suite('SUITE 5 — reads degrade rather than fail');
-	const unknown = await h.api(`/api/users/${'0'.repeat(24)}`, { method: 'GET' });
+	const unknown = await h.api(`/api/users/${h.MISSING_ID}`, { method: 'GET' });
 	t.is('an unknown user id → 404', unknown.status, 404);
 	const malformed = await h.api('/api/users/not-a-real-id', { method: 'GET' });
 	t.is('a malformed user id → 404', malformed.status, 404);

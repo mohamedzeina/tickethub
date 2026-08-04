@@ -1,12 +1,12 @@
 import request from 'supertest';
 import { app } from '../../app';
-import mongoose from 'mongoose';
+import { oid } from '../../test/factories';
 import { Ticket } from '../../models/ticket';
 
 const event = { eventDate: '2030-06-01', venue: 'Test Arena' };
 
 it('returns a 404 if the ticket is not found ', async () => {
-	const id = new mongoose.Types.ObjectId().toHexString();
+	const id = oid();
 	await request(app).get(`/api/tickets/${id}`).send({}).expect(404);
 });
 

@@ -17,20 +17,6 @@ export const SearchIcon = (props) => (
 	</svg>
 );
 
-export const CalendarIcon = (props) => (
-	<svg {...base} {...props}>
-		<rect x="3" y="4" width="18" height="18" rx="2" />
-		<path d="M16 2v4M8 2v4M3 10h18" />
-	</svg>
-);
-
-export const LocationIcon = (props) => (
-	<svg {...base} {...props}>
-		<path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z" />
-		<circle cx="12" cy="10" r="2.5" />
-	</svg>
-);
-
 export const ArrowRight = (props) => (
 	<svg {...base} strokeWidth={2} {...props}>
 		<path d="M5 12h14M13 6l6 6-6 6" />
@@ -74,17 +60,39 @@ export const Upload = (props) => (
 	</svg>
 );
 
-export const Alert = (props) => (
-	<svg {...base} strokeWidth={2} {...props}>
-		<circle cx="12" cy="12" r="9" />
-		<path d="M12 7v5M12 16h.01" />
-	</svg>
-);
-
 export const Bell = (props) => (
 	<svg {...base} {...props}>
 		<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
 		<path d="M13.7 21a2 2 0 0 1-3.4 0" />
+	</svg>
+);
+
+// Gate scanner glyphs (#delivery). Heavier strokes and their own default sizes
+// than the browse icons — they're read at arm's length on an operator's phone.
+export const IconCamera = (props) => (
+	<svg {...base} width="16" height="16" {...props}>
+		<path d="M3 7h3l1.5-2h9L18 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" />
+		<circle cx="12" cy="13" r="3.5" />
+	</svg>
+);
+
+export const IconCheck = (props) => (
+	<svg {...base} width="22" height="22" strokeWidth={2.2} {...props}>
+		<circle cx="12" cy="12" r="9" />
+		<path d="m8.5 12 2.5 2.5 4.5-5" />
+	</svg>
+);
+
+export const IconX = (props) => (
+	<svg {...base} width="22" height="22" strokeWidth={2.2} {...props}>
+		<circle cx="12" cy="12" r="9" />
+		<path d="m9 9 6 6m0-6-6 6" />
+	</svg>
+);
+
+export const IconBack = (props) => (
+	<svg {...base} strokeWidth={2} {...props}>
+		<path d="m15 18-6-6 6-6" />
 	</svg>
 );
 

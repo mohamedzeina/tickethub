@@ -1,15 +1,17 @@
 import request from 'supertest';
+import { JSONCodec } from 'nats';
 import { app } from '../../app';
-import mongoose from 'mongoose';
 import { Ticket } from '../../models/ticket';
 import { natsWrapper } from '../../nats-wrapper';
+import { oid } from '../../test/factories';
+import { injectStaleDocRace } from '../../test/stale-doc-race';
 
 // Event date + venue are required by the route, so include them wherever a
 // request needs to pass validation and reach the handler.
 const event = { eventDate: '2030-06-01', venue: 'Test Arena' };
 
 it('returns a 404 if the provided ticket id does not exist', async () => {
-	const id = new mongoose.Types.ObjectId().toHexString();
+	const id = oid();
 	await request(app)
 		.put(`/api/tickets/${id}`)
 		.set('Cookie', global.signin())
@@ -22,7 +24,7 @@ it('returns a 404 if the provided ticket id does not exist', async () => {
 });
 
 it('returns a 401 if the user is not authenticated', async () => {
-	const id = new mongoose.Types.ObjectId().toHexString();
+	const id = oid();
 	await request(app)
 		.put(`/api/tickets/${id}`)
 		.send({
@@ -186,6 +188,48 @@ it('publishes an event', async () => {
 	expect(natsWrapper.js.publish).toHaveBeenCalled();
 });
 
+it('keeps unlisted: true in the published event when editing a hidden listing', async () => {
+	const cookie = global.signin();
+
+	const response = await request(app)
+		.post('/api/tickets')
+		.set('Cookie', cookie)
+		.send({
+			title: 'Test title',
+			price: 20,
+			...event,
+		})
+		.expect(201);
+
+	// Hide the listing, then edit it while it's still hidden.
+	await request(app)
+		.delete(`/api/tickets/${response.body.id}`)
+		.set('Cookie', cookie)
+		.send()
+		.expect(200);
+
+	await request(app)
+		.put(`/api/tickets/${response.body.id}`)
+		.set('Cookie', cookie)
+		.send({
+			title: 'New title',
+			price: 40,
+			...event,
+		})
+		.expect(200);
+
+	// The edit's payload must still carry unlisted: true. Omitting it made the
+	// orders replica UNSET the flag (set(undefined) deletes the path), and
+	// reserveSeats filters on `unlisted: { $ne: true }` — so a hidden listing
+	// silently became buyable again after any edit.
+	const published: any = (natsWrapper.js.publish as jest.Mock).mock.calls.pop();
+	expect((JSONCodec().decode(published[1]) as any).unlisted).toEqual(true);
+
+	// And the listing itself is still hidden.
+	const latest = await Ticket.findById(response.body.id);
+	expect(latest!.unlisted).toEqual(true);
+});
+
 it('rejects updates if the ticket is reserved', async () => {
 	const cookie = global.signin();
 
@@ -218,6 +262,34 @@ it('rejects updates if the ticket is reserved', async () => {
 		.expect(400);
 });
 
+it('returns a 401 (not a 400) if a non-owner edits a reserved ticket', async () => {
+	const response = await request(app)
+		.post('/api/tickets')
+		.set('Cookie', global.signin())
+		.send({
+			title: 'Test title',
+			price: 20,
+			...event,
+		})
+		.expect(201);
+
+	const ticket = await Ticket.findById(response.body.id);
+	ticket!.set({ availableQty: 0 });
+	await ticket!.save();
+
+	// Checking reservations before ownership leaked "this stranger's listing is
+	// reserved" via the 400. Ownership is checked first now, as in unlist.ts.
+	await request(app)
+		.put(`/api/tickets/${response.body.id}`)
+		.set('Cookie', global.signin())
+		.send({
+			title: 'New test title',
+			price: 1000,
+			...event,
+		})
+		.expect(401);
+});
+
 it('returns a 400 (not a 500) if the ticket is reserved concurrently mid-edit', async () => {
 	const cookie = global.signin();
 
@@ -233,28 +305,7 @@ it('returns a 400 (not a 500) if the ticket is reserved concurrently mid-edit', 
 
 	const id = response.body.id;
 
-	// Reproduce the race precisely: the update route loads the ticket (fully
-	// available, so its guard passes), but before its save runs a buyer reserves
-	// the ticket — dropping availableQty and advancing the version. We inject that
-	// by stubbing only the *first* findById to return a now-stale document while
-	// concurrently bumping the DB. The route's later save then version-conflicts.
-	const realFindById = (Ticket.findById as any).bind(Ticket);
-	let injected = false;
-	const spy = jest.spyOn(Ticket, 'findById').mockImplementation(((
-		ticketId: any,
-	) => {
-		if (injected) {
-			return realFindById(ticketId);
-		}
-		injected = true;
-		return (async () => {
-			const stale = await realFindById(ticketId);
-			const concurrent = await realFindById(ticketId);
-			concurrent!.set({ availableQty: 0 });
-			await concurrent!.save(); // advances the DB version
-			return stale; // still holds the pre-reservation version
-		})();
-	}) as any);
+	const spy = injectStaleDocRace();
 
 	const res = await request(app)
 		.put(`/api/tickets/${id}`)

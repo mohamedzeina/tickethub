@@ -16,26 +16,40 @@ import { WishlistPriceDroppedListener } from './events/listeners/wishlist-price-
 import { WishlistAvailableListener } from './events/listeners/wishlist-available-listener';
 import { ReviewCreatedListener } from './events/listeners/review-created-listener';
 
+// Config the service can't run without. Checked before we touch NATS or Mongo
+// so a misconfigured pod fails loudly on boot instead of mid-event.
+const requiredEnv = ['JWT_KEY', 'MONGO_URI', 'NATS_URL', 'NATS_CLIENT_ID'];
+
+// Started in this order; the array is the single place to register a listener.
+const listeners = [
+	OrderCreatedListener,
+	PaymentCreatedListener,
+	PaymentRefundedListener,
+	PayoutProcessedListener,
+	TicketRedeemedListener,
+	ExpirationWarningListener,
+	ExpirationCompleteListener,
+	UserVerificationRequestedListener,
+	PasswordResetRequestedListener,
+	WishlistPriceDroppedListener,
+	WishlistAvailableListener,
+	ReviewCreatedListener,
+];
+
 const startNotificationsService = async () => {
 	let isShuttingDown = false;
 
-	if (!process.env.JWT_KEY) {
-		throw new Error('JWT_KEY must be defined');
-	}
-	if (!process.env.MONGO_URI) {
-		throw new Error('MONGO_URI must be defined');
-	}
-	if (!process.env.NATS_URL) {
-		throw new Error('NATS_URL must be defined');
-	}
-	if (!process.env.NATS_CLIENT_ID) {
-		throw new Error('NATS_CLIENT_ID must be defined');
+	for (const name of requiredEnv) {
+		if (!process.env[name]) {
+			throw new Error(`${name} must be defined`);
+		}
 	}
 
 	try {
+		// Non-null: the requiredEnv loop above already bailed if either is unset.
 		await natsWrapper.connect(
-			process.env.NATS_URL,
-			process.env.NATS_CLIENT_ID,
+			process.env.NATS_URL!,
+			process.env.NATS_CLIENT_ID!,
 		);
 
 		natsWrapper.connection.closed().then(() => {
@@ -47,20 +61,11 @@ const startNotificationsService = async () => {
 
 		await ensureStream(natsWrapper.connection);
 
-		await new OrderCreatedListener(natsWrapper.connection).listen();
-		await new PaymentCreatedListener(natsWrapper.connection).listen();
-		await new PaymentRefundedListener(natsWrapper.connection).listen();
-		await new PayoutProcessedListener(natsWrapper.connection).listen();
-		await new TicketRedeemedListener(natsWrapper.connection).listen();
-		await new ExpirationWarningListener(natsWrapper.connection).listen();
-		await new ExpirationCompleteListener(natsWrapper.connection).listen();
-		await new UserVerificationRequestedListener(natsWrapper.connection).listen();
-		await new PasswordResetRequestedListener(natsWrapper.connection).listen();
-		await new WishlistPriceDroppedListener(natsWrapper.connection).listen();
-		await new WishlistAvailableListener(natsWrapper.connection).listen();
-		await new ReviewCreatedListener(natsWrapper.connection).listen();
+		for (const Listener of listeners) {
+			await new Listener(natsWrapper.connection).listen();
+		}
 
-		await mongoose.connect(process.env.MONGO_URI);
+		await mongoose.connect(process.env.MONGO_URI!);
 		logger.info('connected to MongoDB');
 	} catch (err) {
 		logger.error({ err }, 'failed to start service');

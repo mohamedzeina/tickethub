@@ -1,6 +1,3 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
-
 // Mock just sendMail; keep the rest of common real.
 jest.mock('@zeina-tickethub/common', () => ({
 	...jest.requireActual('@zeina-tickethub/common'),
@@ -11,21 +8,17 @@ import { WishlistPriceDroppedEvent, sendMail } from '@zeina-tickethub/common';
 import { WishlistPriceDroppedListener } from '../wishlist-price-dropped-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Notification, NotificationType } from '../../../models/notification';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
+import { msg, oid } from '../../../test/helpers';
 
 const data = (over: Partial<WishlistPriceDroppedEvent['data']> = {}): WishlistPriceDroppedEvent['data'] => ({
-	userId: id(),
+	userId: oid(),
 	email: 'watcher@test.com',
-	ticketId: id(),
+	ticketId: oid(),
 	title: 'Coldplay',
 	oldPrice: 100,
 	newPrice: 70,
 	...over,
 });
-
-beforeEach(() => (sendMail as jest.Mock).mockClear());
 
 it('writes an in-app price-drop notification for the watcher (with the ticket link)', async () => {
 	const listener = new WishlistPriceDroppedListener(natsWrapper.connection);

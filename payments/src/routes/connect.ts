@@ -23,6 +23,18 @@ const router = express.Router();
 // so it auto-adapts between tickethub.com locally and the prod domain — no env.
 const baseUrl = (req: Request) => `${req.protocol}://${req.get('host')}`;
 
+// The stored account no longer exists at Stripe (e.g. it was deleted). Stripe
+// signals this with a code on the error or, for some shapes, only in the
+// message — so we check both.
+const isMissingAccountError = (err: any): boolean => {
+	const code = err?.code || err?.raw?.code;
+	return (
+		code === 'account_invalid' ||
+		code === 'resource_missing' ||
+		/no such account|does not exist/i.test(err?.message || '')
+	);
+};
+
 // POST /api/payments/connect/onboard
 router.post(
 	'/api/payments/connect/onboard',
@@ -70,14 +82,9 @@ router.post(
 		try {
 			accountLink = await makeLink(stripeAccountId);
 		} catch (err: any) {
-			// The stored account no longer exists at Stripe (e.g. it was deleted) —
-			// don't leave the seller permanently broken: mint a new one and retry.
-			const code = err?.code || err?.raw?.code;
-			const missing =
-				code === 'account_invalid' ||
-				code === 'resource_missing' ||
-				/no such account|does not exist/i.test(err?.message || '');
-			if (!missing) throw err;
+			// Don't leave the seller permanently broken when their stored account is
+			// gone: mint a new one and retry.
+			if (!isMissingAccountError(err)) throw err;
 			stripeAccountId = await createFresh();
 			accountLink = await makeLink(stripeAccountId);
 		}

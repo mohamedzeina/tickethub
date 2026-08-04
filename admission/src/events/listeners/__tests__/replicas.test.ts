@@ -1,23 +1,20 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { OrderCreatedEvent, TicketCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
 import { OrderCreatedListener } from '../order-created-listener';
 import { TicketCreatedListener } from '../ticket-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { OrderRef } from '../../../models/order-ref';
 import { TicketRef } from '../../../models/ticket-ref';
-
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
+import { oid, msg } from '../../../test/helpers';
 
 it('seeds a TicketRef from ticket:created (with venue + date)', async () => {
-	const id = new mongoose.Types.ObjectId().toHexString();
+	const id = oid();
 	const listener = new TicketCreatedListener(natsWrapper.connection);
 	const data: TicketCreatedEvent['data'] = {
 		id,
 		version: 0,
 		title: 'Coldplay',
 		price: 50,
-		userId: new mongoose.Types.ObjectId().toHexString(),
+		userId: oid(),
 		venue: 'Wembley',
 		eventDate: new Date().toISOString(),
 	};
@@ -30,9 +27,9 @@ it('seeds a TicketRef from ticket:created (with venue + date)', async () => {
 });
 
 it('seeds an OrderRef from order:created (buyer + ticket)', async () => {
-	const orderId = new mongoose.Types.ObjectId().toHexString();
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
-	const ticketId = new mongoose.Types.ObjectId().toHexString();
+	const orderId = oid();
+	const buyerId = oid();
+	const ticketId = oid();
 	const listener = new OrderCreatedListener(natsWrapper.connection);
 	const data: OrderCreatedEvent['data'] = {
 		id: orderId,

@@ -18,7 +18,7 @@ const h = require('./lib/harness');
 
 // Reserve `seller`'s freshly-listed ticket as `buyer`; returns the order.
 async function newOrder(seller, buyer) {
-	const listing = await h.createListing(seller.cookie, { title: `Pay Seat ${h.uniqueEmail('x')}` });
+	const listing = await h.createListing(seller.cookie);
 	const order = await h.reserveReady(buyer.cookie, listing.data?.id);
 	return order;
 }
@@ -64,7 +64,7 @@ async function run(t) {
 	);
 	t.is("paying someone else's order → 401", intruderPay.status, 401);
 
-	const notFound = await h.api('/api/payments', { cookie: buyer.cookie, body: { orderId: '0'.repeat(24) } });
+	const notFound = await h.api('/api/payments', { cookie: buyer.cookie, body: { orderId: h.MISSING_ID } });
 	t.is('non-existent order → 404', notFound.status, 404);
 
 	const missing = await h.api('/api/payments', { cookie: buyer.cookie, body: {} });

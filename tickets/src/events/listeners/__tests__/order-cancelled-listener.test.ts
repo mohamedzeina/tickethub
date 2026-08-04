@@ -2,8 +2,8 @@ import { OrderCancelledEvent } from '@zeina-tickethub/common';
 import { OrderCancelledListener } from '../order-cancelled-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Ticket } from '../../../models/ticket';
-import mongoose from 'mongoose';
-import { JsMsg, JSONCodec } from 'nats';
+import { JSONCodec } from 'nats';
+import { oid, fakeMsg } from '../../../test/factories';
 
 const setup = async () => {
 	// Create an instance of the listener
@@ -23,7 +23,7 @@ const setup = async () => {
 
 	// Cancelled order released 3 seats
 	const data: OrderCancelledEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		version: 2,
 		quantity: 3,
 		ticket: {
@@ -32,11 +32,7 @@ const setup = async () => {
 	};
 
 	// Create Fake message
-	// @ts-ignore
-	const msg: JsMsg = {
-		ack: jest.fn(),
-		seq: 1,
-	};
+	const msg = fakeMsg(1);
 
 	return { listener, data, ticket, msg };
 };

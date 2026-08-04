@@ -17,7 +17,7 @@ import {
 import { addWishlistRouter } from './routes/add';
 import { removeWishlistRouter } from './routes/remove';
 import { wishlistIdsRouter } from './routes/ids';
-import { listWishlistRouter } from './routes/index';
+import { listWishlistRouter } from './routes/list';
 import { natsWrapper } from './nats-wrapper';
 
 const app = express();

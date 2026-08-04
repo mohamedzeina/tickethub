@@ -33,7 +33,7 @@ const formatDate = (value) => {
 // Public seller reputation page (#9). Shows the aggregate rating and the most
 // recent reviews. The seller is shown by their display name when set (#18),
 // otherwise an opaque handle; buyers always appear as opaque handles.
-const SellerProfile = ({ profile, sellerId, from }) => {
+const SellerProfile = ({ profile, from }) => {
 	const back = backTarget(from);
 	if (!profile) {
 		return (
@@ -114,9 +114,9 @@ SellerProfile.getInitialProps = async (context, client) => {
 		} catch (e) {
 			/* fall back to handle */
 		}
-		return { profile: { ...data, displayName }, sellerId: userId, from: back };
+		return { profile: { ...data, displayName }, from: back };
 	} catch (err) {
-		return { profile: null, sellerId: userId, from: back };
+		return { profile: null, from: back };
 	}
 };
 

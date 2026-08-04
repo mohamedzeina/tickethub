@@ -1,5 +1,6 @@
 import client from 'prom-client';
 import express, { Request, Response, NextFunction, Router } from 'express';
+import { serviceName } from './logger';
 
 // One shared Prometheus registry per process. prom-client's default global
 // registry is a singleton, so every counter/histogram defined here (and any a
@@ -7,7 +8,7 @@ import express, { Request, Response, NextFunction, Router } from 'express';
 // /metrics. `service` is added as a default label so a single Prometheus can
 // tell the five services apart even before pod relabeling.
 export const register = client.register;
-register.setDefaultLabels({ service: process.env.SERVICE_NAME ?? 'tickethub' });
+register.setDefaultLabels({ service: serviceName });
 
 // Node/process metrics (event loop lag, heap, CPU, GC, ...).
 client.collectDefaultMetrics({ register });

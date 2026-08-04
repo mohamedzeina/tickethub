@@ -1,16 +1,10 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
 
-import { Ticket } from '../../models/ticket';
+import { buildTicket } from '../../test/factories';
 
 it('fetches the order', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 20,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 20 });
 
 	const user = global.signin();
 
@@ -30,12 +24,7 @@ it('fetches the order', async () => {
 });
 
 it('returns an unauthorized error if one user tries to fetch another users order', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 20,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 20 });
 
 	const user = global.signin();
 	const user2 = global.signin();

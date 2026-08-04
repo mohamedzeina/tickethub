@@ -1,22 +1,11 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { Notification, NotificationType } from '../../models/notification';
-
-const buildNotification = async (userId: string) => {
-	const n = Notification.build({
-		userId,
-		type: NotificationType.OrderCreated,
-		title: 'Reservation placed',
-		body: 'body',
-	});
-	await n.save();
-	return n;
-};
+import { Notification } from '../../models/notification';
+import { buildNotification, oid } from '../../test/helpers';
 
 it('marks all of the user unread notifications read, leaving others alone', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
-	const otherId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
+	const otherId = oid();
 
 	await buildNotification(userId);
 	await buildNotification(userId);

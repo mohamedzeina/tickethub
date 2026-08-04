@@ -12,8 +12,6 @@
 
 const h = require('./lib/harness');
 
-const MISSING_ID = '0'.repeat(24); // valid ObjectId shape, no such ticket
-
 async function run(t) {
 	const stamp = Date.now();
 	// A verified seller and a verified second user (buyer / non-owner) for the
@@ -85,7 +83,7 @@ async function run(t) {
 	t.is('show returns the right title', show.data?.title, uniqueTitle);
 	t.is('show returns the venue', show.data?.venue, 'The O2, London');
 
-	const showMissing = await h.api(`/api/tickets/${MISSING_ID}`, { method: 'GET' });
+	const showMissing = await h.api(`/api/tickets/${h.MISSING_ID}`, { method: 'GET' });
 	t.is('show unknown id → 404', showMissing.status, 404);
 
 	t.suite('SUITE 3 — Index, search, filter, sort, pagination');
@@ -228,7 +226,7 @@ async function run(t) {
 	});
 	t.is('update by non-owner → 401', updateNotOwner.status, 401);
 
-	const updateMissing = await h.api(`/api/tickets/${MISSING_ID}`, {
+	const updateMissing = await h.api(`/api/tickets/${h.MISSING_ID}`, {
 		method: 'PUT',
 		cookie: seller.cookie,
 		body: { title: 'Ghost', price: 5, venue: 'X', eventDate: h.futureDate(10) },
@@ -278,7 +276,7 @@ async function run(t) {
 	});
 	t.is('unlist by non-owner → 401', unlistNotOwner.status, 401);
 
-	const unlistMissing = await h.api(`/api/tickets/${MISSING_ID}`, {
+	const unlistMissing = await h.api(`/api/tickets/${h.MISSING_ID}`, {
 		method: 'DELETE',
 		cookie: seller.cookie,
 	});
@@ -317,7 +315,7 @@ async function run(t) {
 	});
 	t.is('relist by non-owner → 401', relistNotOwner.status, 401);
 
-	const relistMissing = await h.api(`/api/tickets/${MISSING_ID}/relist`, {
+	const relistMissing = await h.api(`/api/tickets/${h.MISSING_ID}/relist`, {
 		method: 'POST',
 		cookie: seller.cookie,
 	});

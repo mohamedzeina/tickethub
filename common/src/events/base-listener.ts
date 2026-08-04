@@ -3,7 +3,6 @@ import {
 	DeliverPolicy,
 	JetStreamClient,
 	JsMsg,
-	JSONCodec,
 	NatsConnection,
 	nanos,
 } from 'nats';
@@ -13,7 +12,6 @@ import {
 	SpanKind,
 	SpanStatusCode,
 } from '@opentelemetry/api';
-import { Subjects } from './subjects';
 import { DeadLetterStore } from './dead-letter';
 import { STREAM_NAME } from './stream';
 import { logger } from '../logger';
@@ -22,13 +20,7 @@ import {
 	eventRedeliveries,
 } from '../metrics';
 import { eventsTracer, extractTraceContext } from './trace';
-
-const jc = JSONCodec();
-
-interface Event {
-	subject: Subjects;
-	data: any;
-}
+import { Event, jc } from './event';
 
 export abstract class Listener<T extends Event> {
 	abstract subject: T['subject'];
@@ -83,7 +75,11 @@ export abstract class Listener<T extends Event> {
 				deliver_policy: DeliverPolicy.All,
 			});
 		} catch (err) {
-			// Consumer already exists (another replica created it) — fine.
+			// Almost always "consumer already exists" (another replica created
+			// it), which is fine. Logged at debug because anything else — a
+			// missing stream, a bad config — resurfaces as a confusing throw
+			// from consumers.get() below, and this is the only record of why.
+			logger.debug({ subject: this.subject, durable, err }, 'consumer add skipped');
 		}
 
 		const consumer = await this.js.consumers.get(STREAM_NAME, durable);
@@ -129,11 +125,7 @@ export abstract class Listener<T extends Event> {
 
 		try {
 			await this.onMessage(data, m);
-			eventsProcessed.inc({
-				subject: this.subject,
-				queue_group: this.queueGroupName,
-				result: 'success',
-			});
+			eventsProcessed.inc({ ...this.labels, result: 'success' });
 		} catch (err) {
 			span.recordException(err as Error);
 			span.setStatus({ code: SpanStatusCode.ERROR });
@@ -147,16 +139,9 @@ export abstract class Listener<T extends Event> {
 		const deliveries = m.info.redeliveryCount;
 
 		if (deliveries < this.maxAttempts) {
-			this.logFailure(outOfOrder, this.context(m, error), 'will retry');
-			eventsProcessed.inc({
-				subject: this.subject,
-				queue_group: this.queueGroupName,
-				result: 'retry',
-			});
-			eventRedeliveries.inc({
-				subject: this.subject,
-				queue_group: this.queueGroupName,
-			});
+			this.logFailure(outOfOrder, this.logContext(m, error), 'will retry');
+			eventsProcessed.inc({ ...this.labels, result: 'retry' });
+			eventRedeliveries.inc(this.labels);
 			m.nak(this.retryDelay);
 			return;
 		}
@@ -167,7 +152,7 @@ export abstract class Listener<T extends Event> {
 
 	private async deadLetter(m: JsMsg, err: unknown) {
 		const error = err as Error;
-		const context = this.context(m, error);
+		const logContext = this.logContext(m, error);
 
 		if (this.deadLetterStore) {
 			try {
@@ -183,11 +168,8 @@ export abstract class Listener<T extends Event> {
 			} catch (storeErr) {
 				// Couldn't archive — nak so JetStream retries (the max_deliver
 				// buffer leaves room) rather than dropping it silently.
-				this.logFailure(false, context, 'will retry (dead-letter write failed)');
-				eventRedeliveries.inc({
-					subject: this.subject,
-					queue_group: this.queueGroupName,
-				});
+				this.logFailure(false, logContext, 'will retry (dead-letter write failed)');
+				eventRedeliveries.inc(this.labels);
 				m.nak(this.retryDelay);
 				return;
 			}
@@ -195,18 +177,22 @@ export abstract class Listener<T extends Event> {
 
 		// Archived (or no store configured): stop redelivery for good.
 		m.term();
-		eventsProcessed.inc({
-			subject: this.subject,
-			queue_group: this.queueGroupName,
-			result: 'dead_letter',
-		});
+		eventsProcessed.inc({ ...this.labels, result: 'dead_letter' });
 		logger.error(
-			{ ...context, attempts: m.info.redeliveryCount },
+			{ ...logContext, attempts: m.info.redeliveryCount },
 			'dead-lettered poison message',
 		);
 	}
 
-	private context(m: JsMsg, error: Error) {
+	// Prometheus label set identifying this listener; spread into every counter
+	// so the four call sites can't disagree about the label names.
+	private get labels() {
+		return { subject: this.subject, queue_group: this.queueGroupName };
+	}
+
+	// Structured fields for log lines about a failed delivery. Named logContext
+	// rather than context so it doesn't shadow OpenTelemetry's imported context.
+	private logContext(m: JsMsg, error: Error) {
 		return {
 			subject: this.subject,
 			queueGroup: this.queueGroupName,
@@ -227,14 +213,14 @@ export abstract class Listener<T extends Event> {
 
 	// Out-of-order version conflicts are expected and logged calmly (warn);
 	// everything else is a real error.
-	private logFailure(outOfOrder: boolean, context: object, disposition: string) {
+	private logFailure(outOfOrder: boolean, fields: object, disposition: string) {
 		const msg = outOfOrder
 			? 'out-of-order event, will retry'
 			: 'failed to process event';
 		if (outOfOrder) {
-			logger.warn({ ...context, disposition }, msg);
+			logger.warn({ ...fields, disposition }, msg);
 		} else {
-			logger.error({ ...context, disposition }, msg);
+			logger.error({ ...fields, disposition }, msg);
 		}
 	}
 }

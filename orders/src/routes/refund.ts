@@ -1,13 +1,11 @@
 import express, { Request, Response } from 'express';
 import {
 	requireAuth,
-	NotFoundError,
-	NotAuthorizedError,
 	BadRequestError,
 	OrderStatus,
 } from '@zeina-tickethub/common';
-import { Order } from '../models/order';
 import { isRefundable } from '../services/refund-window';
+import { loadOwnedOrder } from '../services/load-owned-order';
 import { OrderRefundRequestedPublisher } from '../events/publishers/order-refund-requested-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
@@ -21,14 +19,8 @@ router.post(
 	'/api/orders/:orderId/refund',
 	requireAuth,
 	async (req: Request, res: Response) => {
-		const order = await Order.findById(req.params.orderId).populate('ticket');
+		const order = await loadOwnedOrder(req);
 
-		if (!order) {
-			throw new NotFoundError();
-		}
-		if (order.userId !== req.currentUser!.id) {
-			throw new NotAuthorizedError();
-		}
 		if (order.status === OrderStatus.Refunded || order.refundRequestedAt) {
 			throw new BadRequestError('This order is already being refunded.');
 		}

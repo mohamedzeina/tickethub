@@ -15,6 +15,9 @@ export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 	protected deadLetterStore = FailedEvent;
 
 	async onMessage(data: TicketUpdatedEvent['data'], msg: JsMsg) {
+		// availableQty is deliberately NOT destructured: orders tracks the same
+		// inventory as `reservedSeats` (its inverse), owned locally and moved only
+		// by reserveSeats/releaseSeats. See models/ticket.ts.
 		const { id, title, price, quantity, userId, unlisted, eventDate, venue, description, category, imageUrl } =
 			data;
 

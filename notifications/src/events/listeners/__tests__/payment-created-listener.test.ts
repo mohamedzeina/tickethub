@@ -1,6 +1,3 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
-
 // Mock just sendMail; keep the rest of common real (events, OrderStatus, …).
 jest.mock('@zeina-tickethub/common', () => ({
 	...jest.requireActual('@zeina-tickethub/common'),
@@ -12,42 +9,31 @@ import { PaymentCreatedListener } from '../payment-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
 import { Notification, NotificationType } from '../../../models/notification';
+import { msg, oid, seedOrder } from '../../../test/helpers';
 
-const seedOrder = async (
-	userId: string,
-	sellerId?: string,
-	quantity = 1,
-) => {
-	const order = Order.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
+const seedUnpaidOrder = (userId: string, sellerId?: string, quantity = 1) =>
+	seedOrder({
 		userId,
-		ticketTitle: 'Akon Concert',
 		status: OrderStatus.Created,
 		userEmail: 'buyer@test.com',
 		price: 20,
 		quantity,
 		sellerId,
 	});
-	await order.save();
-	return order;
-};
-
-beforeEach(() => (sendMail as jest.Mock).mockClear());
 
 it('marks the replica paid, notifies, and emails a receipt', async () => {
 	const listener = new PaymentCreatedListener(natsWrapper.connection);
-	const userId = new mongoose.Types.ObjectId().toHexString();
-	const order = await seedOrder(userId);
+	const userId = oid();
+	const order = await seedUnpaidOrder(userId);
 
 	const data: PaymentCreatedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		orderId: order.id,
 		stripeId: 'pi_123',
 	};
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
+	const m = msg(1);
 
-	await listener.onMessage(data, msg);
+	await listener.onMessage(data, m);
 
 	const updated = await Order.findById(order.id);
 	expect(updated!.status).toEqual(OrderStatus.Complete);
@@ -61,35 +47,32 @@ it('marks the replica paid, notifies, and emails a receipt', async () => {
 	expect(mail.to).toEqual('buyer@test.com');
 	expect(mail.subject).toContain('receipt');
 
-	expect(msg.ack).toHaveBeenCalled();
+	expect(m.ack).toHaveBeenCalled();
 });
 
 it('throws (for retry) when the order replica is not yet present', async () => {
 	const listener = new PaymentCreatedListener(natsWrapper.connection);
 	const data: PaymentCreatedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
-		orderId: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
+		orderId: oid(),
 		stripeId: 'pi_123',
 	};
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
+	const m = msg(1);
 
-	await expect(listener.onMessage(data, msg)).rejects.toThrow('Order not found');
-	expect(msg.ack).not.toHaveBeenCalled();
+	await expect(listener.onMessage(data, m)).rejects.toThrow('Order not found');
+	expect(m.ack).not.toHaveBeenCalled();
 	expect(sendMail).not.toHaveBeenCalled();
 });
 
 it('also notifies the SELLER that their ticket sold (#11)', async () => {
 	const listener = new PaymentCreatedListener(natsWrapper.connection);
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
-	const sellerId = new mongoose.Types.ObjectId().toHexString();
-	const order = await seedOrder(buyerId, sellerId);
+	const buyerId = oid();
+	const sellerId = oid();
+	const order = await seedUnpaidOrder(buyerId, sellerId);
 
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
 	await listener.onMessage(
 		{ id: 'evt', orderId: order.id, stripeId: 'pi_1' } as PaymentCreatedEvent['data'],
-		msg,
+		msg(1),
 	);
 
 	const sellerNotes = await Notification.find({ userId: sellerId });
@@ -100,16 +83,14 @@ it('also notifies the SELLER that their ticket sold (#11)', async () => {
 
 it('reflects the seat count and total in the receipt + seller note (#10)', async () => {
 	const listener = new PaymentCreatedListener(natsWrapper.connection);
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
-	const sellerId = new mongoose.Types.ObjectId().toHexString();
+	const buyerId = oid();
+	const sellerId = oid();
 	// 3 seats × €20 = €60
-	const order = await seedOrder(buyerId, sellerId, 3);
+	const order = await seedUnpaidOrder(buyerId, sellerId, 3);
 
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
 	await listener.onMessage(
 		{ id: 'evt', orderId: order.id, stripeId: 'pi_1' } as PaymentCreatedEvent['data'],
-		msg,
+		msg(1),
 	);
 
 	// Seller note shows the seat count and the order total, not the per-seat price.

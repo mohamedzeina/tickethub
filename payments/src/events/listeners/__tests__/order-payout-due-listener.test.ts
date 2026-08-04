@@ -1,6 +1,5 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { OrderPayoutDueEvent } from '@zeina-tickethub/common';
+import { oid, msg } from '../../../test/helpers';
 
 // Mock Stripe so the transfer is deterministic and needs no network / key.
 jest.mock('../../../stripe', () => ({
@@ -18,8 +17,6 @@ import { ConnectedAccount } from '../../../models/connected-account';
 import { stripe } from '../../../stripe';
 
 const transfersCreate = stripe.transfers.create as jest.Mock;
-const oid = () => new mongoose.Types.ObjectId().toHexString();
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
 
 beforeEach(() => transfersCreate.mockReset());
 

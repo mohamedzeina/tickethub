@@ -2,15 +2,15 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { app } from '../../app';
 import mongoose from 'mongoose';
-import { Order, OrderStatus } from '../../models/order';
 import { Ticket } from '../../models/ticket';
 import { natsWrapper } from '../../nats-wrapper';
+import { oid, buildTicket } from '../../test/factories';
 
 // A signed-in but email-unverified user (#7). global.signin is verified.
 const unverifiedCookie = () => {
 	const token = jwt.sign(
 		{
-			id: new mongoose.Types.ObjectId().toHexString(),
+			id: oid(),
 			email: 'unverified@test.com',
 			emailVerified: false,
 		},
@@ -25,7 +25,7 @@ it('returns 403 when the signed-in user has not verified their email', async () 
 	await request(app)
 		.post('/api/orders')
 		.set('Cookie', unverifiedCookie())
-		.send({ ticketId: new mongoose.Types.ObjectId().toHexString() })
+		.send({ ticketId: oid() })
 		.expect(403);
 });
 
@@ -42,12 +42,7 @@ it('returns an error if the ticket does not exist', async () => {
 });
 
 it('returns an error if the ticket is sold out', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100 });
 
 	// Claim the listing's only seat so no capacity remains.
 	await Ticket.reserveSeats(ticket.id, 1);
@@ -62,13 +57,7 @@ it('returns an error if the ticket is sold out', async () => {
 });
 
 it('reserves multiple seats and records the quantity on the order', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-		quantity: 4,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100, quantity: 4 });
 
 	const res = await request(app)
 		.post('/api/orders')
@@ -82,13 +71,7 @@ it('reserves multiple seats and records the quantity on the order', async () => 
 });
 
 it('leaves remaining seats reservable after a partial buy', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-		quantity: 4,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100, quantity: 4 });
 	await Ticket.reserveSeats(ticket.id, 3);
 
 	// One seat left: buying it succeeds...
@@ -107,13 +90,7 @@ it('leaves remaining seats reservable after a partial buy', async () => {
 });
 
 it('rejects an order for more seats than remain', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-		quantity: 4,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100, quantity: 4 });
 	await Ticket.reserveSeats(ticket.id, 3);
 
 	// Only 1 left — asking for 2 is refused and claims nothing.
@@ -128,13 +105,7 @@ it('rejects an order for more seats than remain', async () => {
 });
 
 it('rejects an invalid quantity', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-		quantity: 4,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100, quantity: 4 });
 
 	await request(app)
 		.post('/api/orders')
@@ -144,15 +115,9 @@ it('rejects an invalid quantity', async () => {
 });
 
 it('returns an error if the user tries to buy their own ticket', async () => {
-	const userId = new mongoose.Types.ObjectId().toHexString();
+	const userId = oid();
 
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-		userId,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100, userId });
 
 	await request(app)
 		.post('/api/orders')
@@ -164,13 +129,7 @@ it('returns an error if the user tries to buy their own ticket', async () => {
 });
 
 it('returns an error if the ticket has been unlisted', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-		unlisted: true,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100, unlisted: true });
 
 	await request(app)
 		.post('/api/orders')
@@ -182,12 +141,7 @@ it('returns an error if the ticket has been unlisted', async () => {
 });
 
 it('reserves a ticket', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100 });
 
 	await request(app)
 		.post('/api/orders')
@@ -199,12 +153,7 @@ it('reserves a ticket', async () => {
 });
 
 it('emits an order created event', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 100,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ price: 100 });
 
 	await request(app)
 		.post('/api/orders')

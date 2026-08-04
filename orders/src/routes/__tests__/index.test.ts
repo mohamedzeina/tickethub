@@ -1,18 +1,9 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { Ticket } from '../../models/ticket';
+import { buildTicket as buildTicketDoc } from '../../test/factories';
 
-const buildTicket = async (title: string, price: number) => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title,
-		price,
-	});
-	await ticket.save();
-
-	return ticket;
-};
+const buildTicket = (title: string, price: number) =>
+	buildTicketDoc({ title, price });
 
 it('fetches the orders for a particular user', async () => {
 	// Create three tickets

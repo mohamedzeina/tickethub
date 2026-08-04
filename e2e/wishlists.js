@@ -15,8 +15,6 @@
 
 const h = require('./lib/harness');
 
-const notifList = (r) => (r.data && r.data.notifications) || [];
-
 async function run(t) {
 	t.suite('SUITE 1 — save a listing and get alerted on a price drop');
 
@@ -70,18 +68,13 @@ async function run(t) {
 	t.is('seller lowers the price → 200', update.status, 200);
 
 	// Buyer gets an in-app price-drop notification, linked to the listing.
-	const note = await h.retry(
-		() => h.api('/api/notifications', { method: 'GET', cookie: buyer.cookie }),
-		{
-			tries: 30,
-			delay: 500,
-			until: (r) =>
-				r.status === 200 &&
-				notifList(r).some((n) => n.type === 'price_drop' && n.ticketId === ticketId),
-		},
+	const { note } = await h.waitForNotification(
+		buyer.cookie,
+		(n) => n.type === 'price_drop' && n.ticketId === ticketId,
+		{ tries: 30, delay: 500 },
 	);
 	t.check('buyer receives a price-drop notification linked to the ticket',
-		notifList(note).some((n) => n.type === 'price_drop' && n.ticketId === ticketId),
+		!!note,
 		'no matching price_drop notification');
 
 	// And the price-drop email lands in Mailpit.
@@ -121,18 +114,13 @@ async function run(t) {
 	const relist = await h.api(`/api/tickets/${ticket2}/relist`, { method: 'POST', cookie: seller.cookie });
 	t.is('seller relists it → 200', relist.status, 200);
 
-	const availNote = await h.retry(
-		() => h.api('/api/notifications', { method: 'GET', cookie: buyer.cookie }),
-		{
-			tries: 30,
-			delay: 500,
-			until: (r) =>
-				r.status === 200 &&
-				notifList(r).some((n) => n.type === 'wishlist_available' && n.ticketId === ticket2),
-		},
+	const { note: availNote } = await h.waitForNotification(
+		buyer.cookie,
+		(n) => n.type === 'wishlist_available' && n.ticketId === ticket2,
+		{ tries: 30, delay: 500 },
 	);
 	t.check('buyer receives a back-on-sale notification linked to the ticket',
-		notifList(availNote).some((n) => n.type === 'wishlist_available' && n.ticketId === ticket2),
+		!!availNote,
 		'no matching wishlist_available notification');
 
 	const availEmails = await h.retry(() => h.countMail(buyer.email, 'Back on sale'), {

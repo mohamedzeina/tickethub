@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { ArrowRight } from '../components/icons';
 import BrowseResults from '../components/BrowseResults';
-import { parseTicketQuery } from '../utils/ticketQuery';
+import { fetchBrowsePage } from '../utils/ticketQuery';
 
 const LandingPage = ({ currentUser, tickets, meta, filters }) => {
 	// Decorative readout: "this week" is derived from the current page only.
@@ -85,24 +85,6 @@ const LandingPage = ({ currentUser, tickets, meta, filters }) => {
 	);
 };
 
-// This function runs on the server during the initial page load, and also on the
-// client during client-side navigation. It reads the URL query, asks the tickets
-// service to do the search/filter/sort/pagination, and passes the page of results
-// plus paging metadata down as props.
-LandingPage.getInitialProps = async (context, client) => {
-	const { filters, qs } = parseTicketQuery(context.query);
-	const { data } = await client.get(`/api/tickets${qs ? `?${qs}` : ''}`);
-
-	return {
-		tickets: data.tickets,
-		meta: {
-			page: data.page,
-			limit: data.limit,
-			total: data.total,
-			totalPages: data.totalPages,
-		},
-		filters,
-	};
-};
+LandingPage.getInitialProps = (context, client) => fetchBrowsePage(context, client);
 
 export default LandingPage;

@@ -1,17 +1,13 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { ReviewCreatedEvent } from '@zeina-tickethub/common';
 import { ReviewCreatedListener } from '../review-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Notification, NotificationType } from '../../../models/notification';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
-const msg = (seq: number) => ({ ack: jest.fn(), seq }) as unknown as JsMsg;
+import { msg, oid } from '../../../test/helpers';
 
 const data = (over: Partial<ReviewCreatedEvent['data']> = {}): ReviewCreatedEvent['data'] => ({
-	reviewId: id(),
-	sellerId: id(),
-	buyerId: id(),
+	reviewId: oid(),
+	sellerId: oid(),
+	buyerId: oid(),
 	ticketTitle: 'Coldplay',
 	rating: 5,
 	...over,

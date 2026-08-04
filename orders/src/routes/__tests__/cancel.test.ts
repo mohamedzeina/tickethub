@@ -1,18 +1,13 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
 
 import { Ticket } from '../../models/ticket';
+import { buildTicket } from '../../test/factories';
 import { OrderStatus } from '@zeina-tickethub/common';
 import { natsWrapper } from '../../nats-wrapper';
 
 it('cancels the order', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 50,
-	});
-	await ticket.save();
+	const ticket = await buildTicket();
 
 	const user = global.signin();
 	const { body: order } = await request(app)
@@ -37,12 +32,7 @@ it('cancels the order', async () => {
 });
 
 it('returns unauthorized error if user tries to cancel an order that does not belong to them', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 50,
-	});
-	await ticket.save();
+	const ticket = await buildTicket();
 
 	const user = global.signin();
 	const { body: order } = await request(app)
@@ -58,13 +48,7 @@ it('returns unauthorized error if user tries to cancel an order that does not be
 });
 
 it('returns the held seats to the listing and is idempotent on a second cancel', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 50,
-		quantity: 4,
-	});
-	await ticket.save();
+	const ticket = await buildTicket({ quantity: 4 });
 
 	const user = global.signin();
 	const { body: order } = await request(app)
@@ -92,12 +76,7 @@ it('returns the held seats to the listing and is idempotent on a second cancel',
 });
 
 it('emits an order cancelled event', async () => {
-	const ticket = Ticket.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		title: 'Akon Concert',
-		price: 50,
-	});
-	await ticket.save();
+	const ticket = await buildTicket();
 
 	const user = global.signin();
 	const { body: order } = await request(app)

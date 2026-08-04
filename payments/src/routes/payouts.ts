@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '@zeina-tickethub/common';
 import { Payout } from '../models/payout';
+import { netOf } from '../services/payouts';
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.get(
 		let paid = 0;
 		let pending = 0;
 		const items = payouts.map((p) => {
-			const net = round2(p.amount - p.fee);
+			const net = netOf(p);
 			if (p.status === 'paid') paid += net;
 			else if (p.status === 'pending_account') pending += net;
 			return {

@@ -6,12 +6,17 @@ import { Payment } from '../models/payment';
 import { PayoutProcessedPublisher } from '../events/publishers/payout-processed-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
+// What the seller actually receives: the sale minus the platform fee, rounded
+// to cents. The single definition — the earnings route reports the same number.
+export const netOf = (payout: { amount: number; fee: number }): number =>
+	Math.round((payout.amount - payout.fee) * 100) / 100;
+
 // Tell notifications a seller's payout reached a terminal state (paid / held).
 export const announcePayout = (payout: PayoutDoc, status: 'paid' | 'held') =>
 	new PayoutProcessedPublisher(natsWrapper.js).publish({
 		orderId: payout.orderId,
 		sellerId: payout.sellerId,
-		net: Math.round((payout.amount - payout.fee) * 100) / 100,
+		net: netOf(payout),
 		status,
 	});
 

@@ -1,7 +1,7 @@
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
 import { app } from '../../app';
+import { oid } from '../../test/factories';
 import { Ticket } from '../../models/ticket';
 import { natsWrapper } from '../../nats-wrapper';
 
@@ -9,7 +9,7 @@ import { natsWrapper } from '../../nats-wrapper';
 const unverifiedCookie = () => {
 	const token = jwt.sign(
 		{
-			id: new mongoose.Types.ObjectId().toHexString(),
+			id: oid(),
 			email: 'unverified@test.com',
 			emailVerified: false,
 		},

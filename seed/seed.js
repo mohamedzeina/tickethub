@@ -88,6 +88,20 @@ function img(id) {
 	return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=80`;
 }
 
+// Read a Kubernetes secret with kubectl and return its decoded key -> value map.
+// Throws if kubectl can't read it (callers decide whether that is fatal).
+function readK8sSecret(name) {
+	const out = execFileSync(
+		'kubectl',
+		['get', 'secret', name, '-o', 'json'],
+		{ stdio: ['ignore', 'pipe', 'pipe'] },
+	).toString();
+	const data = JSON.parse(out).data || {};
+	return Object.fromEntries(
+		Object.entries(data).map(([k, v]) => [k, Buffer.from(v, 'base64').toString('utf8')]),
+	);
+}
+
 function resolveMongoUris() {
 	// 1) explicit env vars take precedence
 	const fromEnv = {};
@@ -100,12 +114,7 @@ function resolveMongoUris() {
 
 	// 2) fall back to reading the k8s secret (never stored in the repo)
 	try {
-		const out = execFileSync(
-			'kubectl',
-			['get', 'secret', 'mongo-secret', '-o', 'json'],
-			{ stdio: ['ignore', 'pipe', 'pipe'] },
-		).toString();
-		const data = JSON.parse(out).data || {};
+		const data = readK8sSecret('mongo-secret');
 		const uris = {};
 		for (const [svc, key] of Object.entries(MONGO_SECRET_KEYS)) {
 			if (!data[key]) {
@@ -115,14 +124,14 @@ function resolveMongoUris() {
 				}
 				throw new Error(`mongo-secret is missing key "${key}"`);
 			}
-			uris[svc] = Buffer.from(data[key], 'base64').toString('utf8');
+			uris[svc] = data[key];
 		}
 		return uris;
 	} catch (err) {
 		console.error('\n✖ Could not resolve Mongo connection strings.');
-		console.error('  Provide them as env vars (AUTH_MONGO_URI, TICKETS_MONGO_URI,');
-		console.error('  ORDERS_MONGO_URI, PAYMENTS_MONGO_URI) or make sure `kubectl`');
-		console.error('  can read the `mongo-secret` secret in the current context.\n');
+		console.error(`  Provide them as env vars (${Object.values(MONGO_SECRET_KEYS).join(', ')})`);
+		console.error('  or make sure `kubectl` can read the `mongo-secret` secret in the');
+		console.error('  current context.\n');
 		console.error(`  Underlying error: ${err.message}`);
 		process.exit(1);
 	}
@@ -156,14 +165,9 @@ async function resetDatabases(uris) {
 function resolveStripeKey() {
 	if (process.env.STRIPE_KEY) return process.env.STRIPE_KEY;
 	try {
-		const out = execFileSync(
-			'kubectl',
-			['get', 'secret', 'stripe-secret', '-o', 'json'],
-			{ stdio: ['ignore', 'pipe', 'pipe'] },
-		).toString();
-		const data = JSON.parse(out).data || {};
+		const data = readK8sSecret('stripe-secret');
 		if (data.STRIPE_KEY) {
-			return Buffer.from(data.STRIPE_KEY, 'base64').toString('utf8');
+			return data.STRIPE_KEY;
 		}
 	} catch {
 		/* fall through */
@@ -324,6 +328,13 @@ async function seedReviews(reviewsUri, userIds) {
 
 // ---- demo data -----------------------------------------------------------
 
+// The demo accounts. Their 1-based position in this list IS the owner index
+// referenced by TICKETS (`owner`) and REVIEWS (`seller`/`buyer`) below.
+const USERS = [
+	{ email: 'test@test.com', password: '123456', displayName: 'Avery Stone' },
+	{ email: 'test2@test.com', password: '123456', displayName: 'Jordan Reyes' },
+];
+
 const TICKETS = [
 	{
 		owner: 1,
@@ -434,22 +445,27 @@ const REVIEWS = [
 	await clearStripeConnectAccounts();
 
 	console.log('\nCreating users…');
-	const user1 = await signup('test@test.com', '123456');
-	const user2 = await signup('test2@test.com', '123456');
-	const userIds = { 1: user1.id, 2: user2.id };
+	// Keyed by owner index (1-based), which is what TICKETS/REVIEWS reference.
+	const userIds = {};
+	const cookies = {};
+	for (const [i, user] of USERS.entries()) {
+		const { id } = await signup(user.email, user.password);
+		userIds[i + 1] = id;
+	}
 
-	// Verify both demo accounts, then re-sign-in so their cookies carry
+	// Verify the demo accounts, then re-sign-in so their cookies carry
 	// emailVerified: true (the gate for listing/buying reads the JWT).
-	await markUsersVerified(uris.auth, ['test@test.com', 'test2@test.com']);
-	const cookies = {
-		1: await signin('test@test.com', '123456'),
-		2: await signin('test2@test.com', '123456'),
-	};
+	await markUsersVerified(uris.auth, USERS.map((u) => u.email));
+	for (const [i, user] of USERS.entries()) {
+		cookies[i + 1] = await signin(user.email, user.password);
+	}
 	// Public display names (#18) so sellers show as names, not opaque handles.
-	await setDisplayName(cookies[1], 'Avery Stone');
-	await setDisplayName(cookies[2], 'Jordan Reyes');
-	console.log('  • test@test.com / 123456 (verified) — Avery Stone');
-	console.log('  • test2@test.com / 123456 (verified) — Jordan Reyes');
+	for (const [i, user] of USERS.entries()) {
+		await setDisplayName(cookies[i + 1], user.displayName);
+	}
+	for (const user of USERS) {
+		console.log(`  • ${user.email} / ${user.password} (verified) — ${user.displayName}`);
+	}
 
 	console.log('\nCreating tickets…');
 	let ok = 0;
@@ -473,7 +489,7 @@ const REVIEWS = [
 	}
 
 	console.log(
-		`\n✓ Done. Seeded 2 users, ${ok}/${TICKETS.length} tickets, and ${reviewCount} reviews.\n`,
+		`\n✓ Done. Seeded ${USERS.length} users, ${ok}/${TICKETS.length} tickets, and ${reviewCount} reviews.\n`,
 	);
 	process.exit(0);
 })().catch((err) => {

@@ -5,6 +5,7 @@
     "dev": "bash scripts/dev.sh",
     "monitor": "bash scripts/monitor.sh",
     "seed": "cd seed && npm install --silent && npm run seed",
+    "normalize-emails": "cd seed && npm install --silent && npm run normalize-emails --",
     "e2e": "node e2e/run-all.js",
     "build:prod": "skaffold build -p prod",
     "deploy:prod": "skaffold run -p prod",

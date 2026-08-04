@@ -1,5 +1,5 @@
 import { MailMessage } from '../mailer';
-import { ctaShell } from './shell';
+import { noticeShell } from './shell';
 
 export interface VerifyEmailDetails {
 	to: string;
@@ -21,14 +21,13 @@ export const verifyEmailEmail = (d: VerifyEmailDetails): MailMessage => {
 	return {
 		to: d.to,
 		subject: `Verify your email — TicketHub`,
-		html: ctaShell(
-			'#1f7a4d',
-			'Admit One · Confirm Your Email',
-			'Verify your email',
-			`Welcome to TicketHub. Confirm this is your email address to start buying and selling tickets. This link expires in 24 hours.`,
-			'Verify email',
-			d.verifyUrl,
-		),
+		html: noticeShell({
+			accent: '#1f7a4d',
+			eyebrow: 'Admit One · Confirm Your Email',
+			heading: 'Verify your email',
+			body: `Welcome to TicketHub. Confirm this is your email address to start buying and selling tickets. This link expires in 24 hours.`,
+			cta: { label: 'Verify email', url: d.verifyUrl },
+		}),
 		text,
 	};
 };

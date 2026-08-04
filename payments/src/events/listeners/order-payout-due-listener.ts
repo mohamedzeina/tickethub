@@ -15,6 +15,7 @@ import {
 	attemptTransfer,
 	announcePayout,
 } from '../../services/payouts';
+import { isDuplicateKey } from '../../is-duplicate-key';
 
 // #11 payouts. An order has cleared its refund window (orders emits this once).
 // Record a Payout (one per order, unique orderId) and attempt the Stripe transfer
@@ -53,7 +54,7 @@ export class OrderPayoutDueListener extends Listener<OrderPayoutDueEvent> {
 				await payout.save();
 			} catch (err: any) {
 				// Concurrent delivery already created it (unique orderId). Benign.
-				if (err?.code === 11000) return;
+				if (isDuplicateKey(err)) return;
 				throw err;
 			}
 

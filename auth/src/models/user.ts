@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { PasswordManager } from '../services/password';
+import { normalizeEmail } from '../services/normalize-email';
 
 // Interface that describes properties that are required to create a new User
 interface UserAttrs {
@@ -31,11 +32,10 @@ interface UserDoc extends mongoose.Document {
 	passwordResetExpires?: Date;
 }
 
-// Interface for the JSON representation after transformation
+// Interface for the JSON representation after transformation. Only the members
+// the transform below actually adds or removes — everything else passes through
+// untouched and doesn't need naming here.
 interface UserJson {
-	email: string;
-	emailVerified?: boolean;
-	displayName?: string | null;
 	_id?: mongoose.Types.ObjectId; // Optional for deletion
 	password?: string; // Optional for deletion
 	__v?: number; // Optional for deletion
@@ -51,6 +51,12 @@ const userSchema = new mongoose.Schema(
 		email: {
 			type: String,
 			required: true,
+			// Backstop for the route-level sanitizer: anything written through
+			// this model is stored lowercase, so a caller that skips the
+			// validator chain can't reintroduce a case-variant account.
+			// NOTE: mongoose does not apply setters to query filters, so reads
+			// must normalize too — the routes do it via emailRule().
+			set: normalizeEmail,
 		},
 		password: {
 			type: String,
@@ -82,6 +88,17 @@ const userSchema = new mongoose.Schema(
 		},
 	},
 );
+
+// One account per email address. The signup route also does a findOne() first —
+// that's what produces the friendly "Email already in use" message — but a
+// check-then-insert has a race window, so two concurrent signups for the same
+// address could both pass it. This index is the actual guard; the route turns
+// the loser's E11000 back into the same 400. Same pattern as every other
+// identity collection in the repo (payment.stripeId, wishlist user+ticket, ...).
+//
+// Safe to enforce only because emails are normalized to lowercase on the way in
+// (services/normalize-email.ts) — otherwise case variants would slip past it.
+userSchema.index({ email: 1 }, { unique: true });
 
 userSchema.pre('save', async function (done) {
 	if (this.isModified('password')) {

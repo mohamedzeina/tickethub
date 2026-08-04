@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
-import { rateLimiter } from '@zeina-tickethub/common';
+import { rateLimiter, RateLimiterOptions } from '@zeina-tickethub/common';
+import { normalizeEmail } from '../services/normalize-email';
 
 // Abuse protection for the auth endpoints (#13). Two dimensions where it helps:
 // per-IP (one host hammering us) and per-email (one account targeted from many
@@ -21,13 +22,18 @@ const withBypass = (mw: RequestHandler): RequestHandler => {
 	};
 };
 
-// Key by the email in the body, normalized the same way we store it, so casing
-// can't be used to dodge the limit. Falsy → the limiter skips the request
-// (validation will reject a missing/!email anyway).
-const byEmail = (req: Request): string | undefined => {
-	const email = req.body?.email;
-	return typeof email === 'string' ? email.trim().toLowerCase() : undefined;
-};
+// Build a limiter with the bypass already applied. Every limiter below goes
+// through this, so a new one can't silently ship without the escape hatch.
+const limiter = (opts: RateLimiterOptions): RequestHandler =>
+	withBypass(rateLimiter(opts));
+
+// Key by the email in the body, normalized the same way we store and look it up,
+// so casing can't be used to dodge the limit. This runs BEFORE the validator
+// chain sanitizes req.body, hence the explicit normalize here rather than
+// relying on emailRule(). Falsy → the limiter skips the request (validation will
+// reject a missing/non-string email anyway).
+const byEmail = (req: Request): string | undefined =>
+	normalizeEmail(req.body?.email);
 
 // Key by the signed-in user (resend runs after requireAuth).
 const byUser = (req: Request): string | undefined => req.currentUser?.id;
@@ -43,58 +49,58 @@ const byUser = (req: Request): string | undefined => req.currentUser?.id;
 //     auth has `trust proxy` on; verify X-Forwarded-For end to end.)
 
 // signin: per-email stops credential brute force; per-IP is the flood backstop.
-export const signinIpLimiter = withBypass(rateLimiter({
+export const signinIpLimiter = limiter({
 	name: 'signin-ip',
 	points: 100,
 	duration: 15 * 60,
-}));
-export const signinEmailLimiter = withBypass(rateLimiter({
+});
+export const signinEmailLimiter = limiter({
 	name: 'signin-email',
 	points: 5,
 	duration: 15 * 60,
 	keyFn: byEmail,
 	message: 'Too many sign-in attempts for this account. Please try again later.',
-}));
+});
 
 // signup: per-IP only (every signup has a unique email by definition).
-export const signupIpLimiter = withBypass(rateLimiter({
+export const signupIpLimiter = limiter({
 	name: 'signup-ip',
 	points: 100,
 	duration: 60 * 60,
-}));
+});
 
 // forgot-password: per-email stops inbox flooding; per-IP is the flood backstop.
-export const forgotPasswordIpLimiter = withBypass(rateLimiter({
+export const forgotPasswordIpLimiter = limiter({
 	name: 'forgot-ip',
 	points: 60,
 	duration: 60 * 60,
-}));
-export const forgotPasswordEmailLimiter = withBypass(rateLimiter({
+});
+export const forgotPasswordEmailLimiter = limiter({
 	name: 'forgot-email',
 	points: 3,
 	duration: 60 * 60,
 	keyFn: byEmail,
 	message: 'A reset link was already requested. Please check your inbox or try again later.',
-}));
+});
 
 // resend-verification: per-user stops verification-email flooding.
-export const resendVerificationLimiter = withBypass(rateLimiter({
+export const resendVerificationLimiter = limiter({
 	name: 'resend-verification-user',
 	points: 3,
 	duration: 60 * 60,
 	keyFn: byUser,
 	message: 'We already sent a verification email recently. Please wait a bit before retrying.',
-}));
+});
 
 // verify-email / reset-password: per-IP backstop (tokens are 64-hex, so guessing
 // is already infeasible — this just caps obvious hammering).
-export const verifyEmailIpLimiter = withBypass(rateLimiter({
+export const verifyEmailIpLimiter = limiter({
 	name: 'verify-email-ip',
 	points: 100,
 	duration: 60 * 60,
-}));
-export const resetPasswordIpLimiter = withBypass(rateLimiter({
+});
+export const resetPasswordIpLimiter = limiter({
 	name: 'reset-password-ip',
 	points: 100,
 	duration: 60 * 60,
-}));
+});

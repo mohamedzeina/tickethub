@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import { Star } from './icons';
 import Stars from './Stars';
+import { apiError } from '../utils/apiError';
 
 // Interactive 1–5 star picker with hover preview.
 const StarPicker = ({ value, onChange }) => {
@@ -79,10 +80,7 @@ const SellerReview = ({ orderId, initialState = null }) => {
 			setEditing(false);
 			load();
 		} catch (err) {
-			setError(
-				err?.response?.data?.errors?.[0]?.message ||
-					'Could not save your review. Please try again.',
-			);
+			setError(apiError(err, 'Could not save your review. Please try again.'));
 		} finally {
 			setSaving(false);
 		}

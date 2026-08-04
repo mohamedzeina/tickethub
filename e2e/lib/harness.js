@@ -20,6 +20,7 @@
  */
 
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 
 const BASE_URL = (process.env.BASE_URL || 'https://tickethub.com').replace(/\/$/, '');
 const MAILPIT_URL = (process.env.MAILPIT_URL || 'http://localhost:8025').replace(/\/$/, '');
@@ -46,6 +47,8 @@ const uniqueEmail = (who = 'user') => `${who}+${stamp}-${seq++}@e2e.test`;
 // secret scanner to flag — it is never a real account password.
 const testPassword = () => crypto.randomBytes(9).toString('hex');
 const futureDate = (days = 30) => new Date(Date.now() + days * 864e5).toISOString();
+// valid ObjectId shape, no such record — for "…→ 404" negative paths.
+const MISSING_ID = '0'.repeat(24);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---- http ----------------------------------------------------------------
@@ -210,6 +213,71 @@ async function payIntent(cookie, orderId) {
 	});
 }
 
+// Poll a user's notification feed until one matching `match(notification)`
+// shows up. Callers pass their own predicate and their own tries/delay (feeds are
+// written asynchronously off events, so the wait is per-flow). Returns the final
+// feed response plus the matching notification (undefined if it never landed).
+async function waitForNotification(cookie, match, { tries = 40, delay = 500 } = {}) {
+	const res = await retry(() => api('/api/notifications', { method: 'GET', cookie }), {
+		tries,
+		delay,
+		until: (r) => r.status === 200 && (r.data?.notifications || []).some(match),
+	});
+	return { res, note: (res.data?.notifications || []).find(match) };
+}
+
+// ---- stripe --------------------------------------------------------------
+
+// Settle a PaymentIntent with a Stripe test card via the authenticated Stripe
+// CLI. The clientSecret is `pi_xxx_secret_yyy`; the intent id is the prefix.
+// Throws (with stderr on the error) if the CLI isn't available or refuses, so a
+// missing `stripe listen` fails loudly rather than passing silently.
+function settlePaymentIntent(clientSecret) {
+	const intentId = clientSecret.split('_secret_')[0];
+	execFileSync(
+		'stripe',
+		['payment_intents', 'confirm', intentId, '-d', 'payment_method=pm_card_visa'],
+		{ stdio: 'pipe' },
+	);
+}
+
+// Reserve → pay → settle → wait until the order reflects the payment. Returns the
+// orderId once the order is Complete, or null if any step failed (already
+// asserted). The order being Complete implies payments recorded the Payment (it
+// publishes payment:created only after), so a refund request can find the charge.
+// `label` prefixes every check so a suite can run this more than once.
+async function buyAndSettle(t, buyer, ticketId, label) {
+	const order = await reserveReady(buyer.cookie, ticketId);
+	t.is(`${label}: buyer reserves the ticket → 201`, order.status, 201);
+	const orderId = order.data?.id;
+	if (!orderId) return null;
+
+	const pay = await payIntent(buyer.cookie, orderId);
+	t.is(`${label}: buyer creates a PaymentIntent → 201`, pay.status, 201);
+	const clientSecret = pay.data?.clientSecret;
+	if (!clientSecret) return null;
+
+	try {
+		settlePaymentIntent(clientSecret);
+	} catch (err) {
+		const detail = (err.stderr?.toString() || err.message || '').slice(0, 300);
+		t.check(`${label}: settle PaymentIntent via Stripe CLI`, false, detail);
+		return null;
+	}
+
+	// Wait for the webhook to flip the order to Complete.
+	const done = await retry(
+		() => api(`/api/orders/${orderId}`, { method: 'GET', cookie: buyer.cookie }),
+		{
+			tries: 40,
+			delay: 500,
+			until: (r) => r.status === 200 && r.data?.status === 'complete',
+		},
+	);
+	const ok = t.is(`${label}: order is Complete after settle`, done.data?.status, 'complete');
+	return ok ? orderId : null;
+}
+
 // ---- reporter ------------------------------------------------------------
 
 class Reporter {
@@ -276,6 +344,7 @@ module.exports = {
 	uniqueEmail,
 	testPassword,
 	futureDate,
+	MISSING_ID,
 	ensureMailpit,
 	waitForMailToken,
 	countMail,
@@ -286,6 +355,9 @@ module.exports = {
 	reserve,
 	reserveReady,
 	payIntent,
+	waitForNotification,
+	settlePaymentIntent,
+	buyAndSettle,
 	Reporter,
 	runStandalone,
 };

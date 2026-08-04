@@ -1,26 +1,8 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { OrderRef } from '../../models/order-ref';
 import { Review } from '../../models/review';
 import { OrderStatus } from '@zeina-tickethub/common';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
-
-// Seed a local order replica the way the listeners would, so the route has
-// something to authorize against.
-const seedOrder = async (overrides: any = {}) => {
-	const order = OrderRef.build({
-		id: overrides.id || id(),
-		buyerId: overrides.buyerId || id(),
-		sellerId: overrides.sellerId || id(),
-		ticketId: overrides.ticketId || id(),
-		ticketTitle: overrides.ticketTitle || 'Coldplay',
-		status: overrides.status || OrderStatus.Complete,
-	});
-	await order.save();
-	return order;
-};
+import { id, seedOrder } from '../../test/factories';
 
 it('requires authentication', async () => {
 	const order = await seedOrder();

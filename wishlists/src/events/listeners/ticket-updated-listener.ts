@@ -84,18 +84,28 @@ export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 			const watchers = await Wishlist.find({ ticketId: data.id });
 			if (!watchers.length) return;
 
-			if (dropped) {
-				const publisher = new PriceDroppedPublisher(natsWrapper.js);
+			// Same fan-out both times: one event per watcher, sequentially, with
+			// the watcher's captured identity plus whatever extra the alert carries.
+			const fanOut = async (
+				publisher: { publish: (payload: any) => Promise<unknown> },
+				extra: Record<string, unknown>,
+			) => {
 				for (const w of watchers) {
 					await publisher.publish({
 						userId: w.userId,
 						email: w.userEmail,
 						ticketId: data.id,
 						title: data.title,
-						oldPrice,
-						newPrice,
+						...extra,
 					});
 				}
+			};
+
+			if (dropped) {
+				await fanOut(new PriceDroppedPublisher(natsWrapper.js), {
+					oldPrice,
+					newPrice,
+				});
 				logger.info(
 					{ ticketId: data.id, oldPrice, newPrice, watchers: watchers.length },
 					'price drop — notified watchers',
@@ -103,16 +113,9 @@ export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
 			}
 
 			if (becameAvailable) {
-				const publisher = new AvailablePublisher(natsWrapper.js);
-				for (const w of watchers) {
-					await publisher.publish({
-						userId: w.userId,
-						email: w.userEmail,
-						ticketId: data.id,
-						title: data.title,
-						price: newPrice,
-					});
-				}
+				await fanOut(new AvailablePublisher(natsWrapper.js), {
+					price: newPrice,
+				});
 				logger.info(
 					{ ticketId: data.id, watchers: watchers.length },
 					'back available — notified watchers',

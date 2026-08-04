@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { Review } from '../models/review';
 import { sellerHandle, buyerHandle } from '../services/handle';
+import { sellerSummaries } from '../services/seller-summary';
 
 const router = express.Router();
 
@@ -13,22 +14,24 @@ router.get(
 
 		// Exclude soft-hidden reviews (refunded orders, Option A) — reputation
 		// reflects only real, kept purchases.
+		//
+		// The `limit` caps the reviews we RENDER, not the ones we count: the
+		// summary comes from an aggregate over every visible review, so a seller
+		// past 50 reviews no longer reports a truncated count here while their
+		// listing badges report the real one.
 		const reviews = await Review.find({ sellerId, hidden: { $ne: true } })
 			.sort({ createdAt: -1 })
 			.limit(50);
 
-		const count = reviews.length;
-		const average =
-			count === 0
-				? 0
-				: Math.round(
-						(reviews.reduce((sum, r) => sum + r.rating, 0) / count) * 10,
-				  ) / 10;
+		const [aggregate] = await sellerSummaries([sellerId]);
+		const summary = aggregate
+			? { average: aggregate.average, count: aggregate.count }
+			: { average: 0, count: 0 };
 
 		res.status(200).send({
 			sellerId,
 			handle: sellerHandle(sellerId),
-			summary: { average, count },
+			summary,
 			reviews: reviews.map((r) => ({
 				id: r.id,
 				rating: r.rating,

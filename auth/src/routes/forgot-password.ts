@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
-import { body } from 'express-validator';
 
 import { User } from '../models/user';
 import { issuePasswordReset } from '../services/account-emails';
+import { emailRule } from './validators';
 import { validateRequest } from '@zeina-tickethub/common';
 import {
 	forgotPasswordIpLimiter,
@@ -17,7 +17,7 @@ router.post(
 	'/api/users/forgot-password',
 	forgotPasswordIpLimiter,
 	forgotPasswordEmailLimiter,
-	[body('email').isEmail().withMessage('A valid email is required')],
+	[emailRule('A valid email is required')],
 	validateRequest,
 	async (req: Request, res: Response) => {
 		const { email } = req.body;

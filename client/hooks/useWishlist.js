@@ -54,7 +54,6 @@ const useWishlist = (currentUser) => {
 	}, []);
 
 	return {
-		ids,
 		isSaved: useCallback((id) => ids.has(id), [ids]),
 		toggle,
 	};

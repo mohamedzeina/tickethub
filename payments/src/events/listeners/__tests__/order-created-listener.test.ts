@@ -1,15 +1,14 @@
 import { natsWrapper } from '../../../nats-wrapper';
-import { JsMsg } from 'nats';
 import { OrderCreatedListener } from '../order-created-listener';
 import { OrderCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
-import mongoose, { set } from 'mongoose';
 import { Order } from '../../../models/order';
+import { oid, msg } from '../../../test/helpers';
 
 const setup = async () => {
 	const listener = new OrderCreatedListener(natsWrapper.connection);
 
 	const data: OrderCreatedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		version: 0,
 		expiresAt: 'swfasf',
 		userId: 'asfafssf',
@@ -22,13 +21,7 @@ const setup = async () => {
 		},
 	};
 
-	// @ts-ignore
-	const msg: JsMsg = {
-		ack: jest.fn(),
-		seq: 1,
-	};
-
-	return { listener, data, msg };
+	return { listener, data, msg: msg(1) };
 };
 
 it('replicates the order info', async () => {

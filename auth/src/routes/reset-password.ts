@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
 
-import { User } from '../models/user';
-import { TokenManager } from '../services/tokens';
+import { passwordRule } from './validators';
+import { findByToken } from '../services/tokens';
 import { setSession } from '../services/session';
 import { validateRequest, BadRequestError } from '@zeina-tickethub/common';
 import { resetPasswordIpLimiter } from '../middlewares/rate-limiters';
@@ -14,19 +14,17 @@ router.post(
 	resetPasswordIpLimiter,
 	[
 		body('token').notEmpty().withMessage('A reset token is required'),
-		body('password')
-			.trim()
-			.isLength({ min: 4, max: 20 })
-			.withMessage('Password must be between 4 and 20 characters'),
+		passwordRule(),
 	],
 	validateRequest,
 	async (req: Request, res: Response) => {
 		const { token, password } = req.body;
 
-		const user = await User.findOne({
-			passwordResetToken: TokenManager.hash(token),
-			passwordResetExpires: { $gt: new Date() },
-		});
+		const user = await findByToken(
+			'passwordResetToken',
+			'passwordResetExpires',
+			token,
+		);
 
 		if (!user) {
 			throw new BadRequestError(

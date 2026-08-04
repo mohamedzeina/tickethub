@@ -8,26 +8,10 @@ import { Subjects } from './subjects';
 // matched with wildcards.
 export const STREAM_NAME = 'tickethub';
 
-const STREAM_SUBJECTS: string[] = [
-	Subjects.TicketCreated,
-	Subjects.TicketUpdated,
-	Subjects.TicketRedeemed,
-	Subjects.OrderCreated,
-	Subjects.OrderCancelled,
-	Subjects.OrderRefundRequested,
-	Subjects.OrderPayoutDue,
-	Subjects.PayoutProcessed,
-	Subjects.ExpirationComplete,
-	Subjects.ExpirationWarning,
-	Subjects.PaymentInitiated,
-	Subjects.PaymentCreated,
-	Subjects.PaymentRefunded,
-	Subjects.UserVerificationRequested,
-	Subjects.PasswordResetRequested,
-	Subjects.WishlistPriceDropped,
-	Subjects.WishlistAvailable,
-	Subjects.ReviewCreated,
-];
+// Derived from the enum rather than hand-listed: a subject that exists in
+// Subjects but not on the stream makes js.publish fail with a 503 that only
+// shows up in a live run, so there's nothing to keep in sync here.
+const STREAM_SUBJECTS: string[] = Object.values(Subjects);
 
 // Create the stream if it doesn't exist. Every service calls this at startup;
 // the first one wins and the rest harmlessly find it already present.

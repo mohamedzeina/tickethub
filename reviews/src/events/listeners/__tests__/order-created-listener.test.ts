@@ -1,12 +1,9 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
 import { OrderCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
 import { OrderCreatedListener } from '../order-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { TicketRef } from '../../../models/ticket-ref';
 import { OrderRef } from '../../../models/order-ref';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
+import { id, msg } from '../../../test/factories';
 
 const buildData = (
 	ticketId: string,
@@ -30,26 +27,24 @@ it('replicates the order and resolves the seller from the ticket replica', async
 	const listener = new OrderCreatedListener(natsWrapper.connection);
 	const buyerId = id();
 	const data = buildData(ticketId, { userId: buyerId });
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
+	const message = msg(1);
 
-	await listener.onMessage(data, msg);
+	await listener.onMessage(data, message);
 
 	const stored = await OrderRef.findById(data.id);
 	expect(stored).not.toBeNull();
 	expect(stored!.buyerId).toEqual(buyerId);
 	expect(stored!.sellerId).toEqual(sellerId);
 	expect(stored!.ticketId).toEqual(ticketId);
-	expect(msg.ack).toHaveBeenCalled();
+	expect(message.ack).toHaveBeenCalled();
 });
 
 it('throws for retry when the ticket replica has not arrived yet', async () => {
 	const listener = new OrderCreatedListener(natsWrapper.connection);
 	const data = buildData(id()); // no TicketRef seeded
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
+	const message = msg(1);
 
-	await expect(listener.onMessage(data, msg)).rejects.toThrow('TicketRef not found');
-	expect(msg.ack).not.toHaveBeenCalled();
+	await expect(listener.onMessage(data, message)).rejects.toThrow('TicketRef not found');
+	expect(message.ack).not.toHaveBeenCalled();
 	expect(await OrderRef.findById(data.id)).toBeNull();
 });

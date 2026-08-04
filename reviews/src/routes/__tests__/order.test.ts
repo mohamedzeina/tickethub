@@ -1,33 +1,15 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { OrderRef } from '../../models/order-ref';
-import { Review } from '../../models/review';
-import { OrderStatus } from '@zeina-tickethub/common';
-
-const id = () => new mongoose.Types.ObjectId().toHexString();
-
-const seedOrder = async (buyerId: string, status = OrderStatus.Complete) => {
-	const order = OrderRef.build({
-		id: id(),
-		buyerId,
-		sellerId: id(),
-		ticketId: id(),
-		ticketTitle: 'Coldplay',
-		status,
-	});
-	await order.save();
-	return order;
-};
+import { id, seedOrder, seedReview } from '../../test/factories';
 
 it('requires auth', async () => {
-	const order = await seedOrder(id());
+	const order = await seedOrder({ buyerId: id() });
 	await request(app).get(`/api/reviews/order/${order.id}`).expect(401);
 });
 
 it('reports a reviewable order with no review yet', async () => {
 	const buyerId = id();
-	const order = await seedOrder(buyerId);
+	const order = await seedOrder({ buyerId });
 
 	const res = await request(app)
 		.get(`/api/reviews/order/${order.id}`)
@@ -41,14 +23,14 @@ it('reports a reviewable order with no review yet', async () => {
 
 it('returns the existing review once left', async () => {
 	const buyerId = id();
-	const order = await seedOrder(buyerId);
-	await Review.build({
+	const order = await seedOrder({ buyerId });
+	await seedReview({
 		orderId: order.id,
 		sellerId: order.sellerId,
 		buyerId,
 		ticketTitle: 'Coldplay',
 		rating: 5,
-	}).save();
+	});
 
 	const res = await request(app)
 		.get(`/api/reviews/order/${order.id}`)
@@ -59,7 +41,7 @@ it('returns the existing review once left', async () => {
 });
 
 it('does not let a non-buyer probe an order’s review state', async () => {
-	const order = await seedOrder(id());
+	const order = await seedOrder({ buyerId: id() });
 	await request(app)
 		.get(`/api/reviews/order/${order.id}`)
 		.set('Cookie', global.signin(id())) // someone else

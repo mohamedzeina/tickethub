@@ -64,22 +64,15 @@ export const rateLimiter = (opts: RateLimiterOptions) => {
 
 	// Choose the backend once, at wiring time. In test we use memory; otherwise
 	// Redis if configured, else memory (single-replica dev without the add-on).
-	let limiter: RateLimiterAbstract;
+	const budget = {
+		keyPrefix: `rl:${opts.name}`,
+		points: opts.points,
+		duration: opts.duration,
+	};
 	const client = process.env.NODE_ENV === 'test' ? undefined : redisClient();
-	if (client) {
-		limiter = new RateLimiterRedis({
-			storeClient: client,
-			keyPrefix: `rl:${opts.name}`,
-			points: opts.points,
-			duration: opts.duration,
-		});
-	} else {
-		limiter = new RateLimiterMemory({
-			keyPrefix: `rl:${opts.name}`,
-			points: opts.points,
-			duration: opts.duration,
-		});
-	}
+	const limiter: RateLimiterAbstract = client
+		? new RateLimiterRedis({ storeClient: client, ...budget })
+		: new RateLimiterMemory(budget);
 
 	return async (req: Request, res: Response, next: NextFunction) => {
 		// Escape hatch so route unit tests aren't coupled to rate limits; the

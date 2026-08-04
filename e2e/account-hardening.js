@@ -32,13 +32,13 @@ async function run(t) {
 
 	const orderBlocked = await h.api('/api/orders', {
 		cookie: aliceCookie,
-		body: { ticketId: '0'.repeat(24) },
+		body: { ticketId: h.MISSING_ID },
 	});
 	t.is('unverified CANNOT create an order → 403', orderBlocked.status, 403);
 
 	const payBlocked = await h.api('/api/payments', {
 		cookie: aliceCookie,
-		body: { orderId: '0'.repeat(24) },
+		body: { orderId: h.MISSING_ID },
 	});
 	t.is('unverified CANNOT start a payment → 403', payBlocked.status, 403);
 

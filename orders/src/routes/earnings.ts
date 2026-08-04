@@ -1,18 +1,21 @@
 import express, { Request, Response } from 'express';
-import { requireAuth, OrderStatus } from '@zeina-tickethub/common';
+import { requireAuth } from '@zeina-tickethub/common';
 import { Order } from '../models/order';
 import { Ticket } from '../models/ticket';
 import { refundableUntil } from '../services/refund-window';
+import { PAYABLE_ORDER_FILTER, grossAmount } from '../services/payout-policy';
 
 const router = express.Router();
 
 // Platform fee in basis points (1000 = 10%) — mirrors payments' feeBps so the
 // "clearing" net matches the held/paid net the seller later sees. Integer-cents
 // floor so we never over-state earnings.
-const feeBps = () => Number(process.env.PLATFORM_FEE_BPS ?? 1000);
+const BPS_DIVISOR = 10_000; // basis points per whole unit
+const DEFAULT_FEE_BPS = 1_000; // 10%
+const feeBps = () => Number(process.env.PLATFORM_FEE_BPS ?? DEFAULT_FEE_BPS);
 const netOf = (amount: number) => {
 	const cents = Math.round(amount * 100);
-	const fee = Math.floor((cents * feeBps()) / 10000);
+	const fee = Math.floor((cents * feeBps()) / BPS_DIVISOR);
 	return (cents - fee) / 100;
 };
 
@@ -34,23 +37,19 @@ router.get(
 		}
 		const ticketIds = myTickets.map((t) => t._id);
 
-		// Paid + complete, not refunded / refund-requested, and not yet swept for
-		// payout (payoutDueAt unset). Redeemed orders stay payable, so keep them.
+		// The same "payable" definition the payout sweep uses, narrowed to this
+		// seller's listings. Redeemed orders stay payable, so keep them.
 		const orders = await Order.find({
 			ticket: { $in: ticketIds },
-			status: OrderStatus.Complete,
-			paidAt: { $exists: true },
-			refundRequestedAt: { $exists: false },
-			refundedAt: { $exists: false },
-			payoutDueAt: { $exists: false },
+			...PAYABLE_ORDER_FILTER,
 		})
 			.sort({ _id: -1 })
 			.populate('ticket');
 
 		let clearing = 0;
 		const sales = orders.map((o) => {
-			// Multi-seat (#10): gross is per-seat price times seats sold.
-			const amount = (o.ticket?.price ?? 0) * (o.quantity ?? 1);
+			// A priceless ticket replica shows as a zero sale rather than being hidden.
+			const amount = grossAmount(o) ?? 0;
 			const net = netOf(amount);
 			clearing += net;
 			return {

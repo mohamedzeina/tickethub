@@ -16,18 +16,8 @@
  */
 
 const h = require('./lib/harness');
-const { execFileSync } = require('child_process');
 
 const GATE_API_KEY = process.env.GATE_API_KEY;
-
-function settlePaymentIntent(clientSecret) {
-	const intentId = clientSecret.split('_secret_')[0];
-	execFileSync(
-		'stripe',
-		['payment_intents', 'confirm', intentId, '-d', 'payment_method=pm_card_visa'],
-		{ stdio: 'pipe' },
-	);
-}
 
 // GET a single ticket; returns its current { quantity, availableQty, ... }.
 const showTicket = (cookie, id) =>
@@ -62,7 +52,7 @@ const reserveSeats = (cookie, ticketId, quantity) =>
 // the passes array (sorted by seat, each with its own code).
 async function payAndCollectPasses(buyer, orderId, expectSeats) {
 	const pay = await h.payIntent(buyer.cookie, orderId);
-	settlePaymentIntent(pay.data.clientSecret);
+	h.settlePaymentIntent(pay.data.clientSecret);
 	const res = await h.retry(
 		() => h.api(`/api/passes/order/${orderId}`, { method: 'GET', cookie: buyer.cookie }),
 		{

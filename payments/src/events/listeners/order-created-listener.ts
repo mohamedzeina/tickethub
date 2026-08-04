@@ -22,7 +22,7 @@ export class OrderCreatedListener extends Listener<OrderCreatedEvent> {
 			this.subject,
 			msg.seq,
 			async () => {
-				const order = await Order.build({
+				const order = Order.build({
 					id: data.id,
 					version: data.version,
 					userId: data.userId,

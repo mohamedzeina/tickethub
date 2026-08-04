@@ -1,16 +1,15 @@
 import { OrderCancelledEvent, OrderStatus } from '@zeina-tickethub/common';
-import { JsMsg } from 'nats';
 import { OrderCancelledListener } from '../order-cancelled-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
 import { Payment } from '../../../models/payment';
-import mongoose from 'mongoose';
+import { oid, msg } from '../../../test/helpers';
 
 const setup = async () => {
 	const listener = new OrderCancelledListener(natsWrapper.connection);
 
-	const order = await Order.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
+	const order = Order.build({
+		id: oid(),
 		version: 0,
 		userId: 'asfafssf',
 		status: OrderStatus.Created,
@@ -24,10 +23,7 @@ const setup = async () => {
 		ticket: { id: 'asafalkfn' },
 	};
 
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
-
-	return { listener, data, msg, order };
+	return { listener, data, msg: msg(1), order };
 };
 
 it('updates the status of the order to cancelled', async () => {

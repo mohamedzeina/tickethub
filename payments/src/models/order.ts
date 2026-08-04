@@ -27,15 +27,6 @@ interface OrderDoc extends mongoose.Document {
 	ticketTitle?: string;
 }
 
-// Interface for the JSON representation after transformation
-interface OrderJSON {
-	status: string;
-	_id?: mongoose.Types.ObjectId; // Optional for deletion
-	price: number;
-	userId: string;
-	id?: string; // Added during transformation
-}
-
 interface OrderModel extends mongoose.Model<OrderDoc> {
 	build(attrs: OrderAttrs): OrderDoc;
 }
@@ -71,7 +62,7 @@ const orderSchema = new mongoose.Schema(
 	},
 	{
 		toJSON: {
-			transform(doc: OrderDoc, ret: OrderJSON) {
+			transform(doc: OrderDoc, ret: any) {
 				ret.id = ret._id?.toString();
 				delete ret._id;
 			},

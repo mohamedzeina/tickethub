@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 
-interface TicketAttrs {
+export interface TicketAttrs {
 	id: string; // Added for event handling
 	title: string;
 	price: number;
@@ -28,6 +28,10 @@ export interface TicketDoc extends mongoose.Document {
 	// is mirrored from the tickets service; `reservedSeats` is owned locally and
 	// moved only by reserveSeats/releaseSeats so it never collides with the OCC
 	// version that tracks ticket:updated.
+	// This is the inverse of the tickets service's `availableQty`
+	// (reservedSeats === quantity - availableQty). The ticket:created/:updated
+	// listeners therefore drop the event's availableQty on purpose rather than
+	// mirroring it — that omission is deliberate, not an oversight.
 	quantity: number;
 	reservedSeats: number;
 	userId?: string;

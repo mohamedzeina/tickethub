@@ -8,7 +8,7 @@ import { OrderCancelledListener } from './events/listeners/order-cancelled-liste
 import { OrderRefundRequestedListener } from './events/listeners/order-refund-requested-listener';
 import { OrderPayoutDueListener } from './events/listeners/order-payout-due-listener';
 
-const startTicketsService = async () => {
+const startPaymentsService = async () => {
 	let isShuttingDown = false;
 
 	if (!process.env.JWT_KEY) {
@@ -85,4 +85,4 @@ const startTicketsService = async () => {
 	process.on('SIGTERM', () => shutdown('SIGTERM'));
 };
 
-startTicketsService();
+startPaymentsService();

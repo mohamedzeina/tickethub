@@ -22,6 +22,10 @@ export const formatDateShort = (value) =>
 		  }).format(new Date(value))
 		: null;
 
+// The one-line event meta under a title — "Sat, Jun 6, 2026 · The Forum". Either
+// half can be missing, so empties are dropped rather than leaving a stray dot.
+export const eventMeta = (date, venue) => [date, venue].filter(Boolean).join(' · ');
+
 export const formatDateLong = (value) =>
 	value
 		? new Intl.DateTimeFormat('en-US', {
@@ -32,6 +36,25 @@ export const formatDateLong = (value) =>
 				timeZone: 'UTC',
 		  }).format(new Date(value))
 		: null;
+
+// A wall-clock moment, e.g. "Jun 3, 2026 · 2:48 AM" — the receipt's "Paid on"
+// and the refund deadline. Unlike the event date this is a real instant, so it
+// stays in the viewer's timezone (format it after mount to avoid a mismatch).
+export const formatDateTime = (value) => {
+	if (!value) return null;
+	const d = new Date(value);
+	if (Number.isNaN(d.getTime())) return null;
+	const date = d.toLocaleDateString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+	});
+	const time = d.toLocaleTimeString('en-US', {
+		hour: 'numeric',
+		minute: '2-digit',
+	});
+	return `${date} · ${time}`;
+};
 
 // A real ticket needs a serial number. We derive a stable, printed-looking one
 // from the Mongo id so it never changes between renders.

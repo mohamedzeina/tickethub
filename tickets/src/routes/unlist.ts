@@ -1,12 +1,13 @@
 import express, { Request, Response } from 'express';
-import mongoose from 'mongoose';
 import {
 	requireAuth,
 	NotFoundError,
 	NotAuthorizedError,
 	BadRequestError,
 } from '@zeina-tickethub/common';
-import { Ticket } from '../models/ticket';
+import { Ticket, TicketDoc } from '../models/ticket';
+import { rethrowVersionConflict } from './version-conflict';
+import { ticketEventPayload } from '../events/ticket-event-payload';
 import { TicketUpdatedPublisher } from '../events/publishers/ticket-updated-publisher';
 import { natsWrapper } from '../nats-wrapper';
 
@@ -15,22 +16,8 @@ const router = express.Router();
 // Publish the ticket:updated event after toggling the flag so the orders service
 // learns the listing changed. Reuses the standard save() flow so the version is
 // bumped in lockstep with consumers (a flag-only updateOne would skew them).
-const publishUpdate = (ticket: any) =>
-	new TicketUpdatedPublisher(natsWrapper.js).publish({
-		id: ticket.id,
-		version: ticket.version,
-		title: ticket.title,
-		price: ticket.price,
-		quantity: ticket.quantity,
-		availableQty: ticket.availableQty,
-		userId: ticket.userId,
-		eventDate: ticket.eventDate?.toISOString(),
-		venue: ticket.venue,
-		description: ticket.description,
-		category: ticket.category,
-		imageUrl: ticket.imageUrl,
-		unlisted: ticket.unlisted,
-	});
+const publishUpdate = (ticket: TicketDoc) =>
+	new TicketUpdatedPublisher(natsWrapper.js).publish(ticketEventPayload(ticket));
 
 const setListed = (listed: boolean) => async (req: Request, res: Response) => {
 	const ticket = await Ticket.findById(req.params.id);
@@ -53,23 +40,11 @@ const setListed = (listed: boolean) => async (req: Request, res: Response) => {
 	try {
 		await ticket.save();
 	} catch (err) {
-		// A concurrent change — most likely a buyer reserving this ticket in the
-		// same instant — bumps the version, so optimistic concurrency rejects this
-		// save. Surface a clean 400 instead of an unhandled version error.
-		if (err instanceof mongoose.Error.VersionError) {
-			const latest = await Ticket.findById(req.params.id);
-			if (latest && latest.availableQty < latest.quantity) {
-				throw new BadRequestError(
-					`This ticket was just reserved and can no longer be ${
-						listed ? 'relisted' : 'unlisted'
-					}`,
-				);
-			}
-			throw new BadRequestError(
-				'This ticket was just updated — reload and try again',
-			);
-		}
-		throw err;
+		await rethrowVersionConflict(
+			err,
+			req.params.id,
+			listed ? 'relisted' : 'unlisted',
+		);
 	}
 
 	await publishUpdate(ticket);

@@ -2,7 +2,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import PayoutNudge from '../components/PayoutNudge';
-import { formatPrice, formatDateShort, serialFromId } from '../utils/ticket';
+import SignInPrompt from '../components/SignInPrompt';
+import {
+	formatPrice,
+	formatDateShort,
+	serialFromId,
+	eventMeta,
+} from '../utils/ticket';
 
 // status derived from the seat inventory the tickets service exposes (#10):
 //  - availableQty 0          → every seat sold
@@ -20,7 +26,7 @@ const statusOf = (ticket) => {
 const ListingRow = ({ ticket, onChange }) => {
 	const [busy, setBusy] = useState(false);
 	const date = formatDateShort(ticket.eventDate);
-	const meta = [date, ticket.venue].filter(Boolean).join(' · ');
+	const meta = eventMeta(date, ticket.venue);
 	const status = statusOf(ticket);
 	const qty = ticket.quantity ?? 1;
 	const avail = ticket.availableQty ?? 1;
@@ -116,15 +122,10 @@ const Listings = ({ listings, currentUser }) => {
 
 	if (!currentUser) {
 		return (
-			<div className="container container--mid">
-				<div className="empty stocked bordered">
-					<h3>Sign in to see your listings</h3>
-					<p>Your listings are the tickets you&apos;ve put up for sale.</p>
-					<Link href="/auth/signin" className="btn btn--red" style={{ marginTop: 22 }}>
-						Sign In
-					</Link>
-				</div>
-			</div>
+			<SignInPrompt
+				heading="Sign in to see your listings"
+				body="Your listings are the tickets you&apos;ve put up for sale."
+			/>
 		);
 	}
 

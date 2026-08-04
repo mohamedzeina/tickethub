@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from './icons';
 import useDisplayName from '../hooks/useDisplayName';
+import useDismiss from '../hooks/useDismiss';
 
 // Account dropdown in the navbar (declutters the flat links). The trigger shows
 // the user's display name (#18) — falling back to the email local-part until a
@@ -23,19 +24,7 @@ const UserMenu = ({ currentUser }) => {
 	const fallback = (currentUser.email || '').split('@')[0];
 	const name = useDisplayName(currentUser.id, fallback);
 
-	useEffect(() => {
-		if (!open) return;
-		const onClick = (e) => {
-			if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
-		};
-		const onKey = (e) => e.key === 'Escape' && setOpen(false);
-		document.addEventListener('mousedown', onClick);
-		document.addEventListener('keydown', onKey);
-		return () => {
-			document.removeEventListener('mousedown', onClick);
-			document.removeEventListener('keydown', onKey);
-		};
-	}, [open]);
+	useDismiss(wrapRef, open, () => setOpen(false));
 
 	return (
 		<div className="usermenu" ref={wrapRef}>

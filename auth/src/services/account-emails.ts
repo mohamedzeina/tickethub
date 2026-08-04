@@ -1,41 +1,63 @@
+import { JetStreamClient } from 'nats';
+
 import { natsWrapper } from '../nats-wrapper';
 import { UserDoc } from '../models/user';
 import {
 	TokenManager,
+	TokenField,
+	TokenExpiresField,
 	VERIFICATION_TTL_MS,
 	PASSWORD_RESET_TTL_MS,
 } from './tokens';
 import { VerificationRequestedPublisher } from '../events/publishers/verification-requested-publisher';
 import { PasswordResetRequestedPublisher } from '../events/publishers/password-reset-requested-publisher';
 
-// Mint a fresh verification token, persist its hash + expiry on the user, and
-// publish the request so notifications sends the email. Used by signup and
-// resend. The raw token only ever lives in the event/email link.
-export const issueVerification = async (user: UserDoc): Promise<void> => {
+// Anything that can publish an { email, token } request for notifications.
+interface TokenPublisher {
+	publish(data: { email: string; token: string }): Promise<void>;
+}
+
+interface IssueTokenOptions {
+	tokenField: TokenField;
+	expiresField: TokenExpiresField;
+	ttlMs: number;
+	Publisher: new (js: JetStreamClient) => TokenPublisher;
+}
+
+// Mint a fresh token, persist its hash + expiry on the user, and publish the
+// request so notifications sends the email. The raw token only ever lives in
+// the event/email link — the DB keeps just the hash.
+const issueToken = async (
+	user: UserDoc,
+	{ tokenField, expiresField, ttlMs, Publisher }: IssueTokenOptions,
+): Promise<void> => {
 	const raw = TokenManager.generate();
 	user.set({
-		verificationToken: TokenManager.hash(raw),
-		verificationTokenExpires: new Date(Date.now() + VERIFICATION_TTL_MS),
+		[tokenField]: TokenManager.hash(raw),
+		[expiresField]: new Date(Date.now() + ttlMs),
 	});
 	await user.save();
 
-	await new VerificationRequestedPublisher(natsWrapper.js).publish({
+	await new Publisher(natsWrapper.js).publish({
 		email: user.email,
 		token: raw,
 	});
 };
 
-// Same shape for password reset: store a hashed, short-lived token and publish.
-export const issuePasswordReset = async (user: UserDoc): Promise<void> => {
-	const raw = TokenManager.generate();
-	user.set({
-		passwordResetToken: TokenManager.hash(raw),
-		passwordResetExpires: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+// Verification email. Used by signup and resend; new accounts start unverified.
+export const issueVerification = (user: UserDoc): Promise<void> =>
+	issueToken(user, {
+		tokenField: 'verificationToken',
+		expiresField: 'verificationTokenExpires',
+		ttlMs: VERIFICATION_TTL_MS,
+		Publisher: VerificationRequestedPublisher,
 	});
-	await user.save();
 
-	await new PasswordResetRequestedPublisher(natsWrapper.js).publish({
-		email: user.email,
-		token: raw,
+// Same shape for password reset: a hashed, shorter-lived token.
+export const issuePasswordReset = (user: UserDoc): Promise<void> =>
+	issueToken(user, {
+		tokenField: 'passwordResetToken',
+		expiresField: 'passwordResetExpires',
+		ttlMs: PASSWORD_RESET_TTL_MS,
+		Publisher: PasswordResetRequestedPublisher,
 	});
-};

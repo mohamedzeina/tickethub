@@ -1,297 +1,20 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
-import {
-	Elements,
-	CardElement,
-	useStripe,
-	useElements,
-} from '@stripe/react-stripe-js';
-import Router from 'next/router';
-import { QRCodeSVG } from 'qrcode.react';
+import { Elements } from '@stripe/react-stripe-js';
 import {
 	formatPrice,
 	formatDateShort,
+	formatDateTime,
 	serialFromId,
+	eventMeta,
 } from '../../utils/ticket';
 import SellerReview from '../../components/SellerReview';
-import { ArrowLeft, Check } from '../../components/icons';
-import usePass from '../../hooks/usePass';
+import AdmissionPass from '../../components/AdmissionPass';
+import RefundControl from '../../components/RefundControl';
+import CheckoutForm from '../../components/CheckoutForm';
+import { ArrowLeft } from '../../components/icons';
 import redirect from '../../utils/redirect';
-
-// One seat's pass body: a live QR (+ copy code), a checked-in note, or a revoked
-// note. Shared by the single-seat view and the multi-seat tab panel (#10). Each
-// seat is scanned independently, so each carries its own single-use code.
-const PassBody = ({ pass }) => {
-	const [copied, setCopied] = useState(false);
-
-	const copyCode = async () => {
-		try {
-			await navigator.clipboard.writeText(pass.code);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 1500);
-		} catch {
-			/* clipboard blocked — the QR still works */
-		}
-	};
-
-	if (pass.status === 'redeemed') {
-		return (
-			<div className="pass__state pass__state--used">
-				<Check /> Checked in
-				{pass.redeemedAt ? ` · ${new Date(pass.redeemedAt).toLocaleString()}` : ''}
-			</div>
-		);
-	}
-	if (pass.status === 'revoked') {
-		return (
-			<div className="pass__state pass__state--void">
-				Pass revoked — this order was refunded.
-			</div>
-		);
-	}
-	if (pass.status === 'issued' && pass.code) {
-		return (
-			<>
-				<div className="pass__qr">
-					<QRCodeSVG
-						value={`${
-							typeof window !== 'undefined' ? window.location.origin : ''
-						}/gate?code=${encodeURIComponent(pass.code)}`}
-						size={172}
-						bgColor="#f3ecd8"
-						fgColor="#211b16"
-						level="M"
-					/>
-				</div>
-				<div className="pass__hint">Scan at the gate. Single use.</div>
-				<button type="button" className="btn pass__copy" onClick={copyCode}>
-					{copied ? 'Copied' : 'Copy gate code'}
-				</button>
-			</>
-		);
-	}
-	return null;
-};
-
-// Maps a pass status to the coloured dot shown on its seat tab.
-const seatDot = (status) =>
-	status === 'redeemed' ? 'used' : status === 'revoked' ? 'void' : 'live';
-
-// The admission passes (#delivery / #10). For a multi-seat order the seats are a
-// compact tab strip showing one QR at a time — the receipt stays short no matter
-// how many seats, and each tab carries that seat's status at a glance. Minted off
-// payment:created, so they can briefly lag; usePass polls while pending.
-const AdmissionPass = ({ orderId }) => {
-	const { passes, status } = usePass(orderId);
-	const [active, setActive] = useState(0);
-
-	// Sort by seat so tabs read 1, 2, 3… regardless of the fetch order.
-	const seats = [...passes].sort((a, b) => (a.seat ?? 0) - (b.seat ?? 0));
-	const multi = seats.length > 1;
-	const activeIndex = Math.min(active, Math.max(seats.length - 1, 0));
-
-	let body;
-	if (status === 'ready' && seats.length > 0) {
-		body = (
-			<>
-				{multi && (
-					<div className="pass__tabs" role="tablist" aria-label="Seat passes">
-						{seats.map((p, i) => (
-							<button
-								key={p.id}
-								type="button"
-								role="tab"
-								aria-selected={i === activeIndex}
-								className={`pass__tab${i === activeIndex ? ' is-active' : ''}`}
-								onClick={() => setActive(i)}
-							>
-								Seat {p.seat}
-								<span
-									className={`pass__dot pass__dot--${seatDot(p.status)}`}
-									aria-hidden="true"
-								/>
-							</button>
-						))}
-					</div>
-				)}
-				<div className="pass__panel" role="tabpanel">
-					<PassBody pass={seats[activeIndex]} />
-				</div>
-			</>
-		);
-	} else if (status === 'error') {
-		body = <div className="pass__hint">Couldn’t load your pass.</div>;
-	} else {
-		// loading / pending — skeleton of the QR so the slot doesn't sit empty
-		// while the pass is minted (it can lag the paid order by a moment).
-		body = (
-			<div className="pass__panel">
-				<div className="pass__qr sk" style={{ width: 172, height: 172 }} />
-				<div className="pass__hint">Generating your pass…</div>
-			</div>
-		);
-	}
-
-	return (
-		<div className="pass">
-			<div className="pass__head">
-				{multi ? `Admission Passes · ${seats.length} seats` : 'Admission Pass'}
-			</div>
-			{body}
-		</div>
-	);
-};
-
-// Formats the refund deadline as e.g. "Jun 6, 2026 · 2:48 AM" for the receipt.
-const formatDeadline = (value) => {
-	if (!value) return null;
-	const d = new Date(value);
-	if (Number.isNaN(d.getTime())) return null;
-	const date = d.toLocaleDateString('en-US', {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric',
-	});
-	const time = d.toLocaleTimeString('en-US', {
-		hour: 'numeric',
-		minute: '2-digit',
-	});
-	return `${date} · ${time}`;
-};
-
-// Buyer-initiated refund (#6 tail). The receipt shows one of three states:
-//   • refundable           → a two-step "Request refund" control
-//   • refundRequestedAt set → "Refund processing" (Stripe webhook hasn't
-//                             confirmed yet); poll until the order flips
-//   • neither               → nothing (window passed, redeemed, etc.)
-// The actual Refunded status lands asynchronously once payments confirms the
-// Stripe `charge.refunded` webhook, so after requesting we poll the order and
-// reload into the refunded dead-end when it settles.
-const RefundControl = ({ order }) => {
-	// Multi-seat (#10): the refund returns the whole order (per-seat price × seats).
-	const total = order.ticket.price * (order.quantity ?? 1);
-	const [requested, setRequested] = useState(!!order.refundRequestedAt);
-	const [confirming, setConfirming] = useState(false);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState(null);
-
-	// The deadline is a wall-clock time; format after mount to avoid an
-	// SSR/client hydration mismatch (same reasoning as "Paid on").
-	const [deadline, setDeadline] = useState(null);
-	useEffect(() => {
-		setDeadline(formatDeadline(order.refundableUntil));
-	}, [order.refundableUntil]);
-
-	// While a refund is processing, watch for the webhook to flip the order to
-	// refunded (or cancelled) and reload into the refunded dead-end.
-	useEffect(() => {
-		if (!requested) return undefined;
-		let active = true;
-		const id = setInterval(async () => {
-			try {
-				const { data } = await axios.get(`/api/orders/${order.id}`);
-				if (
-					active &&
-					(data.status === 'refunded' || data.status === 'cancelled')
-				) {
-					clearInterval(id);
-					Router.reload();
-				}
-			} catch (err) {
-				/* transient — keep polling */
-			}
-		}, 2500);
-		return () => {
-			active = false;
-			clearInterval(id);
-		};
-	}, [requested, order.id]);
-
-	const requestRefund = async () => {
-		setLoading(true);
-		setError(null);
-		try {
-			await axios.post(`/api/orders/${order.id}/refund`);
-			setRequested(true);
-			setConfirming(false);
-		} catch (err) {
-			setError(
-				err?.response?.data?.errors?.[0]?.message ||
-					'Could not request a refund. Please try again.',
-			);
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	if (requested) {
-		return (
-			<div className="refund refund--processing">
-				<div className="refund__spinner" aria-hidden="true" />
-				<div className="refund__head">Refund processing</div>
-				<p className="refund__note">
-					We&apos;re returning {formatPrice(total)} to your
-					original payment method and releasing the ticket. This takes a few
-					seconds to confirm; it can take 5–10 business days to appear on your
-					statement.
-				</p>
-			</div>
-		);
-	}
-
-	if (!order.refundable) return null;
-
-	return (
-		<div className="refund">
-			{confirming ? (
-				<>
-					<div className="refund__head">Refund this order?</div>
-					<p className="refund__note">
-						This releases your ticket back for sale and returns{' '}
-						{formatPrice(total)} to your original payment method.
-						This can&apos;t be undone.
-					</p>
-					{error && <div className="card-error">{error}</div>}
-					<div className="refund__actions">
-						<button
-							type="button"
-							className="btn btn--red"
-							onClick={requestRefund}
-							disabled={loading}
-						>
-							{loading ? 'Requesting…' : 'Confirm refund'}
-						</button>
-						<button
-							type="button"
-							className="btn btn--line"
-							onClick={() => setConfirming(false)}
-							disabled={loading}
-						>
-							Keep ticket
-						</button>
-					</div>
-				</>
-			) : (
-				<>
-					<button
-						type="button"
-						className="btn btn--line btn--block"
-						onClick={() => setConfirming(true)}
-					>
-						Request refund
-					</button>
-					{deadline && (
-						<div className="refund__deadline">
-							Refundable until {deadline}
-						</div>
-					)}
-				</>
-			)}
-		</div>
-	);
-};
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY);
 
@@ -301,157 +24,11 @@ const formatClock = (totalSeconds) => {
 	return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-// Styling for the embedded Stripe card field so it matches the ink-on-stock theme.
-const cardElementOptions = {
-	style: {
-		base: {
-			color: '#211b14',
-			fontFamily: '"DM Mono", ui-monospace, monospace',
-			fontSize: '15px',
-			fontSmoothing: 'antialiased',
-			'::placeholder': { color: '#6f6244' },
-		},
-		invalid: { color: '#c4291b', iconColor: '#c4291b' },
-	},
-};
-
-// Embedded card form. C3: the server creates a PaymentIntent and returns its
-// client_secret; the browser confirms the card directly with Stripe. The order
-// is marked paid by the webhook (payment_intent.succeeded), not by this request.
-// The card succeeds at Stripe, but the order is only marked `complete` once the
-// webhook (payment_intent.succeeded) reaches payments → publishes payment:created
-// → the orders listener flips it. That's eventually consistent (~1–2s). Poll the
-// order until it reflects the payment so the buyer doesn't land back on a stale
-// "Pay now" list. Capped so a missed webhook still redirects rather than hangs.
-const waitForCompletion = async (orderId, { attempts = 20, intervalMs = 600 } = {}) => {
-	for (let i = 0; i < attempts; i++) {
-		try {
-			const { data } = await axios.get(`/api/orders/${orderId}`);
-			if (data.status === 'complete') return true;
-		} catch (err) {
-			// transient — keep polling
-		}
-		await new Promise((resolve) => setTimeout(resolve, intervalMs));
-	}
-	return false;
-};
-
-const CheckoutForm = ({ amount, orderId }) => {
-	const stripe = useStripe();
-	const elements = useElements();
-	const [loading, setLoading] = useState(false);
-	const [finalizing, setFinalizing] = useState(false);
-	const [focused, setFocused] = useState(false);
-	const [cardError, setCardError] = useState(null);
-	const [cardComplete, setCardComplete] = useState(false);
-
-	const handlePay = async () => {
-		if (!stripe || !elements) return;
-
-		// Guard incomplete card details up front with a clear message, rather than
-		// letting the attempt fail and surface a vague "something went wrong".
-		if (!cardComplete) {
-			setCardError('Please enter your full card details.');
-			return;
-		}
-
-		setLoading(true);
-		setCardError(null);
-
-		try {
-			// 1. ask the server to create a PaymentIntent for this order
-			const { data } = await axios.post('/api/payments', { orderId });
-
-			// 2. confirm the card against that intent, client-side
-			const result = await stripe.confirmCardPayment(data.clientSecret, {
-				payment_method: { card: elements.getElement(CardElement) },
-			});
-
-			if (result.error) {
-				setCardError(result.error.message);
-				setLoading(false);
-				return;
-			}
-
-			if (result.paymentIntent?.status === 'succeeded') {
-				// 3. wait for the order to actually reflect the payment before
-				// sending the buyer back to their (otherwise stale) orders list.
-				setFinalizing(true);
-				await waitForCompletion(orderId);
-				Router.push('/orders');
-				return;
-			}
-
-			setCardError('Payment could not be completed. Please try again.');
-			setLoading(false);
-		} catch (err) {
-			const message =
-				err?.response?.data?.errors?.[0]?.message ||
-				'Something went wrong. Please try again.';
-			setCardError(message);
-			setLoading(false);
-			setFinalizing(false);
-		}
-	};
-
-	return (
-		<div>
-			<label>Card details</label>
-			<div className={`stripe-field${focused ? ' is-focused' : ''}`}>
-				<CardElement
-					options={cardElementOptions}
-					onFocus={() => setFocused(true)}
-					onBlur={() => setFocused(false)}
-					onChange={(e) => {
-						setCardError(e.error ? e.error.message : null);
-						setCardComplete(e.complete);
-					}}
-				/>
-			</div>
-			{cardError && <div className="card-error">{cardError}</div>}
-
-			<button
-				onClick={handlePay}
-				disabled={!stripe || loading}
-				className="btn btn--red btn--block"
-				style={{ marginTop: 16 }}
-			>
-				{finalizing
-					? 'Finalizing payment…'
-					: loading
-						? 'Processing…'
-						: `Validate & Pay ${formatPrice(amount)}`}
-			</button>
-
-			<p className="test-note">
-				Test card · 4242 4242 4242 4242 · any future date · any CVC
-			</p>
-		</div>
-	);
-};
-
-// Formats the paid-at timestamp as e.g. "Jun 3, 2026 · 2:48 AM".
-const formatPaidAt = (value) => {
-	if (!value) return null;
-	const d = new Date(value);
-	if (Number.isNaN(d.getTime())) return null;
-	const date = d.toLocaleDateString('en-US', {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric',
-	});
-	const time = d.toLocaleTimeString('en-US', {
-		hour: 'numeric',
-		minute: '2-digit',
-	});
-	return `${date} · ${time}`;
-};
-
 // C5: a real receipt for a paid order — replaces the checkout gate once the
 // webhook-driven payment:created event has completed the order.
 const Receipt = ({ order, reviewState }) => {
 	const eventDate = formatDateShort(order.ticket.eventDate);
-	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
+	const meta = eventMeta(eventDate, order.ticket.venue);
 	// Multi-seat (#10): amount paid is the per-seat price times the seats bought.
 	const seats = order.quantity ?? 1;
 	const total = order.ticket.price * seats;
@@ -461,7 +38,7 @@ const Receipt = ({ order, reviewState }) => {
 	// time with no server/client clash.
 	const [paidAt, setPaidAt] = useState(null);
 	useEffect(() => {
-		setPaidAt(formatPaidAt(order.paidAt));
+		setPaidAt(formatDateTime(order.paidAt));
 	}, [order.paidAt]);
 
 	return (
@@ -538,6 +115,26 @@ const Receipt = ({ order, reviewState }) => {
 	);
 };
 
+// The dead-ends an order can land on instead of the checkout gate — unavailable,
+// cancelled/refunded, expired. Same voided ticket stub every time; only the
+// heading, the explanation, and the way back differ.
+const VoidGate = ({ heading, body, ctaHref, ctaLabel }) => (
+	<div className="container">
+		<div className="gate stocked bordered">
+			<div className="gate--expired">
+				<span className="stamp stamp--void" style={{ marginBottom: 18 }}>
+					Void
+				</span>
+				<div className="big">{heading}</div>
+				<p>{body}</p>
+				<Link href={ctaHref} className="btn btn--red" style={{ marginTop: 22 }}>
+					{ctaLabel}
+				</Link>
+			</div>
+		</div>
+	</div>
+);
+
 const OrderShow = ({ order, reviewState }) => {
 	const [timeLeft, setTimeLeft] = useState(0);
 
@@ -561,23 +158,12 @@ const OrderShow = ({ order, reviewState }) => {
 	// would cancel the route transition and bounce the user back.
 	if (!order) {
 		return (
-			<div className="container">
-				<div className="gate stocked bordered">
-					<div className="gate--expired">
-						<span className="stamp stamp--void" style={{ marginBottom: 18 }}>
-							Void
-						</span>
-						<div className="big">Order unavailable</div>
-						<p>
-							We couldn&apos;t pull up this order. It may have been removed, or
-							it isn&apos;t one of yours. Check your orders for the full list.
-						</p>
-						<Link href="/orders" className="btn btn--red" style={{ marginTop: 22 }}>
-							My orders
-						</Link>
-					</div>
-				</div>
-			</div>
+			<VoidGate
+				heading="Order unavailable"
+				body="We couldn&apos;t pull up this order. It may have been removed, or it isn&apos;t one of yours. Check your orders for the full list."
+				ctaHref="/orders"
+				ctaLabel="My orders"
+			/>
 		);
 	}
 
@@ -592,52 +178,33 @@ const OrderShow = ({ order, reviewState }) => {
 	if (order.status === 'cancelled' || order.status === 'refunded') {
 		const wasPaid = !!order.paidAt;
 		return (
-			<div className="container">
-				<div className="gate stocked bordered">
-					<div className="gate--expired">
-						<span className="stamp stamp--void" style={{ marginBottom: 18 }}>
-							Void
-						</span>
-						<div className="big">{wasPaid ? 'Order refunded' : 'Order cancelled'}</div>
-						<p>
-							{wasPaid
-								? 'This order was refunded and the ticket released. Your refund is on its way to your original payment method — it can take 5–10 business days to appear on your statement.'
-								: 'This reservation was cancelled and the ticket released. Head back and pick up another.'}
-						</p>
-						<Link href="/" className="btn btn--red" style={{ marginTop: 22 }}>
-							Browse tickets
-						</Link>
-					</div>
-				</div>
-			</div>
+			<VoidGate
+				heading={wasPaid ? 'Order refunded' : 'Order cancelled'}
+				body={
+					wasPaid
+						? 'This order was refunded and the ticket released. Your refund is on its way to your original payment method — it can take 5–10 business days to appear on your statement.'
+						: 'This reservation was cancelled and the ticket released. Head back and pick up another.'
+				}
+				ctaHref="/"
+				ctaLabel="Browse tickets"
+			/>
 		);
 	}
 
 	if (timeLeft < 0) {
 		return (
-			<div className="container">
-				<div className="gate stocked bordered">
-					<div className="gate--expired">
-						<span className="stamp stamp--void" style={{ marginBottom: 18 }}>
-							Void
-						</span>
-						<div className="big">Order expired</div>
-						<p>
-							This reservation timed out at the gate. Head back and pick up
-							another ticket.
-						</p>
-						<Link href="/" className="btn btn--red" style={{ marginTop: 22 }}>
-							Browse tickets
-						</Link>
-					</div>
-				</div>
-			</div>
+			<VoidGate
+				heading="Order expired"
+				body="This reservation timed out at the gate. Head back and pick up another ticket."
+				ctaHref="/"
+				ctaLabel="Browse tickets"
+			/>
 		);
 	}
 
 	const urgent = timeLeft <= 60;
 	const eventDate = formatDateShort(order.ticket.eventDate);
-	const meta = [eventDate, order.ticket.venue].filter(Boolean).join(' · ');
+	const meta = eventMeta(eventDate, order.ticket.venue);
 	// Multi-seat (#10): the buyer pays the per-seat price for every reserved seat.
 	const seats = order.quantity ?? 1;
 	const total = order.ticket.price * seats;

@@ -1,28 +1,15 @@
 import request from 'supertest';
-import mongoose from 'mongoose';
 import { app } from '../../app';
-import { Pass, PassStatus } from '../../models/pass';
-
-const buildPass = async (overrides: Record<string, any> = {}) => {
-	const pass = Pass.build({
-		orderId: new mongoose.Types.ObjectId().toHexString(),
-		buyerId: new mongoose.Types.ObjectId().toHexString(),
-		ticketId: new mongoose.Types.ObjectId().toHexString(),
-		eventTitle: 'Coldplay',
-		venue: 'Wembley',
-		...overrides,
-	});
-	await pass.save();
-	return pass;
-};
+import { PassStatus } from '../../models/pass';
+import { oid, buildPass } from '../../test/helpers';
 
 it('requires authentication', async () => {
-	const orderId = new mongoose.Types.ObjectId().toHexString();
+	const orderId = oid();
 	await request(app).get(`/api/passes/order/${orderId}`).send().expect(401);
 });
 
 it('404s when no pass exists for the order', async () => {
-	const orderId = new mongoose.Types.ObjectId().toHexString();
+	const orderId = oid();
 	await request(app)
 		.get(`/api/passes/order/${orderId}`)
 		.set('Cookie', global.signin())
@@ -40,7 +27,7 @@ it("401s when the requester isn't the pass owner", async () => {
 });
 
 it('returns the pass and a signed code to the owner', async () => {
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
+	const buyerId = oid();
 	const pass = await buildPass({ buyerId });
 
 	const res = await request(app)
@@ -59,9 +46,9 @@ it('returns the pass and a signed code to the owner', async () => {
 });
 
 it('returns every seat pass for a multi-seat order (#10)', async () => {
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
-	const orderId = new mongoose.Types.ObjectId().toHexString();
-	const ticketId = new mongoose.Types.ObjectId().toHexString();
+	const buyerId = oid();
+	const orderId = oid();
+	const ticketId = oid();
 
 	// Mint 3 passes for one order, out of seat order.
 	for (const seat of [2, 1, 3]) {
@@ -82,7 +69,7 @@ it('returns every seat pass for a multi-seat order (#10)', async () => {
 });
 
 it('hides the code once the pass is no longer issued', async () => {
-	const buyerId = new mongoose.Types.ObjectId().toHexString();
+	const buyerId = oid();
 	const pass = await buildPass({ buyerId });
 	pass.set({ status: PassStatus.Redeemed });
 	await pass.save();

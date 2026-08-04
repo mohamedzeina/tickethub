@@ -16,6 +16,11 @@ import { natsWrapper } from '../nats-wrapper';
 
 const router = express.Router();
 
+// Cap on seats a single order may claim. Per-service on purpose: tickets keeps
+// its own copy of the same number — sharing it would mean putting it in the
+// common package.
+const MAX_SEATS_PER_ORDER = 20;
+
 const ordersCreated = new client.Counter({
 	name: 'orders_created_total',
 	help: 'Orders created (tickets reserved)',
@@ -29,8 +34,10 @@ router.post(
 		body('ticketId').not().isEmpty().withMessage('ticketId must be provided'),
 		body('quantity')
 			.optional()
-			.isInt({ min: 1, max: 20 })
-			.withMessage('Quantity must be a whole number between 1 and 20')
+			.isInt({ min: 1, max: MAX_SEATS_PER_ORDER })
+			.withMessage(
+				`Quantity must be a whole number between 1 and ${MAX_SEATS_PER_ORDER}`,
+			)
 			.toInt(),
 	],
 	validateRequest,

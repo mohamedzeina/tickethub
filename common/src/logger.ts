@@ -10,11 +10,15 @@ const level =
 	process.env.LOG_LEVEL ??
 	(process.env.NODE_ENV === 'test' ? 'silent' : 'info');
 
+// Also used as the `service` default label on the metrics registry, so logs and
+// metrics always agree on what this process calls itself.
+export const serviceName = process.env.SERVICE_NAME ?? 'tickethub';
+
 // JSON to stdout (pino default). No pretty transport — log shippers/Grafana
 // parse the raw JSON; humans can pipe through `pino-pretty` locally if they want.
 export const logger = pino({
 	level,
-	base: { service: process.env.SERVICE_NAME ?? 'tickethub' },
+	base: { service: serviceName },
 });
 
 // Pull a request id off common proxy/ingress headers so a single request can be

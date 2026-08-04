@@ -6,6 +6,7 @@ import { Refund } from '../models/refund';
 import { PaymentCreatedPublisher } from '../events/publishers/payment-created-publisher';
 import { PaymentRefundedPublisher } from '../events/publishers/payment-refunded-publisher';
 import { natsWrapper } from '../nats-wrapper';
+import { isDuplicateKey } from '../is-duplicate-key';
 
 const router = express.Router();
 
@@ -17,6 +18,112 @@ const paymentsFailed = new client.Counter({
 	name: 'payments_failed_total',
 	help: 'Stripe payments that failed (payment_intent.payment_failed)',
 });
+
+// Derived from constructEvent() rather than annotated as Stripe.Event: stripe
+// v22 stopped re-exporting its types from the package entry point (same reason
+// the transfer params are inferred in services/payouts.ts).
+type StripeEvent = ReturnType<typeof stripe.webhooks.constructEvent>;
+
+// A payment cleared. Record it and announce it — exactly once per intent, no
+// matter how many times Stripe delivers the event. Returning early just means
+// "nothing more to do"; the route acks either way.
+const handleIntentSucceeded = async (event: StripeEvent) => {
+	const paymentIntent = event.data.object as {
+		id: string;
+		latest_charge?: string;
+		metadata: { orderId?: string };
+	};
+	const orderId = paymentIntent.metadata.orderId;
+
+	// Webhooks can be delivered more than once — only record the payment
+	// (and publish payment:created) the first time we see this intent.
+	const existing = await Payment.findOne({ stripeId: paymentIntent.id });
+
+	if (!orderId || existing) return;
+
+	const payment = Payment.build({
+		orderId,
+		stripeId: paymentIntent.id,
+		// Captured for #11 payouts (source_transaction on the transfer).
+		chargeId: paymentIntent.latest_charge,
+	});
+
+	try {
+		await payment.save();
+	} catch (err) {
+		// The unique index on stripeId rejects a concurrent redelivery
+		// that slipped past the !existing check (race across pods).
+		// The winning request already published, so just ack.
+		if (isDuplicateKey(err)) {
+			return;
+		}
+		throw err;
+	}
+
+	// Count unique successful payments (the !existing guard + unique
+	// index dedup Stripe's at-least-once webhook redelivery).
+	paymentsSucceeded.inc();
+
+	// The receipt email is now sent by the notifications service off
+	// this same payment:created event (centralized comms, #6).
+	await new PaymentCreatedPublisher(natsWrapper.js).publish({
+		id: payment.id,
+		orderId: payment.orderId,
+		stripeId: payment.stripeId,
+	});
+};
+
+// A refund settled. This is the CONFIRMATION (not the optimistic
+// refunds.create return) — publish payment:refunded exactly once so
+// orders flips to Refunded, the pass is revoked, and the buyer is emailed.
+const handleChargeRefunded = async (event: StripeEvent) => {
+	const charge = event.data.object as {
+		payment_intent?: string;
+		amount_refunded?: number;
+	};
+	const pi = charge.payment_intent;
+	const amount = (charge.amount_refunded ?? 0) / 100;
+
+	if (!pi) return;
+
+	const payment = await Payment.findOne({ stripeId: pi });
+	if (!payment) return;
+
+	// Stripe delivers webhooks at-least-once, and two deliveries can
+	// race (retries, or more than one `stripe listen`). Flip the refund
+	// pending->succeeded ATOMICALLY — a requested refund has a pending
+	// record; a dashboard refund is upserted. Only the delivery that
+	// wins this transition gets a doc back and publishes. A later
+	// delivery finds it already 'succeeded', so its upsert-insert hits
+	// the unique orderId index (11000) and no-ops — the same
+	// at-least-once idempotency the payment_intent.succeeded path has.
+	let refund;
+	try {
+		refund = await Refund.findOneAndUpdate(
+			{ orderId: payment.orderId, status: { $ne: 'succeeded' } },
+			{
+				$set: { status: 'succeeded', amount },
+				$setOnInsert: { orderId: payment.orderId, stripeId: pi },
+			},
+			{ new: true, upsert: true },
+		);
+	} catch (err) {
+		// Unique orderId blocks the insert when another delivery already
+		// flipped this refund to succeeded — that one published, so ack.
+		if (isDuplicateKey(err)) {
+			return;
+		}
+		throw err;
+	}
+
+	await new PaymentRefundedPublisher(natsWrapper.js).publish({
+		id: payment.id,
+		orderId: payment.orderId,
+		stripeId: payment.stripeId,
+		amount,
+		refundId: refund?.refundId,
+	});
+};
 
 // Stripe signs each webhook with the endpoint's secret over the *raw* request
 // body, so this route parses the body as a Buffer (express.raw) instead of JSON.
@@ -42,101 +149,11 @@ router.post(
 		}
 
 		if (event.type === 'payment_intent.succeeded') {
-			const paymentIntent = event.data.object as {
-				id: string;
-				latest_charge?: string;
-				metadata: { orderId?: string };
-			};
-			const orderId = paymentIntent.metadata.orderId;
-
-			// Webhooks can be delivered more than once — only record the payment
-			// (and publish payment:created) the first time we see this intent.
-			const existing = await Payment.findOne({ stripeId: paymentIntent.id });
-
-			if (orderId && !existing) {
-				const payment = Payment.build({
-					orderId,
-					stripeId: paymentIntent.id,
-					// Captured for #11 payouts (source_transaction on the transfer).
-					chargeId: paymentIntent.latest_charge,
-				});
-
-				try {
-					await payment.save();
-				} catch (err) {
-					// The unique index on stripeId rejects a concurrent redelivery
-					// that slipped past the !existing check (race across pods).
-					// The winning request already published, so just ack.
-					if ((err as { code?: number }).code === 11000) {
-						return res.send({ received: true });
-					}
-					throw err;
-				}
-
-				// Count unique successful payments (the !existing guard + unique
-				// index dedup Stripe's at-least-once webhook redelivery).
-				paymentsSucceeded.inc();
-
-				// The receipt email is now sent by the notifications service off
-				// this same payment:created event (centralized comms, #6).
-				await new PaymentCreatedPublisher(natsWrapper.js).publish({
-					id: payment.id,
-					orderId: payment.orderId,
-					stripeId: payment.stripeId,
-				});
-			}
+			await handleIntentSucceeded(event);
 		} else if (event.type === 'payment_intent.payment_failed') {
 			paymentsFailed.inc();
 		} else if (event.type === 'charge.refunded') {
-			// A refund settled. This is the CONFIRMATION (not the optimistic
-			// refunds.create return) — publish payment:refunded exactly once so
-			// orders flips to Refunded, the pass is revoked, and the buyer is emailed.
-			const charge = event.data.object as {
-				payment_intent?: string;
-				amount_refunded?: number;
-			};
-			const pi = charge.payment_intent;
-			const amount = (charge.amount_refunded ?? 0) / 100;
-
-			if (pi) {
-				const payment = await Payment.findOne({ stripeId: pi });
-				if (payment) {
-					// Stripe delivers webhooks at-least-once, and two deliveries can
-					// race (retries, or more than one `stripe listen`). Flip the refund
-					// pending->succeeded ATOMICALLY — a requested refund has a pending
-					// record; a dashboard refund is upserted. Only the delivery that
-					// wins this transition gets a doc back and publishes. A later
-					// delivery finds it already 'succeeded', so its upsert-insert hits
-					// the unique orderId index (11000) and no-ops — the same
-					// at-least-once idempotency the payment_intent.succeeded path has.
-					let refund;
-					try {
-						refund = await Refund.findOneAndUpdate(
-							{ orderId: payment.orderId, status: { $ne: 'succeeded' } },
-							{
-								$set: { status: 'succeeded', amount },
-								$setOnInsert: { orderId: payment.orderId, stripeId: pi },
-							},
-							{ new: true, upsert: true },
-						);
-					} catch (err) {
-						// Unique orderId blocks the insert when another delivery already
-						// flipped this refund to succeeded — that one published, so ack.
-						if ((err as { code?: number }).code === 11000) {
-							return res.send({ received: true });
-						}
-						throw err;
-					}
-
-					await new PaymentRefundedPublisher(natsWrapper.js).publish({
-						id: payment.id,
-						orderId: payment.orderId,
-						stripeId: payment.stripeId,
-						amount,
-						refundId: refund?.refundId,
-					});
-				}
-			}
+			await handleChargeRefunded(event);
 		}
 
 		res.send({ received: true });

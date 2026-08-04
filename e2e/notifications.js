@@ -18,7 +18,7 @@ async function run(t) {
 	const noAuthList = await h.api('/api/notifications', { method: 'GET' });
 	t.is('GET feed with no cookie → 401', noAuthList.status, 401);
 
-	const noAuthReadOne = await h.api(`/api/notifications/${'0'.repeat(24)}/read`, {
+	const noAuthReadOne = await h.api(`/api/notifications/${h.MISSING_ID}/read`, {
 		method: 'POST',
 	});
 	t.is('mark-one-read with no cookie → 401', noAuthReadOne.status, 401);
@@ -94,7 +94,7 @@ async function run(t) {
 	);
 
 	t.suite('SUITE 5 — Mark-one-read edge cases');
-	const readMissing = await h.api(`/api/notifications/${'0'.repeat(24)}/read`, {
+	const readMissing = await h.api(`/api/notifications/${h.MISSING_ID}/read`, {
 		method: 'POST',
 		cookie: buyer.cookie,
 	});

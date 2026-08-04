@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
+import { IconCamera, IconCheck, IconX, IconBack } from '../components/icons';
 
 // Pull the signed pass code out of a scanned value — it may be a raw code, or a
 // `/gate?code=...` deep-link URL (what the receipt QR encodes, so a plain phone
@@ -16,30 +17,6 @@ const extractCode = (text) => {
 	}
 	return String(text).trim();
 };
-
-const IconCamera = (props) => (
-	<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-		<path d="M3 7h3l1.5-2h9L18 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" />
-		<circle cx="12" cy="13" r="3.5" />
-	</svg>
-);
-const IconCheck = (props) => (
-	<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-		<circle cx="12" cy="12" r="9" />
-		<path d="m8.5 12 2.5 2.5 4.5-5" />
-	</svg>
-);
-const IconX = (props) => (
-	<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-		<circle cx="12" cy="12" r="9" />
-		<path d="m9 9 6 6m0-6-6 6" />
-	</svg>
-);
-const IconBack = (props) => (
-	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-		<path d="m15 18-6-6 6-6" />
-	</svg>
-);
 
 // Operator gate scanner (admission #delivery). Admit a guest by scanning their
 // pass QR with the camera, opening their QR deep-link (prefills the code), or

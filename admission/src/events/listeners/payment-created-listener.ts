@@ -12,6 +12,7 @@ import { ProcessedEvent } from '../../models/processed-event';
 import { OrderRef } from '../../models/order-ref';
 import { TicketRef } from '../../models/ticket-ref';
 import { Pass } from '../../models/pass';
+import { isDuplicateKey } from '../../is-duplicate-key';
 
 export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 	readonly subject = Subjects.PaymentCreated;
@@ -50,8 +51,8 @@ export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 				try {
 					await pass.save();
 				} catch (err: any) {
-					// 11000 = this seat's pass already exists. Benign.
-					if (err?.code !== 11000) {
+					// This seat's pass already exists. Benign.
+					if (!isDuplicateKey(err)) {
 						throw err;
 					}
 				}

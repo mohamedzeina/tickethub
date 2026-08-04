@@ -13,8 +13,6 @@
 const h = require('./lib/harness');
 
 async function run(t) {
-	const MISSING_ID = '0'.repeat(24); // valid ObjectId shape, no such ticket/order
-
 	t.suite('SUITE 1 — Reserve happy path (verified buyer, two distinct users)');
 	const seller = await h.signupVerified('seller');
 	const buyer = await h.signupVerified('buyer');
@@ -62,7 +60,7 @@ async function run(t) {
 	});
 	t.is('reserving an unlisted ticket → 400', unlistedReserve.status, 400);
 
-	const missingTicket = await h.reserve(buyer.cookie, MISSING_ID);
+	const missingTicket = await h.reserve(buyer.cookie, h.MISSING_ID);
 	t.is('reserving a non-existent ticket → 404', missingTicket.status, 404);
 
 	t.suite('SUITE 3 — Show order (owner vs other user vs anon)');
@@ -77,7 +75,7 @@ async function run(t) {
 	const showAnon = await h.api(`/api/orders/${orderId}`, { method: 'GET' });
 	t.is('fetching an order without auth → 401', showAnon.status, 401);
 
-	const showMissing = await h.api(`/api/orders/${MISSING_ID}`, { method: 'GET', cookie: buyer.cookie });
+	const showMissing = await h.api(`/api/orders/${h.MISSING_ID}`, { method: 'GET', cookie: buyer.cookie });
 	t.is('fetching a non-existent order → 404', showMissing.status, 404);
 
 	t.suite('SUITE 4 — List my orders');
@@ -99,7 +97,7 @@ async function run(t) {
 	const cancelOther = await h.api(`/api/orders/${orderId}`, { method: 'DELETE', cookie: seller.cookie });
 	t.is("another user cannot cancel someone else's order → 401", cancelOther.status, 401);
 
-	const cancelMissing = await h.api(`/api/orders/${MISSING_ID}`, { method: 'DELETE', cookie: buyer.cookie });
+	const cancelMissing = await h.api(`/api/orders/${h.MISSING_ID}`, { method: 'DELETE', cookie: buyer.cookie });
 	t.is('cancelling a non-existent order → 404', cancelMissing.status, 404);
 
 	const cancel = await h.api(`/api/orders/${orderId}`, { method: 'DELETE', cookie: buyer.cookie });

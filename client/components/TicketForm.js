@@ -3,8 +3,7 @@ import axios from 'axios';
 import Router from 'next/router';
 import useRequest from '../hooks/useRequest';
 import { Upload } from './icons';
-
-const CATEGORIES = ['Concerts', 'Sports', 'Theater', 'Festivals', 'Other'];
+import { CATEGORIES } from '../utils/ticketQuery';
 
 const EMPTY = {
 	title: '',

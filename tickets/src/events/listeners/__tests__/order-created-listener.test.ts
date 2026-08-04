@@ -2,8 +2,8 @@ import { OrderCreatedEvent, OrderStatus } from '@zeina-tickethub/common';
 import { OrderCreatedListner } from '../order-created-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Ticket } from '../../../models/ticket';
-import mongoose from 'mongoose';
-import { JsMsg, JSONCodec } from 'nats';
+import { JSONCodec } from 'nats';
+import { oid, fakeMsg } from '../../../test/factories';
 
 const setup = async () => {
 	// Create an instance of the listener
@@ -21,7 +21,7 @@ const setup = async () => {
 
 	// Create fake data event — this order reserves 2 of the 5 seats
 	const data: OrderCreatedEvent['data'] = {
-		id: new mongoose.Types.ObjectId().toHexString(),
+		id: oid(),
 		version: 0,
 		status: OrderStatus.Created,
 		userId: '123',
@@ -36,11 +36,7 @@ const setup = async () => {
 	};
 
 	// Create Fake message
-	// @ts-ignore
-	const msg: JsMsg = {
-		ack: jest.fn(),
-		seq: 1,
-	};
+	const msg = fakeMsg(1);
 
 	return { listener, data, ticket, msg };
 };

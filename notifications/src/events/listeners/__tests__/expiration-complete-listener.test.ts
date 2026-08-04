@@ -1,6 +1,3 @@
-import mongoose from 'mongoose';
-import { JsMsg } from 'nats';
-
 jest.mock('@zeina-tickethub/common', () => ({
 	...jest.requireActual('@zeina-tickethub/common'),
 	sendMail: jest.fn(),
@@ -11,29 +8,21 @@ import { ExpirationCompleteListener } from '../expiration-complete-listener';
 import { natsWrapper } from '../../../nats-wrapper';
 import { Order } from '../../../models/order';
 import { Notification, NotificationType } from '../../../models/notification';
+import { msg, seedOrder } from '../../../test/helpers';
 
 const setup = async (status: OrderStatus) => {
 	const listener = new ExpirationCompleteListener(natsWrapper.connection);
-	const userId = new mongoose.Types.ObjectId().toHexString();
 
-	const order = Order.build({
-		id: new mongoose.Types.ObjectId().toHexString(),
-		userId,
-		ticketTitle: 'Akon Concert',
+	const order = await seedOrder({
 		status,
 		userEmail: 'buyer@test.com',
 		price: 20,
 	});
-	await order.save();
 
 	const data: ExpirationCompleteEvent['data'] = { orderId: order.id };
-	// @ts-ignore
-	const msg: JsMsg = { ack: jest.fn(), seq: 1 };
 
-	return { listener, data, msg, userId, order };
+	return { listener, data, msg: msg(1), userId: order.userId, order };
 };
-
-beforeEach(() => (sendMail as jest.Mock).mockClear());
 
 it('notifies, emails, and cancels the replica when an unpaid hold lapses', async () => {
 	const { listener, data, msg, userId, order } = await setup(OrderStatus.Created);

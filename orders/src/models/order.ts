@@ -4,8 +4,6 @@ import { OrderStatus } from '@zeina-tickethub/common';
 import { TicketDoc } from './ticket';
 import { refundableUntil, isRefundable } from '../services/refund-window';
 
-export { OrderStatus };
-
 interface OrderAttrs {
 	userId: string;
 	userEmail?: string;
@@ -59,6 +57,9 @@ interface OrderJSON {
 	paidAt?: Date | null;
 	_id?: mongoose.Types.ObjectId; // Optional for deletion
 	id?: string; // Added during transformation
+	// Refund policy, derived during transformation (see toJSON below).
+	refundableUntil?: Date | null;
+	refundable?: boolean;
 }
 
 const orderSchema = new mongoose.Schema(
@@ -116,7 +117,7 @@ const orderSchema = new mongoose.Schema(
 	},
 	{
 		toJSON: {
-			transform(doc: OrderDoc, ret: any) {
+			transform(doc: OrderDoc, ret: OrderJSON) {
 				ret.id = ret._id?.toString();
 				delete ret._id;
 				// Surface the refund policy so the client can show / gate the
