@@ -47,7 +47,12 @@ const startTicketsService = async () => {
 		await mongoose.connect(process.env.MONGO_URI);
 		logger.info('connected to MongoDB');
 	} catch (err) {
+		// Fatal. A service that couldn't reach NATS or Mongo can't do its job,
+		// and carrying on would leave a pod that looks alive but silently
+		// consumes nothing — exactly what a lost NATS connection already exits
+		// for above. Crash instead, and let Kubernetes restart us with backoff.
 		logger.error({ err }, 'failed to start service');
+		process.exit(1);
 	}
 
 	const server = app.listen(3000, () => {

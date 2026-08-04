@@ -44,12 +44,17 @@ const startAuthService = async () => {
 		// Build the unique index on email. Idempotent and safe every boot.
 		// PREREQUISITE: emails must already be normalized and free of duplicates
 		// — run `npm run normalize-emails` first. If two accounts still differ
-		// only by case, this throws and the error below is the only warning that
-		// signup is running unprotected.
+		// only by case this throws, which is now fatal: better a crashloop you
+		// can see than a pod quietly accepting duplicate signups.
 		await User.syncIndexes();
 		logger.info('user indexes synced');
 	} catch (err) {
+		// Fatal. A service that couldn't reach NATS or Mongo can't do its job,
+		// and carrying on would leave a pod that looks alive but silently
+		// consumes nothing — exactly what a lost NATS connection already exits
+		// for above. Crash instead, and let Kubernetes restart us with backoff.
 		logger.error({ err }, 'failed to start service');
+		process.exit(1);
 	}
 
 	const server = app.listen(3000, () => {
