@@ -25,7 +25,7 @@
     "@opentelemetry/sdk-node": "^0.205.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
     "@types/bull": "^3.15.9",
-    "@zeina-tickethub/common": "^1.0.57",
+    "@zeina-tickethub/common": "^1.0.59",
     "bull": "^4.16.5",
     "nats": "^2.29.3"
   },
