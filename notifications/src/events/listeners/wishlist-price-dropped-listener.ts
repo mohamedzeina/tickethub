@@ -4,9 +4,10 @@ import {
 	sendMail,
 	priceDropEmail,
 } from '@zeina-tickethub/common';
+import { JsMsg } from 'nats';
 import { NotificationListener } from './base';
 import { clientUrl, money } from './format';
-import { notify } from './helpers';
+import { eventKey, notify } from './helpers';
 import { NotificationType } from '../../models/notification';
 
 // #16 — a listing a user saved dropped in price. The wishlists service emits one
@@ -15,7 +16,10 @@ import { NotificationType } from '../../models/notification';
 export class WishlistPriceDroppedListener extends NotificationListener<WishlistPriceDroppedEvent> {
 	readonly subject = Subjects.WishlistPriceDropped;
 
-	protected async handleEvent(data: WishlistPriceDroppedEvent['data']) {
+	protected async handleEvent(
+		data: WishlistPriceDroppedEvent['data'],
+		msg: JsMsg,
+	) {
 		await notify({
 			userId: data.userId,
 			type: NotificationType.PriceDrop,
@@ -24,6 +28,7 @@ export class WishlistPriceDroppedListener extends NotificationListener<WishlistP
 				data.newPrice,
 			)}. Grab it before it changes again.`,
 			ticketId: data.ticketId,
+			dedupeKey: eventKey(this.subject, msg, data.userId),
 		});
 
 		// Best-effort email. sendMail never throws; skip if we have no address

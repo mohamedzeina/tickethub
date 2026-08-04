@@ -31,6 +31,9 @@ export interface NotificationAttrs {
 	body: string;
 	orderId?: string;
 	ticketId?: string;
+	// Identifies the event delivery this row came from, so a redelivery can't
+	// write it twice. See the sparse unique index below.
+	dedupeKey?: string;
 }
 
 interface NotificationDoc extends mongoose.Document {
@@ -43,6 +46,7 @@ interface NotificationDoc extends mongoose.Document {
 	// rather than an order.
 	ticketId?: string;
 	read: boolean;
+	dedupeKey?: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -60,6 +64,7 @@ const notificationSchema = new mongoose.Schema<NotificationDoc>(
 		orderId: { type: String, required: false },
 		ticketId: { type: String, required: false },
 		read: { type: Boolean, required: true, default: false },
+		dedupeKey: { type: String, required: false },
 	},
 	{
 		timestamps: true,
@@ -75,6 +80,17 @@ const notificationSchema = new mongoose.Schema<NotificationDoc>(
 
 // Feed query: a user's notifications, newest first.
 notificationSchema.index({ userId: 1, createdAt: -1 });
+
+// At-least-once delivery guard. A handler that writes several notifications
+// isn't atomic: if the second write fails, `processOnce` never marks the event
+// processed, so JetStream redelivers and the first write runs again. Keying each
+// row to the delivery that produced it makes that replay a no-op instead of a
+// duplicate.
+//
+// The key includes the recipient, so a handler that fans one event out to many
+// watchers still writes one row each. Sparse, so every notification created
+// before this index existed (which has no key) stays valid.
+notificationSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
 
 notificationSchema.statics.build = (attrs: NotificationAttrs) => {
 	return new Notification(attrs);

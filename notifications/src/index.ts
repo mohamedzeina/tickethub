@@ -15,6 +15,7 @@ import { PasswordResetRequestedListener } from './events/listeners/password-rese
 import { WishlistPriceDroppedListener } from './events/listeners/wishlist-price-dropped-listener';
 import { WishlistAvailableListener } from './events/listeners/wishlist-available-listener';
 import { ReviewCreatedListener } from './events/listeners/review-created-listener';
+import { Notification } from './models/notification';
 
 // Config the service can't run without. Checked before we touch NATS or Mongo
 // so a misconfigured pod fails loudly on boot instead of mid-event.
@@ -61,12 +62,22 @@ const startNotificationsService = async () => {
 
 		await ensureStream(natsWrapper.connection);
 
+		// Mongo before the listeners, not after: every handler writes to it, so
+		// starting the consume loops first means a backlog can be delivered to a
+		// service with no database — and, worse, before the index below exists.
+		await mongoose.connect(process.env.MONGO_URI!);
+		logger.info('connected to MongoDB');
+
+		// Build the sparse unique index on Notification.dedupeKey — it's what
+		// turns a redelivered event into a no-op instead of a duplicate feed
+		// row, so it has to exist before any handler writes. Idempotent and safe
+		// every boot; pre-existing rows carry no key, so nothing collides.
+		await Notification.syncIndexes();
+		logger.info('notification indexes synced');
+
 		for (const Listener of listeners) {
 			await new Listener(natsWrapper.connection).listen();
 		}
-
-		await mongoose.connect(process.env.MONGO_URI!);
-		logger.info('connected to MongoDB');
 	} catch (err) {
 		logger.error({ err }, 'failed to start service');
 	}

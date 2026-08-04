@@ -5,14 +5,15 @@ import {
 	sendMail,
 	purchaseReceiptEmail,
 } from '@zeina-tickethub/common';
+import { JsMsg } from 'nats';
 import { NotificationListener } from './base';
-import { hasOtherSeller, notify, requireOrder } from './helpers';
+import { eventKey, hasOtherSeller, notify, requireOrder } from './helpers';
 import { NotificationType } from '../../models/notification';
 
 export class PaymentCreatedListener extends NotificationListener<PaymentCreatedEvent> {
 	readonly subject = Subjects.PaymentCreated;
 
-	protected async handleEvent(data: PaymentCreatedEvent['data']) {
+	protected async handleEvent(data: PaymentCreatedEvent['data'], msg: JsMsg) {
 		const order = await requireOrder(data.orderId);
 
 		// Mark paid so a late expiry warning/complete doesn't notify the buyer.
@@ -25,6 +26,7 @@ export class PaymentCreatedListener extends NotificationListener<PaymentCreatedE
 			title: 'Payment confirmed',
 			body: `You're in — your payment for "${order.ticketTitle}" went through. Your receipt is on its way by email.`,
 			orderId: data.orderId,
+			dedupeKey: eventKey(this.subject, msg, order.userId),
 		});
 
 		// Multi-seat (#10): amounts are per-seat price times seats sold.
@@ -40,6 +42,9 @@ export class PaymentCreatedListener extends NotificationListener<PaymentCreatedE
 				title: 'Your ticket sold!',
 				body: `"${order.ticketTitle}"${seatsLabel} just sold for €${total.toFixed(2)}. We'll pay out your share after the refund window — track it in Account → Payouts.`,
 				orderId: data.orderId,
+				// Keyed on the SELLER: this row's recipient. Reusing the buyer's
+				// key would collide with the row above and silently drop it.
+				dedupeKey: eventKey(this.subject, msg, order.sellerId),
 			});
 		}
 

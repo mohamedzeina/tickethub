@@ -48,3 +48,37 @@ it('stays silent (no notification, no email) when the order was already paid', a
 	expect(sendMail).not.toHaveBeenCalled();
 	expect(msg.ack).toHaveBeenCalled();
 });
+
+it('still notifies on redelivery when the first attempt died after cancelling', async () => {
+	const { listener, data, msg: first, userId, order } = await setup(
+		OrderStatus.Created,
+	);
+
+	// The dedupe index has to exist before either delivery writes.
+	await Notification.init();
+
+	// The notification write fails, but the Cancelled status is already
+	// committed — the case that used to lose the message for good, because a
+	// redelivery would see Cancelled and skip its own work.
+	const save = jest
+		.spyOn(Notification.prototype, 'save')
+		.mockRejectedValueOnce(new Error('write failed'));
+
+	await expect(listener.onMessage(data, first)).rejects.toThrow('write failed');
+	save.mockRestore();
+
+	expect(await Notification.countDocuments({ userId })).toEqual(0);
+	expect(first.ack).not.toHaveBeenCalled();
+
+	// Same message, same sequence: the redelivery.
+	const redelivery = msg(1);
+	await listener.onMessage(data, redelivery);
+
+	const updated = await Order.findById(order.id);
+	expect(updated!.status).toEqual(OrderStatus.Cancelled);
+
+	const notifications = await Notification.find({ userId });
+	expect(notifications.length).toEqual(1);
+	expect(notifications[0].type).toEqual(NotificationType.HoldExpired);
+	expect(redelivery.ack).toHaveBeenCalled();
+});

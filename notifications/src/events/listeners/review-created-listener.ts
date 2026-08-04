@@ -1,6 +1,7 @@
 import { ReviewCreatedEvent, Subjects } from '@zeina-tickethub/common';
+import { JsMsg } from 'nats';
 import { NotificationListener } from './base';
-import { notify } from './helpers';
+import { eventKey, notify } from './helpers';
 import { NotificationType } from '../../models/notification';
 
 const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
@@ -10,7 +11,7 @@ const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
 export class ReviewCreatedListener extends NotificationListener<ReviewCreatedEvent> {
 	readonly subject = Subjects.ReviewCreated;
 
-	protected async handleEvent(data: ReviewCreatedEvent['data']) {
+	protected async handleEvent(data: ReviewCreatedEvent['data'], msg: JsMsg) {
 		await notify({
 			userId: data.sellerId,
 			type: NotificationType.ReviewReceived,
@@ -18,6 +19,7 @@ export class ReviewCreatedListener extends NotificationListener<ReviewCreatedEve
 			body: `A buyer rated their "${data.ticketTitle}" sale ${stars(
 				data.rating,
 			)} (${data.rating}/5). See it on your seller profile.`,
+			dedupeKey: eventKey(this.subject, msg, data.sellerId),
 		});
 	}
 }

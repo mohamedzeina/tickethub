@@ -6,8 +6,9 @@ import {
 	sendMail,
 	orderCancelledEmail,
 } from '@zeina-tickethub/common';
+import { JsMsg } from 'nats';
 import { NotificationListener } from './base';
-import { notify, requireOrder, stillHolding } from './helpers';
+import { eventKey, notify, requireOrder, settled } from './helpers';
 import { NotificationType } from '../../models/notification';
 
 // A hold lapsed. orders cancels it only if still unpaid; mirror that here so a
@@ -15,13 +16,19 @@ import { NotificationType } from '../../models/notification';
 export class ExpirationCompleteListener extends NotificationListener<ExpirationCompleteEvent> {
 	readonly subject = Subjects.ExpirationComplete;
 
-	protected async handleEvent(data: ExpirationCompleteEvent['data']) {
+	protected async handleEvent(
+		data: ExpirationCompleteEvent['data'],
+		msg: JsMsg,
+	) {
 		const order = await requireOrder(data.orderId);
 
-		if (!stillHolding(order)) {
+		// settled(), not stillHolding(): this handler writes Cancelled itself, so
+		// guarding on "still holding" would make it skip its own replay and drop
+		// the notification for good.
+		if (settled(order)) {
 			logger.info(
 				{ orderId: order.id, status: order.status },
-				'skipping hold-expired notification (order already resolved)',
+				'skipping hold-expired notification (order already paid)',
 			);
 			return;
 		}
@@ -35,6 +42,7 @@ export class ExpirationCompleteListener extends NotificationListener<ExpirationC
 			title: 'Hold released',
 			body: `Your hold on "${order.ticketTitle}" expired before payment, so the seat was released. It may still be available — search again to grab it.`,
 			orderId: order.id,
+			dedupeKey: eventKey(this.subject, msg, order.userId),
 		});
 
 		// Centralized "hold expired" email (was in orders). Best-effort.

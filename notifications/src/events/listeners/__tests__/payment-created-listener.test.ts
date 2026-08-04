@@ -103,3 +103,55 @@ it('reflects the seat count and total in the receipt + seller note (#10)', async
 	expect(mail.text).toContain('€60.00');
 	expect(mail.text).toContain('3 ×');
 });
+
+it('does not duplicate the buyer note when a redelivery replays a half-applied event', async () => {
+	const listener = new PaymentCreatedListener(natsWrapper.connection);
+	const buyerId = oid();
+	const sellerId = oid();
+	const order = await seedUnpaidOrder(buyerId, sellerId);
+
+	// The sparse unique index on dedupeKey is what collapses the replay; build
+	// it up front rather than relying on mongoose's background autoIndex.
+	await Notification.init();
+
+	const data: PaymentCreatedEvent['data'] = {
+		id: oid(),
+		orderId: order.id,
+		stripeId: 'pi_1',
+	};
+
+	// Fail the SECOND notification write (the seller's) once. The buyer's row is
+	// already committed by then, and the throw means processOnce never marks the
+	// event handled — exactly the state JetStream redelivers into.
+	const realSave = Notification.prototype.save;
+	let writes = 0;
+	const save = jest
+		.spyOn(Notification.prototype, 'save')
+		.mockImplementation(function (this: any, ...args: any[]) {
+			writes += 1;
+			return writes === 2
+				? Promise.reject(new Error('write failed'))
+				: realSave.apply(this, args);
+		} as any);
+
+	await expect(listener.onMessage(data, msg(7))).rejects.toThrow('write failed');
+	save.mockRestore();
+
+	// Same message, same sequence: the redelivery.
+	const redelivery = msg(7);
+	await listener.onMessage(data, redelivery);
+
+	const buyerNotes = await Notification.find({
+		userId: buyerId,
+		type: NotificationType.PaymentSucceeded,
+	});
+	expect(buyerNotes.length).toEqual(1);
+
+	// The seller's write, which never landed, still gets its own row — the key
+	// is per recipient, so it doesn't collide with the buyer's.
+	const sellerNotes = await Notification.find({ userId: sellerId });
+	expect(sellerNotes.length).toEqual(1);
+	expect(sellerNotes[0].type).toEqual(NotificationType.TicketSold);
+
+	expect(redelivery.ack).toHaveBeenCalled();
+});

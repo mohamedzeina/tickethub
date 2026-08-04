@@ -1,6 +1,7 @@
 import { PayoutProcessedEvent, Subjects } from '@zeina-tickethub/common';
+import { JsMsg } from 'nats';
 import { NotificationListener } from './base';
-import { notify } from './helpers';
+import { eventKey, notify } from './helpers';
 import { Order } from '../../models/order';
 import { NotificationType } from '../../models/notification';
 
@@ -10,7 +11,7 @@ import { NotificationType } from '../../models/notification';
 export class PayoutProcessedListener extends NotificationListener<PayoutProcessedEvent> {
 	readonly subject = Subjects.PayoutProcessed;
 
-	protected async handleEvent(data: PayoutProcessedEvent['data']) {
+	protected async handleEvent(data: PayoutProcessedEvent['data'], msg: JsMsg) {
 		const order = await Order.findById(data.orderId);
 		const title = order?.ticketTitle || 'your sale';
 		const amount = `€${data.net.toFixed(2)}`;
@@ -34,6 +35,7 @@ export class PayoutProcessedListener extends NotificationListener<PayoutProcesse
 			title: copy.title,
 			body: copy.body,
 			orderId: data.orderId,
+			dedupeKey: eventKey(this.subject, msg, data.sellerId),
 		});
 	}
 }

@@ -4,9 +4,10 @@ import {
 	sendMail,
 	availabilityEmail,
 } from '@zeina-tickethub/common';
+import { JsMsg } from 'nats';
 import { NotificationListener } from './base';
 import { clientUrl, money } from './format';
-import { notify } from './helpers';
+import { eventKey, notify } from './helpers';
 import { NotificationType } from '../../models/notification';
 
 // #16 — a listing a user saved is buyable again (relisted or a hold on it
@@ -15,7 +16,10 @@ import { NotificationType } from '../../models/notification';
 export class WishlistAvailableListener extends NotificationListener<WishlistAvailableEvent> {
 	readonly subject = Subjects.WishlistAvailable;
 
-	protected async handleEvent(data: WishlistAvailableEvent['data']) {
+	protected async handleEvent(
+		data: WishlistAvailableEvent['data'],
+		msg: JsMsg,
+	) {
 		await notify({
 			userId: data.userId,
 			type: NotificationType.WishlistAvailable,
@@ -24,6 +28,7 @@ export class WishlistAvailableListener extends NotificationListener<WishlistAvai
 				data.price,
 			)}. Grab it before it's gone.`,
 			ticketId: data.ticketId,
+			dedupeKey: eventKey(this.subject, msg, data.userId),
 		});
 
 		if (data.email) {

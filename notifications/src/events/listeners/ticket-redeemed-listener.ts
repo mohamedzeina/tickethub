@@ -1,6 +1,7 @@
 import { TicketRedeemedEvent, Subjects } from '@zeina-tickethub/common';
+import { JsMsg } from 'nats';
 import { NotificationListener } from './base';
-import { notify } from './helpers';
+import { eventKey, notify } from './helpers';
 import { Order } from '../../models/order';
 import { NotificationType } from '../../models/notification';
 
@@ -10,7 +11,7 @@ import { NotificationType } from '../../models/notification';
 export class TicketRedeemedListener extends NotificationListener<TicketRedeemedEvent> {
 	readonly subject = Subjects.TicketRedeemed;
 
-	protected async handleEvent(data: TicketRedeemedEvent['data']) {
+	protected async handleEvent(data: TicketRedeemedEvent['data'], msg: JsMsg) {
 		const order = await Order.findById(data.orderId);
 		const title = order?.ticketTitle || 'your event';
 
@@ -20,6 +21,7 @@ export class TicketRedeemedListener extends NotificationListener<TicketRedeemedE
 			title: 'Pass scanned',
 			body: `Your pass for "${title}" was scanned at the gate. You're checked in — enjoy the show! If this wasn't you, contact support.`,
 			orderId: data.orderId,
+			dedupeKey: eventKey(this.subject, msg, data.buyerId),
 		});
 	}
 }
