@@ -1,10 +1,9 @@
-import { OrderCreatedEvent, Subjects } from '@zeina-tickethub/common';
+import { OrderCreatedEvent, Subjects, isDuplicateKey } from '@zeina-tickethub/common';
 import { JsMsg } from 'nats';
 import { NotificationListener } from './base';
 import { eventKey, notify } from './helpers';
 import { Order } from '../../models/order';
 import { NotificationType } from '../../models/notification';
-import { isDuplicateKey } from '../../is-duplicate-key';
 
 export class OrderCreatedListener extends NotificationListener<OrderCreatedEvent> {
 	readonly subject = Subjects.OrderCreated;

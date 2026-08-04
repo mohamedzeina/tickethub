@@ -1,8 +1,7 @@
-import { OrderStatus } from '@zeina-tickethub/common';
+import { OrderStatus, isDuplicateKey } from '@zeina-tickethub/common';
 import { JsMsg } from 'nats';
 import { Order } from '../../models/order';
 import { Notification, NotificationAttrs } from '../../models/notification';
-import { isDuplicateKey } from '../../is-duplicate-key';
 
 // Shared building blocks for the listeners. Kept here (rather than on the
 // models) so the models stay plain persistence and the "why" lives next to the

@@ -3,13 +3,13 @@ import {
 	OrderCreatedEvent,
 	Subjects,
 	processOnce,
+	isDuplicateKey,
 } from '@zeina-tickethub/common';
 import { JsMsg } from 'nats';
 import { queueGroupName } from './queue-group-name';
 import { FailedEvent } from '../../models/failed-event';
 import { ProcessedEvent } from '../../models/processed-event';
 import { OrderRef } from '../../models/order-ref';
-import { isDuplicateKey } from '../../is-duplicate-key';
 
 export class OrderCreatedListener extends Listener<OrderCreatedEvent> {
 	readonly subject = Subjects.OrderCreated;

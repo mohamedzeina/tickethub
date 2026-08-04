@@ -1,12 +1,11 @@
 import express, { Request, Response } from 'express';
-import { client } from '@zeina-tickethub/common';
+import { client, isDuplicateKey } from '@zeina-tickethub/common';
 import { stripe } from '../stripe';
 import { Payment } from '../models/payment';
 import { Refund } from '../models/refund';
 import { PaymentCreatedPublisher } from '../events/publishers/payment-created-publisher';
 import { PaymentRefundedPublisher } from '../events/publishers/payment-refunded-publisher';
 import { natsWrapper } from '../nats-wrapper';
-import { isDuplicateKey } from '../is-duplicate-key';
 
 const router = express.Router();
 

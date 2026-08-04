@@ -3,6 +3,7 @@ import {
 	OrderPayoutDueEvent,
 	Subjects,
 	processOnce,
+	isDuplicateKey,
 } from '@zeina-tickethub/common';
 import { JsMsg } from 'nats';
 import { queueGroupName } from './queue-group-name';
@@ -15,7 +16,6 @@ import {
 	attemptTransfer,
 	announcePayout,
 } from '../../services/payouts';
-import { isDuplicateKey } from '../../is-duplicate-key';
 
 // #11 payouts. An order has cleared its refund window (orders emits this once).
 // Record a Payout (one per order, unique orderId) and attempt the Stripe transfer

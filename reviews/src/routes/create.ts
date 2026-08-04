@@ -8,13 +8,13 @@ import {
 	NotAuthorizedError,
 	OrderStatus,
 	logger,
+	isDuplicateKey,
 } from '@zeina-tickethub/common';
 import { OrderRef } from '../models/order-ref';
 import { Review } from '../models/review';
 import { ReviewCreatedPublisher } from '../events/publishers/review-created-publisher';
 import { natsWrapper } from '../nats-wrapper';
 import { reviewBodyValidators, normalizeComment } from './validators';
-import { isDuplicateKey } from '../is-duplicate-key';
 
 const router = express.Router();
 

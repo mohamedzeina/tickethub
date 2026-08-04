@@ -1,4 +1,6 @@
 export * from './logger';
+export * from './nats-wrapper';
+export * from './is-duplicate-key';
 export * from './metrics';
 export * from './mailer';
 export * from './emails/receipt';
@@ -32,6 +34,8 @@ export * from './events/trace';
 export * from './events/dead-letter';
 export * from './events/stream';
 export * from './events/idempotent';
+export * from './events/processed-event-model';
+export * from './events/failed-event-model';
 export * from './events/subjects';
 export * from './events/ticket/ticket-created';
 export * from './events/ticket/ticket-updated';

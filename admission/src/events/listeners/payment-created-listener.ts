@@ -4,6 +4,7 @@ import {
 	Subjects,
 	OrderStatus,
 	processOnce,
+	isDuplicateKey,
 } from '@zeina-tickethub/common';
 import { JsMsg } from 'nats';
 import { queueGroupName } from './queue-group-name';
@@ -12,7 +13,6 @@ import { ProcessedEvent } from '../../models/processed-event';
 import { OrderRef } from '../../models/order-ref';
 import { TicketRef } from '../../models/ticket-ref';
 import { Pass } from '../../models/pass';
-import { isDuplicateKey } from '../../is-duplicate-key';
 
 export class PaymentCreatedListener extends Listener<PaymentCreatedEvent> {
 	readonly subject = Subjects.PaymentCreated;

@@ -4,9 +4,8 @@ import { User } from '../models/user';
 import { emailRule, passwordRule } from './validators';
 import { setSession } from '../services/session';
 import { issueVerification } from '../services/account-emails';
-import { BadRequestError, validateRequest } from '@zeina-tickethub/common';
+import { BadRequestError, validateRequest, isDuplicateKey } from '@zeina-tickethub/common';
 import { signupIpLimiter } from '../middlewares/rate-limiters';
-import { isDuplicateKey } from '../is-duplicate-key';
 
 const router = express.Router();
 
